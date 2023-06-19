@@ -6,6 +6,7 @@ const multipartParser = upload.none();
 
 router.get ('/', async(req,res)=>{
     const [data] = await db.query("SELECT * FROM address_book LIMIT 2");
+    const test="test"
     data.forEach(i=>{
         i.birthday = res.toDatetimeString(i.birthday)
         i.created_at = res.toDatetimeString(i.created_at)
