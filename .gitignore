@@ -1,0 +1,5 @@
+mac.env
+.env
+production.env
+.vscode
+node_modules

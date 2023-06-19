@@ -1,0 +1,56 @@
+=======建立專案流程=======
+
+--------------<01>--------------
+===創立&&初始化專案資料夾===
+1. make a folder
+2. npm init -y (初始化專案=>package.json)
+
+--------------<02>--------------
+===安裝需要的套件===
+1. npm i express (安裝express)
+2. npm i dotenv (.env執行環境管理)
+3. npm i multer (檔案上傳套件)
+4. npm i uuid (唯一檔名)
+5. npm i express-session (session專用)
+6. npm i mysql2 (連資料庫用)
+7. npm i express-mysql-session （session存入sql資料庫）
+8. npm i dayjs (處理日期用)
+9. npm i cors (cross-Origin開放拜訪用)
+
+=待確認套件=
+* npm i joi (前後端檢查套件)
+* npm i bcrypt （加密編碼） 
+
+--------------<03>--------------
+===架設server===
+1. 建立index.js檔（用express架設server，測試）
+2. 建立.env 
+    =>a.在index.js裡帶入env參數
+    =>b.package.json裡的scripts加啓動環境變數
+    (測試)
+3. 建立gitignore (把 .env, node_modules, .vscode 放進去)
+4. 建立module資料夾
+    =>a.寫好db_connection.js
+    =>b.引入index.js,開/test-db路由測試
+5. index.js引入cors, 設定拜訪權限～
+
+--------------<04>--------------
+===設立Top-level Middleware===
+1. cors
+2. reqbodyParser(urlencoded,json)
+3. res帶日期轉換functions
+
+--------------<05>--------------
+===建立route分支===
+1. 建立routes資料夾
+2. 各分支命名規則 xxx-api.js
+
+--------------<06>--------------
+===檔案上傳===
+1. 在modules資料夾內，寫好img-upload.js
+2. 在public資料夾內，寫一支測試照片上傳的uploadImgs.html
+
+--------------<07>--------------
+===靜態 && 404 設定===
+1. 在index.js 用app.use設定靜態資料
+2. 在index.js 用app.use設定404頁面

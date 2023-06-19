@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>test upload img</title>
+</head>
+<body>
+    <h1>Choose file to upload</h1>
+    <form name="imgForm" onsubmit="return false">
+        <label for="singleUpload">singleUpload</label>
+        <input type="file" name="photo" onchange="upload()">
+    </form>
+    
+    <form name="imgsForm" onsubmit="return false">
+        <label for="multiUpload">multiUpload</label>
+        <input type="file" name="photos" onchange="uploads()" multiple>
+    </form>
+    <script>
+        const upload = async ()=>{
+            const fd = new FormData(document.imgForm);
+            const r = await fetch('http://localhost:3003/test-api/img-upload',{
+                method: 'POST',
+                body: fd
+            })
+            const result = await r.json();
+            console.log(result);
+        }
+
+
+        const uploads = async () => {
+            const fd = new FormData(document.imgsForm);
+            const r = await fetch('http://localhost:3003/test-api/img-uploads', {
+                method: 'POST',
+                body: fd
+            })
+            const result = await r.json();
+            console.log(result);
+        }
+        // ====result, 單張=>obj, 多張=>array====
+        // {
+        //   fieldname: 'photos',
+        //   originalname: 'dog community.jpeg',
+        //   encoding: '7bit',
+        //   mimetype: 'image/jpeg',
+        //   destination: '/......../pet-api/modules/../public/img',
+        //   filename: '123.jpg',
+        //   path: '/......../pet-api/public/img/123.jpg',
+        //   size: 4462938
+        //     }
+    </script>
+</body>
+</html>
