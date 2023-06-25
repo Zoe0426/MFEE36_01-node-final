@@ -5,13 +5,14 @@ const upload = require(__dirname+"/../modules/img-upload.js");
 const multipartParser = upload.none(); 
 
 router.get ('/', async(req,res)=>{
-    const sql=`SELECT p.*, MAX(ps.proDet_price) max_price, MIN(ps.proDet_price) min_price
-    FROM shop_pro p
-    JOIN shop_proDet ps ON p.pro_sid=ps.pro_sid
-    GROUP BY p.pro_sid
-    LIMIT 1, 5`
+    const sql=`SELECT COUNT(1), p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+    FROM shop_product p
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
+    GROUP BY p.product_sid
+    LIMIT 1, 1000`
     const [result]=await db.query(sql)
-    res.json({result})
+    res.json(result)
     // data.forEach(i=>{
     //     i.birthday = res.toDatetimeString(i.birthday)
     //     i.created_at = res.toDatetimeString(i.created_at)
