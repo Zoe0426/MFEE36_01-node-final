@@ -7,7 +7,7 @@ const multipartParser = upload.none();
 router.get ('/', async(req,res)=>{
     const sql = "SELECT * FROM `rest_info` LIMIT 2";
     const [data] = await db.query(sql);
-    res.json({data})
+    res.json(data)
 })
 //測試
 module.exports = router;
