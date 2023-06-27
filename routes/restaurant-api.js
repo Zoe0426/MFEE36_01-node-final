@@ -5,7 +5,7 @@ const upload = require(__dirname+"/../modules/img-upload.js");
 const multipartParser = upload.none(); 
 
 router.get ('/', async(req,res)=>{
-    const sql = "SELECT * FROM `rest_info` LIMIT 2";
+    const sql = "SELECT * FROM `restaurant_information` LIMIT 2";
     const [data] = await db.query(sql);
     res.json(data)
 })
