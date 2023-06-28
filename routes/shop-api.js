@@ -21,8 +21,9 @@ router.get ('/:cat', async(req,res)=>{
         cat:['pro_for','C'] }
 
     //取得卡片資訊
-    const sql_cardData=`SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+    const sql_cardData=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
         FROM shop_product p
+        LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE ${dict[cat][0]}='${dict[cat][1]}'
         GROUP BY p.product_sid
@@ -37,8 +38,8 @@ router.get ('/:cat', async(req,res)=>{
         })
     
     //取得總筆數資訊
-    const sql_totalRows=`SELECT COUNT(1) FROM shop_product WHERE ${dict[cat][0]}='${dict[cat][1]}'`
-    const [totalRows]=await db.query(sql_totalRows)
+    const sql_totalRows=`SELECT COUNT(1) totalRows FROM shop_product WHERE ${dict[cat][0]}='${dict[cat][1]}'`
+    const [[{totalRows}]]=await db.query(sql_totalRows)
 
 
     res.json({totalRows,cardData})
