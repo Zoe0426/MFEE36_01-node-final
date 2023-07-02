@@ -4,21 +4,92 @@ const db = require(__dirname + "/../modules/db_connect")
 const upload = require(__dirname+"/../modules/img-upload.js");
 const multipartParser = upload.none(); 
 
-router.get ('/:cat', async(req,res)=>{
+router.get('/new',async (req,res)=>{
+    //給首頁新品卡片的路由
+ 
+    //取得卡片資訊
+    const sql_newData=`SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+    FROM shop_product p
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
+    GROUP BY p.product_sid
+    ORDER BY update_date DESC
+    LIMIT 0, 23`
+    const [newData]=await db.query(sql_newData)
+
+    res.json(newData)
+})
+
+
+router.get('/brand',async (req,res)=>{
+    //給首頁品牌(供應商)卡片的路由
+
+    //取得卡片資訊
+    const sql_supplierData=`SELECT * FROM shop_supplier LIMIT 0, 15`
+        const [supplierData]=await db.query(sql_supplierData)
+    res.json(supplierData)
+})
+
+router.get('/comment/:product_sid',async (req,res)=>{
+    //給細節頁(評價)卡片的路由
+
+    const {product_sid}=req.params
+
+    //取得卡片資訊，還需要修改，因為要join member的表格
+    const sql_commentData=`SELECT c.*, m.name
+        FROM shop_comment c
+        LEFT JOIN member_info m ON m.member_sid=c.member_sid
+        WHERE product_sid="${product_sid}" ORDER BY c.date DESC LIMIT 0, 14`
+   
+        const [commentData]=await db.query(sql_commentData)
+
+    //將卡片內的日期轉換為當地格式
+    commentData.forEach((v)=>{
+        v.date=res.toDateString(v.shelf_date)
+    })
+
+    res.json(commentData)
+})
+
+
+router.get('/:petType',async (req,res)=>{
+    //給首頁貓狗卡片的路由
+
+    const {petType}=req.params
+
+    //return res.json(req.params)
+
+    //製作類別字典，以判斷動態路由，所選擇責的類別
+    const dict={
+        dog:"D",
+        cat:"C"}
+
+    //取得卡片資訊
+    const sql_cardData=`SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+        FROM shop_product p
+        LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE for_pet_type='${dict[petType]}'
+        GROUP BY p.product_sid
+        LIMIT 0, 23`
+        const [cardData]=await db.query(sql_cardData)
+    res.json(cardData)
+})
+
+router.get ('/maincard/:cat', async(req,res)=>{
     const {cat}=req.params
 
     //製作類別字典，以判斷動態路由，所選擇責的類別
     const dict={
         can:['category_detail_sid','CA'],
-        feed:['category_detail_sid','FE'],
+        food:['category_detail_sid','FE'],
         snack:['category_detail_sid','SN'],
         health:['category_detail_sid','HE'],
         dress:['category_detail_sid','DR'],
         outdoor:['category_detail_sid','OD'],
         toy:['category_detail_sid','TO'],
         other:['category_detail_sid','OT'],
-        dog:['pro_for','D'],
-        cat:['pro_for','C'] }
+        dog:['for_pet_type','D'],
+        cat:['for_pet_type','C'] }
 
     //取得卡片資訊
     const sql_cardData=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
@@ -27,7 +98,7 @@ router.get ('/:cat', async(req,res)=>{
         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE ${dict[cat][0]}='${dict[cat][1]}'
         GROUP BY p.product_sid
-        LIMIT 1, 1000`
+        LIMIT 0, 15`
         const [cardData]=await db.query(sql_cardData)
         console.log(cardData)
 
