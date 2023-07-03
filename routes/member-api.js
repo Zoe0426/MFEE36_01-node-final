@@ -6,10 +6,16 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
-// 讀取會員資料
+// 讀取單筆會員資料
+router.get("/edit/:sid", async (req, res) => {
+  let { sid } = req.params;
+  const [rows] = await db.query(`SELECT * FROM member_info WHERE member_sid='${sid}' `);
+  res.json(rows);
+});
+
 router.get("/", async (req, res) => {
-  const [data] = await db.query("SELECT * FROM member_info LIMIT 5");
-  res.json(data);
+  const [rows] = await db.query(`SELECT * FROM member_info`);
+  res.json(rows);
 });
 
 // --------------------------------------------
@@ -20,21 +26,46 @@ router.get("/", async (req, res) => {
 3. member_sid auto creat mem+00000
 4. birth dayjs
 5. pwd gensalt
+6. level 預設銅牌
+7. nickname 預設姓名
+8. game_pet 根據寵物選擇(狗貓 其他隨機)
+9. ID 預設英數random
 */
 
 router.post("/", multipartParser, async (req, res) => {
+  // member-indo
   const sql = `INSERT INTO member_info(
-    member_sid, member_name, member_email, 
-    member_password, member_mobile, member_gender, 
-    member_birth, member_pet, member_level, 
-    member_ID, member_profile, 
+    member_sid, name, email, 
+    password, mobile, gender, 
+    birthday, pet, level, 
+    member_ID, profile, 
+    game_pet, nickname,
     create_time, update_time) VALUES(
     ?, ?, ?,
     ?, ?, ?,
     ?, ?, ?,
     ?,?,
+    ?,?,
     NOW(), NOW()
   )`;
+
+  // member-address
+  const sql2 = `INSERT INTO member_address(
+    name, email, 
+    password, mobile, gender, 
+    birthday, pet, level, 
+    member_ID, profile, 
+    game_pet, nickname,
+    create_time, update_time) VALUES(
+    ?, ?, ?,
+    ?, ?, ?,
+    ?, ?, ?,
+    ?,?,
+    ?,?,
+    NOW(), NOW()
+  )`;
+
+
   //自動生成會員編號
   // let count = 1;
   // let str = String(count).padStart(5, "0");
@@ -56,30 +87,62 @@ router.post("/", multipartParser, async (req, res) => {
   }
 
   // 處理生日格式
-  let birthday = dayjs(req.body.member_birth);
+  let birthday = dayjs(req.body.birthday);
   if (birthday.isValid()) {
     birthday = birthday.format("YYYY-MM-DD");
   } else {
     birthday = null;
   }
 
-  //密碼加鹽
+  // 自動生成會員ID
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
+  let member_ID = req.body.member_ID;
+
+  for (let i = 0; i < 8; i++) {
+    const randomIndex = Math.floor(Math.random() * chars.length);
+    member_ID += chars[randomIndex];
+  }
+
+  console.log(member_ID);
+
+  // 遊戲寵物
+  // let pet = req.body.pet;
+  let game_pet = "";
+  switch (req.body.pet) {
+    case "狗":
+      game_pet = "狗";
+      break;
+    case "貓":
+      game_pet = "貓";
+      break;
+    case "狗貓":
+      game_pet = Math.floor(Math.random() * 2) === 1 ? "狗" : "貓";
+      break;
+    case "其他":
+      game_pet = Math.floor(Math.random() * 2) === 1 ? "狗" : "貓";
+      break;
+  }
+  console.log(game_pet);
+
+  // 密碼加鹽;
   const saltRounds = 10;
-  let saltPwd = await bcrypt.hash(req.body.member_password, saltRounds);
+  let saltPwd = await bcrypt.hash(req.body.password, saltRounds);
   console.log(saltPwd);
 
   const [result] = await db.query(sql, [
     new_memSid,
-    req.body.member_name,
-    req.body.member_email,
+    req.body.name,
+    req.body.email,
     saltPwd,
-    req.body.member_mobile,
-    req.body.member_gender,
+    req.body.mobile,
+    req.body.gender,
     birthday,
-    req.body.member_pet,
-    req.body.member_level,
-    req.body.member_ID,
-    req.body.member_profile,
+    req.body.pet,
+    "銅牌",
+    member_ID,
+    req.body.profile,
+    game_pet,
+    req.body.name,
   ]);
 
   res.json({
@@ -95,16 +158,14 @@ router.put("/:sid", multipartParser, async (req, res) => {
   let { sid } = req.params;
 
   const sql = `UPDATE member_info SET 
-  member_name=?,
-  member_email=?,
-  member_password=?,
-  member_mobile=?,
-  member_gender=?,
-  member_birth=?,
-  member_pet=?,
-  member_level=?,
+  name=?,
+  email=?,
+  mobile=?,
+  gender=?,
+  birthday=?,
+  pet=?,
   member_ID=?,
-  member_profile=?
+  profile=?
   WHERE member_sid='${sid}'`;
 
   const saltRounds = 10;
