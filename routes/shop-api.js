@@ -51,6 +51,52 @@ router.get('/comment/:product_sid',async (req,res)=>{
     res.json(commentData)
 })
 
+router.get('/product/:product_sid',async (req,res)=>{
+    //給細節頁(商品資訊)的路由
+
+    const {product_sid}=req.params
+
+
+    //取得商品主要資訊
+    const sql_productMainData=`SELECT p.*, s.name supplier_name, s.made_in_where
+        FROM shop_product p
+        JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
+        WHERE product_sid="${product_sid}"`
+   
+        const [shopMainData]=await db.query(sql_productMainData)
+
+    //取得細項規格的資訊
+    const sql_productDetailData=`SELECT * FROM shop_product_detail WHERE product_sid="${product_sid}"`
+
+    const [shopDetailData]=await db.query(sql_productDetailData)
+
+    //將照片合併
+    const [{img}]=shopMainData
+    let allImg=[];
+    allImg.push(img)
+ 
+    shopDetailData.forEach((v)=>{
+        allImg.push(v.img)
+    })
+
+    //取得最高與最低價，並合併
+    const prices=shopDetailData.map(v=>v.price)
+    const maxPrice=Math.max(...prices)
+    const minPrice=Math.min(...prices)
+    let priceRange;
+    if(maxPrice!==minPrice){
+        priceRange=`${minPrice}~${maxPrice}`
+    }else{
+        priceRange=minPrice
+    }
+    const allPrice=[];
+    allPrice.push(priceRange)
+    shopDetailData.forEach((v)=>{
+        allPrice.push(v.price)
+    })
+     res.json({shopMainData, shopDetailData,allImg,allPrice})
+})
+
 
 router.get('/:petType',async (req,res)=>{
     //給首頁貓狗卡片的路由
