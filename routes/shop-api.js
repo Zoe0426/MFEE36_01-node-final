@@ -36,7 +36,7 @@ router.get('/comment/:product_sid',async (req,res)=>{
     const {product_sid}=req.params
 
     //取得卡片資訊，還需要修改，因為要join member的表格
-    const sql_commentData=`SELECT c.*, m.name
+    const sql_commentData=`SELECT c.*, m.name, m.profile
         FROM shop_comment c
         LEFT JOIN member_info m ON m.member_sid=c.member_sid
         WHERE product_sid="${product_sid}" ORDER BY c.date DESC LIMIT 0, 14`
