@@ -56,9 +56,25 @@ router.get('/product/:product_sid',async (req,res)=>{
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
         WHERE p.product_sid="${product_sid}"`
    
-        const [shopMainData]=await db.query(sql_productMainData)
+        let [shopMainData]=await db.query(sql_productMainData)
         //return res.json(shopMainData)
 
+
+    //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
+    const dict={
+        CA:['罐頭','can'],
+        FE:['飼料','food'],
+        SN:['零食','snack'],
+        HE:['保健品','health'],
+        DR:['服飾','dress'],
+        OD:['戶外用品','outdoor'],
+        TO:['玩具','toy'],
+        OT:['其他','other']}
+    const catergory_chinese_name=dict[shopMainData[0].category_detail_sid][0]
+    const catergory_english_name=dict[shopMainData[0].category_detail_sid][1]
+    shopMainData[0].catergory_chinese_name=catergory_chinese_name
+    shopMainData[0].catergory_english_name=catergory_english_name
+    
     //取得細項規格的資訊
     const sql_productDetailData=`SELECT * FROM shop_product_detail WHERE product_sid="${product_sid}"`
 
