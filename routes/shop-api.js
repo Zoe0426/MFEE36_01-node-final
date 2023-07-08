@@ -50,7 +50,7 @@ router.get('/product/:product_sid',async (req,res)=>{
 
 
     //取得商品主要資訊
-    const sql_productMainData=`SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating
+    const sql_productMainData=`SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating, COUNT(c.rating) comment_count
         FROM shop_product p
         JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
@@ -58,7 +58,7 @@ router.get('/product/:product_sid',async (req,res)=>{
    
         let [shopMainData]=await db.query(sql_productMainData)
         //return res.json(shopMainData)
-
+        
 
     //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
     const dict={
@@ -112,7 +112,7 @@ router.get('/product/:product_sid',async (req,res)=>{
     const sql_commentDatas=`SELECT c.*, m.name, m.profile
     FROM shop_comment c
     LEFT JOIN member_info m ON m.member_sid=c.member_sid
-    WHERE product_sid="${product_sid}" ORDER BY c.date DESC LIMIT 0, 14`
+    WHERE product_sid="${product_sid}" ORDER BY c.date DESC`
 
     const [commentDatas]=await db.query(sql_commentDatas)
 
@@ -121,7 +121,27 @@ router.get('/product/:product_sid',async (req,res)=>{
     v.date=res.toDateString(v.shelf_date)
     })
 
-    res.json({shopMainData, shopDetailData,commentDatas})
+    //取得該商品各項評分的筆數
+    const sql_commentQtyForEach=`SELECT rating, COUNT(*) count
+    FROM shop_comment
+    WHERE product_sid = "${product_sid}"
+    GROUP BY rating ORDER BY rating DESC`
+
+    const [commentEachQty]=await db.query(sql_commentQtyForEach)
+
+
+    //依據客戶所查的商品，用寵物類別隨機推薦商品給客戶
+    const customerLookforPet=shopMainData[0].for_pet_type
+    const sql_reccomandData=`SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+    FROM shop_product p
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE for_pet_type='${customerLookforPet}'
+    GROUP BY p.product_sid
+    ORDER BY RAND()
+    LIMIT 24`
+    const [reccomandData]=await db.query(sql_reccomandData)
+
+     res.json({shopMainData, shopDetailData,commentDatas,commentEachQty,reccomandData})
 })
 
 
