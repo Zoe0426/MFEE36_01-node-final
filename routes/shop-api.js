@@ -181,7 +181,21 @@ router.get ('/maincard/:cat', async(req,res)=>{
     const [[{totalRows}]]=await db.query(sql_totalRows)
 
 
-    res.json({totalRows,cardData})
+    //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+        const sql_likeList=`SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+        FROM shop_like l
+        JOIN shop_product p ON p.product_sid=l.product_sid
+        LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+        WHERE member_sid='mem00001'
+        GROUP BY p.product_sid
+        ORDER BY date DESC`
+        const [likeDatas]=await db.query(sql_likeList)
+
+        likeDatas.forEach((v)=>{
+            v.date=res.toDateString(v.date)
+        })
+
+    res.json({totalRows,cardData,likeDatas})
         // data.forEach(i=>{
         //     i.birthday = res.toDatetimeString(i.birthday)
         //     i.created_at = res.toDatetimeString(i.created_at)
