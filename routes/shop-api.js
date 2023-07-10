@@ -141,7 +141,22 @@ router.get('/product/:product_sid',async (req,res)=>{
     LIMIT 24`
     const [reccomandData]=await db.query(sql_reccomandData)
 
-     res.json({shopMainData, shopDetailData,commentDatas,commentEachQty,reccomandData})
+
+    //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+    const sql_likeList=`SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+    FROM shop_like l
+    JOIN shop_product p ON p.product_sid=l.product_sid
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    WHERE member_sid='mem00002'
+    GROUP BY p.product_sid
+    ORDER BY date DESC`
+    const [likeDatas]=await db.query(sql_likeList)
+
+    likeDatas.forEach((v)=>{
+        v.date=res.toDateString(v.date)
+    })
+
+     res.json({shopMainData, shopDetailData,commentDatas,commentEachQty,reccomandData,likeDatas})
 })
 
 
@@ -186,7 +201,7 @@ router.get ('/maincard/:cat', async(req,res)=>{
         FROM shop_like l
         JOIN shop_product p ON p.product_sid=l.product_sid
         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-        WHERE member_sid='mem00001'
+        WHERE member_sid='mem00002'
         GROUP BY p.product_sid
         ORDER BY date DESC`
         const [likeDatas]=await db.query(sql_likeList)
@@ -195,12 +210,56 @@ router.get ('/maincard/:cat', async(req,res)=>{
             v.date=res.toDateString(v.date)
         })
 
-    res.json({totalRows,cardData,likeDatas})
+    //依據類別給回傳篩選時有哪幾家品牌
+    const sql_brandDatas=`SELECT s.name label, s.supplier_sid value
+    FROM shop_product p
+    JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
+    WHERE ${dict[cat][0]}='${dict[cat][1]}'
+    GROUP BY p.supplier_sid
+    ORDER BY s.name ASC`
+
+    const [brandDatas]=await db.query(sql_brandDatas)
+
+    res.json({totalRows,cardData,likeDatas, brandDatas})
         // data.forEach(i=>{
         //     i.birthday = res.toDatetimeString(i.birthday)
         //     i.created_at = res.toDatetimeString(i.created_at)
         // });
         // res.json(data)
 })
+
+//刪除收藏清單的API
+router.delete("/likelist/:pid/:mid",async(req,res)=>{
+    const { pid, mid } =req.params;
+    let sql_deleteLikeList="DELETE FROM `shop_like` WHERE ";
+    if (pid==='all'){
+        sql_deleteLikeList+=`member_sid = '${mid}'`
+    }else{
+        sql_deleteLikeList+=`member_sid = '${mid}' AND product_sid='${pid}'`
+    }
+
+    try {
+        const [result] = await db.query(sql_deleteLikeList);
+        res.json({ ...result });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+
+    /*
+    {
+    "fieldCount": 0,
+    "affectedRows": 1,
+    "insertId": 0,
+    "info": "",
+    "serverStatus": 2,
+    "warningStatus": 0,
+    "sid": "7"
+}
+    */
+})
+
+
+
 
 module.exports = router;
