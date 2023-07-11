@@ -5,6 +5,8 @@
 =====< SHOP >=====
 
 =====< ACTIVITY >=====
+-頁碼
+-篩選info連接act type
 
 =====< RESTAURANT >=====
 
