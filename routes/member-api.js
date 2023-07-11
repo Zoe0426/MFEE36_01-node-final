@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
 9. ID 預設英數random
 */
 
-router.post("/", multipartParser, async (req, res) => {
+router.post("/", async (req, res) => {
   // member-indo
   const sql = `INSERT INTO member_info(
     member_sid, name, email, 
@@ -51,20 +51,13 @@ router.post("/", multipartParser, async (req, res) => {
 
   // member-address
   const sql2 = `INSERT INTO member_address(
-    name, email, 
-    password, mobile, gender, 
-    birthday, pet, level, 
-    member_ID, profile, 
-    game_pet, nickname,
+    member_sid, category, address, 
+    default_status, city, area,
     create_time, update_time) VALUES(
     ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?,
-    ?,?,
-    ?,?,
     NOW(), NOW()
   )`;
-
 
   //自動生成會員編號
   // let count = 1;
@@ -96,7 +89,7 @@ router.post("/", multipartParser, async (req, res) => {
 
   // 自動生成會員ID
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
-  let member_ID = req.body.member_ID;
+  let member_ID = req.body.member_ID || "";
 
   for (let i = 0; i < 8; i++) {
     const randomIndex = Math.floor(Math.random() * chars.length);
@@ -123,6 +116,8 @@ router.post("/", multipartParser, async (req, res) => {
       break;
   }
   console.log(game_pet);
+  console.log(req.body.gender);
+  console.log(req.body.pet);
 
   // 密碼加鹽;
   const saltRounds = 10;
@@ -145,8 +140,11 @@ router.post("/", multipartParser, async (req, res) => {
     req.body.name,
   ]);
 
+  const [result2] = await db.query(sql2, [new_memSid, 1, req.body.address, 1, req.body.city, req.body.area]);
+
   res.json({
     result,
+    result2,
     postData: req.body,
   });
 });
@@ -191,3 +189,4 @@ router.put("/:sid", multipartParser, async (req, res) => {
     result,
   });
 });
+
