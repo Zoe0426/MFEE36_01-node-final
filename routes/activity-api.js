@@ -5,6 +5,7 @@ const upload = require(__dirname+"/../modules/img-upload.js");
 const multipartParser = upload.none(); 
 
 router.get ('/', async(req,res)=>{
+
     //思考：一張card要怎麼呈現出來？->拿所有資料
 
 
@@ -14,7 +15,7 @@ router.get ('/', async(req,res)=>{
     //card2-最新活動->最新更新日期(目前是用act_sid去排, 應該要用act_post_date去排)
     //全部資料展現：join四個資料庫, 拿到要展現的資料 (info + group + type + pic)
     //＊＊少了特點跟收藏的sql
-    const [data] = await db.query("SELECT ai. `act_sid`,`act_name`, `act_content`, `act_policy`, `act_city`, `act_area`, `act_address`, ag. `group_date`, `group_time`, `price_adult`, `price_kid`, t.`type_name`, p.`act_pic` FROM act_info ai INNER JOIN act_group ag ON ai.act_sid = ag.act_sid INNER JOIN act_type t ON ai.type_sid = t.type_sid LEFT JOIN act_pic p ON ai.act_pic_sid = p.act_pic_sid ORDER BY ai.`act_sid` DESC LIMIT 10");
+    // const [data] = await db.query("SELECT ai. `act_sid`,`act_name`, `act_content`, `act_policy`, `act_city`, `act_area`, `act_address`, ag. `group_date`, `group_time`, `price_adult`, `price_kid`, t.`type_name`, p.`act_pic` FROM act_info ai INNER JOIN act_group ag ON ai.act_sid = ag.act_sid INNER JOIN act_type t ON ai.type_sid = t.type_sid LEFT JOIN act_pic p ON ai.act_pic_sid = p.act_pic_sid ORDER BY ai.`act_sid` DESC LIMIT 10");
 
 
     //card3-熱門縣市->排名前6
@@ -27,6 +28,11 @@ router.get ('/', async(req,res)=>{
     // `;
     // 执行查询
     // const [data] = await db.query(sqlQuery);
+
+
+// 測試--------------------
+
+const [data] = await db.query("SELECT `activity_sid`, `activity_type_sid`, `name`, `content`, `schedule`, `policy`, `must_know`, `city`, `area`, `address`, `activity_pic_sid`, `pet_type`, `Initiated_by` FROM `activity_info` LIMIT 2");
 
 
     
