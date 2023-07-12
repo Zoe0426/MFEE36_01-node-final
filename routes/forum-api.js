@@ -7,6 +7,7 @@ const multipartParser = upload.none();
 router.get ('/', async(req,res)=>{
     const [data] = await db.query("SELECT * FROM address_book LIMIT 2");
     res.json(data)
+    //阿鄉到此一遊
 })
 
 module.exports = router;
