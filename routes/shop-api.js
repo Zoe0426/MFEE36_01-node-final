@@ -64,10 +64,11 @@ router.get('/products',async(req,res)=>{
     }
 
 
-    const perPage=16;
+    // const perPage=16;
+    let perPage=req.query.perPage || 16;
     let keyword=req.query.keyword || "";
     let category=req.query.category || "";
-        let page=req.query.page? parseInt(req.query.page):1;
+    let page=req.query.page? parseInt(req.query.page):1;
 
     if(!page||page<1){
         page=1
