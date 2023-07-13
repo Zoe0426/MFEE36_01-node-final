@@ -85,7 +85,9 @@ router.post ('/get-cart-items', async(req,res)=>{
             AND oc.order_status = '001'`;
     const [cartData] = await db.query(getCartItemSql);
     output.shop = cartData.filter(p=>p.rel_type === "product");
-    output.activity = cartData.filter(p=>p.rel_type === "activity")
+    const actData = cartData.filter(p=>p.rel_type === "activity")
+    console.log(actData);
+    output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
     //getHistoryPostDetails
     const getAddressSql = `SELECT * FROM member_address WHERE member_sid = ?`;
