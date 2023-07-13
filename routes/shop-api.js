@@ -155,9 +155,9 @@ router.get('/products',async(req,res)=>{
 
 
 
-
+    
     output={...output, totalRows, perPage, totalPages, page, rows,likeDatas,brand}
-
+    console.log(totalRows, perPage, totalPages, page)
     return res.json(output)
 })
 
