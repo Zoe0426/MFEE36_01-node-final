@@ -60,7 +60,12 @@ router.get('/products',async(req,res)=>{
         dress:'DR',
         outdoor:'OD',
         toy:'TO',
-        other:'OT'
+        other:'OT',
+        price_ASC:'min_price ASC' ,
+        price_DESC:'min_price DESC',
+        new_DESC:'shelf_date DESC',
+        sales_DESC:'min_price DESC',
+
     }
 
 
@@ -68,6 +73,7 @@ router.get('/products',async(req,res)=>{
     let perPage=req.query.perPage || 16;
     let keyword=req.query.keyword || "";
     let category=req.query.category || "";
+    let orderBy=req.query.orderBy||"new_DESC";
     let page=req.query.page? parseInt(req.query.page):1;
 
     if(!page||page<1){
@@ -78,6 +84,7 @@ router.get('/products',async(req,res)=>{
     
     //queryString條件判斷
     let where=' WHERE 1 ';
+    
 
     if(category){
         // let cat_escaped=db.escape("%" + category + "%");
@@ -88,6 +95,12 @@ router.get('/products',async(req,res)=>{
         let keyword_escaped=db.escape("%" + keyword + "%");
         where+=` AND p.name LIKE ${keyword_escaped} `
     }
+
+    //queryString排序判斷
+    let order=' ORDER BY '
+    const order_escaped=dict[orderBy]
+    order+=` ${order_escaped} `
+
 
 
     //進資料庫拉資料---------------
@@ -118,7 +131,10 @@ router.get('/products',async(req,res)=>{
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
         ${where}
         GROUP BY p.product_sid
-        LIMIT ${perPage*(page-1)}, ${perPage}`;
+        ${order}
+        LIMIT ${perPage*(page-1)}, ${perPage}
+        `;
+
         [rows]=await db.query(sql);
     }
     
