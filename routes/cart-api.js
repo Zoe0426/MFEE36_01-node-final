@@ -25,6 +25,7 @@ const options = {
 const ECPayPayment = require('ecpay_aio_nodejs/lib/ecpay_payment');
 const ecpayPayment = new ECPayPayment(options);
 
+
 router.post ('/get-cart-items', async(req,res)=>{
     let output ={
         shop : [],
@@ -51,7 +52,6 @@ router.post ('/get-cart-items', async(req,res)=>{
             0 as adult_qty,
             0 as child_qty,
             sp.img as img
-
         FROM
             order_cart oc
             JOIN shop_product sp ON oc.rel_sid = sp.product_sid
@@ -90,7 +90,22 @@ router.post ('/get-cart-items', async(req,res)=>{
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
     //getHistoryPostDetails
-    const getAddressSql = `SELECT * FROM member_address WHERE member_sid = ?`;
+    const getAddressSql = `SELECT
+            ma.member_sid,
+            ma.category,
+            ma.store_name,
+            ma.default_status,
+            ma.city,
+            ma.area,
+            ma.address,
+            mi.name,
+            mi.email,
+            mi.mobile
+        FROM
+            member_address ma
+            JOIN member_info mi ON ma.member_sid = mi.member_sid
+        WHERE
+            ma.member_sid = ?`;
     const [postData] = await db.query(getAddressSql,memberSid);
     console.log(postData);
     output.defaultAddress =  postData.filter(p=>p.default_status === 0);
@@ -99,7 +114,22 @@ router.post ('/get-cart-items', async(req,res)=>{
     output.family = postData.filter(p=>p.category === 3);
 
     //getUsableCoupon
-    const getCouponSql =  `SELECT mcs.member_sid, mcs.coupon_sid, mcs.coupon_send_sid, mcc.name, mcc.price, mcc.exp_date, mcs.coupon_status FROM member_coupon_send mcs JOIN member_coupon_category mcc ON mcs.coupon_sid = mcc.coupon_sid WHERE mcs.member_sid = ? AND mcs.coupon_status = 0 ORDER BY mcc.exp_date ASC`;
+    const getCouponSql =  `SELECT
+            mcs.member_sid,
+            mcs.coupon_sid,
+            mcs.coupon_send_sid,
+            mcc.name,
+            mcc.price,
+            mcc.exp_date,
+            mcs.coupon_status
+        FROM
+            member_coupon_send mcs
+            JOIN member_coupon_category mcc ON mcs.coupon_sid = mcc.coupon_sid
+        WHERE
+            mcs.member_sid = ?
+            AND mcs.coupon_status = 0
+        ORDER BY
+            mcc.exp_date ASC`;
     const [couponData] = await db.query(getCouponSql,memberSid);
     couponData.map(d=>d.exp_date = res.toDateString(d.exp_date))
     output.coupon = couponData;

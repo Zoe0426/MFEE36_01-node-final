@@ -20,7 +20,7 @@ WHERE
     oc.member_sid = 'mem00471'
     AND oc.order_status = '001'
 UNION
-ALL -- get activity in cart
+ALL
 SELECT
     ai.activity_sid as rel_sid,
     ai.name as rel_name,
@@ -40,4 +40,40 @@ FROM
     AND oc.rel_seq_sid = ag.activity_group_sid
 WHERE
     oc.member_sid = 'mem00471'
-    AND oc.order_status = '001'
+    AND oc.order_status = '001';
+
+----get member address
+SELECT
+    ma.member_sid,
+    ma.category,
+    ma.store_name,
+    ma.default_status,
+    ma.city,
+    ma.area,
+    ma.address,
+    mi.name,
+    mi.email,
+    mi.mobile
+FROM
+    member_address ma
+    JOIN member_info mi ON ma.member_sid = mi.member_sid
+WHERE
+    ma.member_sid = 'mem00471';
+
+--get coupon
+SELECT
+    mcs.member_sid,
+    mcs.coupon_sid,
+    mcs.coupon_send_sid,
+    mcc.name,
+    mcc.price,
+    mcc.exp_date,
+    mcs.coupon_status
+FROM
+    member_coupon_send mcs
+    JOIN member_coupon_category mcc ON mcs.coupon_sid = mcc.coupon_sid
+WHERE
+    mcs.member_sid = ?
+    AND mcs.coupon_status = 0
+ORDER BY
+    mcc.exp_date ASC
