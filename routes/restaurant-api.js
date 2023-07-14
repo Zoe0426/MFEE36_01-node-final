@@ -21,5 +21,11 @@ router.get("/", async (req, res) => {
   res.json(data);
 });
 
+router.get("restaurant/:rest_sid",async(req,res)=>{
+  const {rest_sid} = req.params
+  const sql_restDetail = `SELECT rest_sid, name, phone, city, area, address, acceptType, info, feature_title, feature_content, feature_img, start_at_1, end_at_1, start_at_2, end_at_2,  rest_date FROM restaurant_information WHERE rest_sid="${rest_sid}";`
+
+})
+
 module.exports = router;
 console.log(JSON.stringify(router, null, 4));
