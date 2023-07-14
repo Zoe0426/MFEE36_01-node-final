@@ -46,7 +46,7 @@ router.get('/products',async(req,res)=>{
     let output={
         // redirect: "",
         totalRows:0,
-        perPage:16,
+        perPage:20,
         totalPages:0,
         page:1,
         rows:[],
@@ -70,7 +70,7 @@ router.get('/products',async(req,res)=>{
 
 
     // const perPage=16;
-    let perPage=req.query.perPage || 16;
+    let perPage=req.query.perPage || 20;
     let keyword=req.query.keyword || "";
     let category=req.query.category || "";
     let orderBy=req.query.orderBy||"new_DESC";
@@ -78,8 +78,6 @@ router.get('/products',async(req,res)=>{
 
     if(!page||page<1){
         page=1
-        // output.redirect=req.baseUrl;
-        // return res.json(output);
     }
     
     //queryString條件判斷
@@ -87,7 +85,6 @@ router.get('/products',async(req,res)=>{
     
 
     if(category){
-        // let cat_escaped=db.escape("%" + category + "%");
         const cat_escaped=dict[category]
         where+=` AND p.category_detail_sid = "${cat_escaped}" `
     };
@@ -120,8 +117,6 @@ router.get('/products',async(req,res)=>{
         
         if(page>totalPages){
             page=totalPages;
-            // output.redirect=`${req.baseUrl}?page=${totalPages}`;
-            // return res.json(output);
         };
         //確定要查詢的頁碼資料比總頁數小，才去拉資料
         const sql=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
