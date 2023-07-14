@@ -61,8 +61,8 @@ router.get('/products',async(req,res)=>{
         outdoor:'OD',
         toy:'TO',
         other:'OT',
-        price_ASC:'min_price ASC' ,
-        price_DESC:'min_price DESC',
+        price_ASC:'min_price ASC, max_price ASC' ,
+        price_DESC:'min_price DESC, max_price DESC',
         new_DESC:'shelf_date DESC',
         sales_DESC:'min_price DESC',
 
@@ -174,7 +174,6 @@ router.get('/products',async(req,res)=>{
 
     
     output={...output, totalRows, perPage, totalPages, page, rows,likeDatas,brand}
-    console.log(totalRows, perPage, totalPages, page)
     return res.json(output)
 })
 
