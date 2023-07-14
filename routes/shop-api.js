@@ -42,6 +42,143 @@ router.get('/hompage-cards',async (req,res)=>{
     res.json({dogDatas,catDatas,brandData,newData})
 })
 
+router.get('/products',async(req,res)=>{
+    let output={
+        // redirect: "",
+        totalRows:0,
+        perPage:16,
+        totalPages:0,
+        page:1,
+        rows:[],
+    };
+
+    const dict={
+        food:'FE',
+        can:'CA',
+        snack:'SN',
+        health:'HE',
+        dress:'DR',
+        outdoor:'OD',
+        toy:'TO',
+        other:'OT',
+        price_ASC:'min_price ASC' ,
+        price_DESC:'min_price DESC',
+        new_DESC:'shelf_date DESC',
+        sales_DESC:'min_price DESC',
+
+    }
+
+
+    // const perPage=16;
+    let perPage=req.query.perPage || 16;
+    let keyword=req.query.keyword || "";
+    let category=req.query.category || "";
+    let orderBy=req.query.orderBy||"new_DESC";
+    let page=req.query.page? parseInt(req.query.page):1;
+
+    if(!page||page<1){
+        page=1
+        // output.redirect=req.baseUrl;
+        // return res.json(output);
+    }
+    
+    //queryString條件判斷
+    let where=' WHERE 1 ';
+    
+
+    if(category){
+        // let cat_escaped=db.escape("%" + category + "%");
+        const cat_escaped=dict[category]
+        where+=` AND p.category_detail_sid = "${cat_escaped}" `
+    };
+    if(keyword){
+        let keyword_escaped=db.escape("%" + keyword + "%");
+        where+=` AND p.name LIKE ${keyword_escaped} `
+    }
+
+    //queryString排序判斷
+    let order=' ORDER BY '
+    const order_escaped=dict[orderBy]
+    order+=` ${order_escaped} `
+
+
+
+    //進資料庫拉資料---------------
+
+    //取得總筆數資訊
+    const sql_totalRows=`SELECT COUNT(1) totalRows FROM shop_product p ${where}`;
+    const [[{totalRows}]]=await db.query(sql_totalRows);
+    let totalPages=0;
+    let rows=[];
+
+    
+
+    //有資料時
+    if(totalRows){
+        //取得總頁數
+        totalPages=Math.ceil(totalRows/perPage);
+        
+        if(page>totalPages){
+            page=totalPages;
+            // output.redirect=`${req.baseUrl}?page=${totalPages}`;
+            // return res.json(output);
+        };
+        //確定要查詢的頁碼資料比總頁數小，才去拉資料
+        const sql=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+        FROM shop_product p
+        LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
+        LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
+        ${where}
+        GROUP BY p.product_sid
+        ${order}
+        LIMIT ${perPage*(page-1)}, ${perPage}
+        `;
+
+        [rows]=await db.query(sql);
+    }
+    
+    //將得到的資料的日期轉換為當地格式
+    rows.forEach((v)=>{
+        v.shelf_date=res.toDatetimeString(v.shelf_date)
+        v.update_date=res.toDatetimeString(v.update_date)
+    })
+    
+    
+    //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+    const sql_likeList=`SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+    FROM shop_like l
+    JOIN shop_product p ON p.product_sid=l.product_sid
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    WHERE member_sid='mem00002'
+    GROUP BY p.product_sid
+    ORDER BY date DESC`
+    const [likeDatas]=await db.query(sql_likeList)
+
+    likeDatas.forEach((v)=>{
+        v.date=res.toDateString(v.date)
+    })
+
+    //依據類別給回傳篩選時有哪幾家品牌
+    const sql_brand=`SELECT s.name label, s.supplier_sid value
+    FROM shop_product p
+    JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
+    WHERE p.category_detail_sid = "${category}"
+    GROUP BY p.supplier_sid
+    ORDER BY s.name ASC`
+
+    const [brand]=await db.query(sql_brand)
+
+
+
+
+    
+    output={...output, totalRows, perPage, totalPages, page, rows,likeDatas,brand}
+    console.log(totalRows, perPage, totalPages, page)
+    return res.json(output)
+})
+
+
 
 router.get('/product/:product_sid',async (req,res)=>{
     //給細節頁(商品資訊)的路由
