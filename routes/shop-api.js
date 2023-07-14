@@ -64,7 +64,7 @@ router.get('/products',async(req,res)=>{
         price_ASC:'min_price ASC, max_price ASC' ,
         price_DESC:'min_price DESC, max_price DESC',
         new_DESC:'shelf_date DESC',
-        sales_DESC:'min_price DESC',
+        sales_DESC:'sales_qty DESC',
 
     }
 
@@ -83,7 +83,6 @@ router.get('/products',async(req,res)=>{
     //queryString條件判斷
     let where=' WHERE 1 ';
     
-
     if(category){
         const cat_escaped=dict[category]
         where+=` AND p.category_detail_sid = "${cat_escaped}" `
@@ -119,11 +118,12 @@ router.get('/products',async(req,res)=>{
             page=totalPages;
         };
         //確定要查詢的頁碼資料比總頁數小，才去拉資料
-        const sql=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
+        const sql=`SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty
         FROM shop_product p
         LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
+        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
+        LEFT JOIN order_details o ON o.rel_sid=p.product_sid
         ${where}
         GROUP BY p.product_sid
         ${order}
