@@ -1,10 +1,58 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const dayjs = require("dayjs");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
+
+// 登入
+router.post("/login", async (req, res) => {
+  const output = {
+    success: false,
+    code: 0,
+    error: "",
+  };
+  if (!req.body.email || !req.body.password) {
+    output.error = "欄位資料不足";
+    return res.json(output);
+  }
+  const sql = "SELECT * FROM member_info WHERE email=?";
+  const [rows] = await db.query(sql, [req.body.email]);
+  if (!rows.length) {
+    // 帳號是錯的
+    output.code = 402;
+    output.error = "帳號或密碼錯誤";
+    return res.json(output);
+  }
+  const verified = await bcrypt.compare(req.body.password, rows[0].password);
+  if (!verified) {
+    // 密碼是錯的
+    output.code = 406;
+    output.error = "帳號或密碼錯誤";
+    return res.json(output);
+  }
+  output.success = true;
+
+  // 包 jwt 傳給前端
+  const token = jwt.sign(
+    {
+      id: rows[0].member_sid,
+      email: rows[0].email,
+    },
+    "GoWithMe"
+  );
+  output.token = token;
+  output.data = {
+    id: rows[0].member_sid,
+    email: rows[0].email,
+    nickname: rows[0].nickname,
+    token,
+  };
+
+  res.json(output);
+});
 
 // 讀取單筆會員資料
 router.get("/edit/:sid", async (req, res) => {
@@ -33,7 +81,7 @@ router.get("/", async (req, res) => {
 */
 
 router.post("/", async (req, res) => {
-  // member-indo
+  //  member-indo
   const sql = `INSERT INTO member_info(
     member_sid, name, email, 
     password, mobile, gender, 
@@ -190,3 +238,38 @@ router.put("/:sid", multipartParser, async (req, res) => {
   });
 });
 
+// 抓取會員優惠券
+router.get("/coupon", async (req, res) => {
+  // let { sid } = req.params;
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
+
+  const [rows] = await db.query(`
+  SELECT * FROM member_coupon_send 
+  INNER JOIN member_coupon_category 
+  ON member_coupon_send.coupon_sid = member_coupon_category.coupon_sid 
+  WHERE member_sid='${sid}'`);
+
+  // Processing all the rows and converting the 'exp_date' into 'YYYY-MM-DD' format
+  rows.forEach((row) => {
+    let expire = dayjs(row.exp_date);
+    if (expire.isValid()) {
+      row.exp_date = expire.format("YYYY-MM-DD");
+    } else {
+      row.exp_date = null;
+    }
+  });
+
+  res.json(rows);
+});
