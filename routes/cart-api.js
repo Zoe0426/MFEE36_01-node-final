@@ -58,7 +58,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             JOIN shop_product_detail spd ON sp.product_sid = spd.product_sid
             AND oc.rel_seq_sid = spd.product_detail_sid
         WHERE
-            oc.member_sid = '${memberSid}' 
+            oc.member_sid = ? 
             AND oc.order_status = '001'
         UNION
         ALL -- get activity in cart
@@ -81,9 +81,11 @@ router.post ('/get-cart-items', async(req,res)=>{
             JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
             AND oc.rel_seq_sid = ag.activity_group_sid
         WHERE
-            oc.member_sid = '${memberSid}' 
+            oc.member_sid = ? 
             AND oc.order_status = '001'`;
-    const [cartData] = await db.query(getCartItemSql);
+    const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
+
+
     output.shop = cartData.filter(p=>p.rel_type === "product");
     const actData = cartData.filter(p=>p.rel_type === "activity")
     console.log(actData);
