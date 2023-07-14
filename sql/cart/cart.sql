@@ -76,4 +76,4 @@ WHERE
     mcs.member_sid = ?
     AND mcs.coupon_status = 0
 ORDER BY
-    mcc.exp_date ASC
+    mcc.exp_date ASC;
