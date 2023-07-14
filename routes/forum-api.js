@@ -44,16 +44,14 @@ router.get ('/:postid', async(req,res)=>{
 router.get ('/board/:boardid', async(req,res)=>{
     let {boardid} = req.params;
     const [boardData] = await db.query(
-        `SELECT plm.*,
-            pc.*,
-            pb.* 
+        `SELECT plm.*, pc.*, pb.* 
             FROM post_list_member plm 
             JOIN post_comment pc
             ON plm.post_sid = pc.post_sid
             JOIN post_board pb
             ON plm.board_sid = pb.board_sid 
             WHERE pb.board_sid = '${boardid}'`
-            );
+        );
     res.json(boardData)
 })
 
