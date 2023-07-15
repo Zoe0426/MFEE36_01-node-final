@@ -8,7 +8,9 @@ const multipartParser = upload.none();
 router.get ('/', async(req,res)=>{
     const [data] = await db.query(
         `
-        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_content, pb.board_name, 
+        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, 
+        CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+        ELSE plm.post_content END AS post_content, pb.board_name, 
         (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
         (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
         (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
