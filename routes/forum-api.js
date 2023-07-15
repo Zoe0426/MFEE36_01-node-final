@@ -7,13 +7,16 @@ const multipartParser = upload.none();
 // 論壇首頁
 router.get ('/', async(req,res)=>{
     const [data] = await db.query(
-        `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid,  plm.post_title, plm.post_content, pb.board_name, 
-        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) as postLike, 
-        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid)as postComment, 
-        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid )as postFavlist 
-        FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
+        `
+        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_content, pb.board_name, 
+        (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
+        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
+        JOIN member_info mi ON mi.member_sid = plm.member_sid 
         JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        ORDER BY postLike DESC;`
+        ORDER BY postLike DESC;
+      `
     );
     res.json(data)
     
