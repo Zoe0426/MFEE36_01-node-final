@@ -7,6 +7,20 @@ const multipartParser = upload.none();
 // 論壇首頁
 router.get ('/', async(req,res)=>{
     const [data] = await db.query(
+        `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid,  plm.post_title, plm.post_content, pb.board_name, 
+        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) as postLike, 
+        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid)as postComment, 
+        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid )as postFavlist 
+        FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
+        JOIN post_board pb ON plm.board_sid = pb.board_sid 
+        ORDER BY postLike DESC;`
+    );
+    res.json(data)
+    
+})
+
+router.get ('/recommend', async(req,res)=>{
+    const [data] = await db.query(
         `SELECT
         mi.member_sid,
         mi.nickname,
@@ -14,11 +28,23 @@ router.get ('/', async(req,res)=>{
         plm.board_sid,
         plm.post_title,
         plm.post_content,
-        pb.board_name
+        pb.board_name,
+        pb.board_img,
+        COUNT(DISTINCT pl.post_sid) AS postLike,
+        COUNT(DISTINCT pc.post_sid) AS postComment,
+        COUNT(DISTINCT pf.post_sid) AS postFavlist
     FROM
-        member_info mi
-        JOIN post_list_member plm ON mi.member_sid = plm.member_sid
-        JOIN post_board pb ON plm.board_sid = pb.board_sid`
+        post_list_member plm
+        JOIN member_info mi ON mi.member_sid = plm.member_sid
+        JOIN post_board pb ON plm.board_sid = pb.board_sid
+        LEFT JOIN post_like pl ON pl.post_sid = plm.post_sid
+        LEFT JOIN post_comment pc ON pc.post_sid = plm.post_sid
+        LEFT JOIN post_favlist pf ON pf.post_sid = plm.post_sid
+    GROUP BY
+        plm.post_sid
+    ORDER BY
+        postFavlist DESC;
+    `
     );
     res.json(data)
     
