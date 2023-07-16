@@ -32,23 +32,20 @@ router.get ('/recommend', async(req,res)=>{
         plm.post_sid,
         plm.board_sid,
         plm.post_title,
-        plm.post_content,
+        CASE WHEN CHAR_LENGTH(plm.post_content) > 10 THEN CONCAT(SUBSTRING(plm.post_content, 1, 10), '...') ELSE plm.post_content END AS post_content,
         pb.board_name,
         pb.board_img,
-        COUNT(DISTINCT pl.post_sid) AS postLike,
-        COUNT(DISTINCT pc.post_sid) AS postComment,
-        COUNT(DISTINCT pf.post_sid) AS postFavlist
+        (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
+        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike,
+        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment,
+        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist
     FROM
         post_list_member plm
         JOIN member_info mi ON mi.member_sid = plm.member_sid
         JOIN post_board pb ON plm.board_sid = pb.board_sid
-        LEFT JOIN post_like pl ON pl.post_sid = plm.post_sid
-        LEFT JOIN post_comment pc ON pc.post_sid = plm.post_sid
-        LEFT JOIN post_favlist pf ON pf.post_sid = plm.post_sid
-    GROUP BY
-        plm.post_sid
     ORDER BY
         postFavlist DESC;
+    
     `
     );
     res.json(data)
