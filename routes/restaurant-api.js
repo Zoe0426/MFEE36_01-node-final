@@ -40,13 +40,15 @@ router.get("/", async (req, res) => {
     page: 1,
     rows: [],
   };
+
   //queryString條件判斷
   let where = " WHERE 1 ";
+
   // 關鍵字宣告
   let keyword = req.query.keyword || "";
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND r.name LIKE ${keyword_escaped} `;
+    where += ` AND name LIKE ${keyword_escaped} `;
   }
   // const perPage=15;
   let perPage = req.query.perPage || 15;
@@ -100,7 +102,7 @@ router.get("/", async (req, res) => {
 
     [rows] = await db.query(sql);
 
-    output = { ...output, totalRows, perPage, totalPages, page, rows };
+    output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
     return res.json(output);
   }
 });
