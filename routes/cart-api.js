@@ -40,6 +40,7 @@ router.post ('/get-cart-items', async(req,res)=>{
     const today = res.toDateString(new Date())
     //getCartItems
     const getCartItemSql = `SELECT
+            oc.cart_sid as cart_sid,
             sp.product_sid as rel_sid,
             sp.name as rel_name,
             spd.product_detail_sid as rel_seq_sid,
@@ -63,6 +64,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         UNION
         ALL -- get activity in cart
         SELECT
+            oc.cart_sid as cart_sid,
             ai.activity_sid as rel_sid,
             ai.name as rel_name,
             ag.activity_group_sid as rel_seq_sid,
@@ -128,6 +130,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         WHERE
             mcs.member_sid = ?
             AND mcs.coupon_status = 0
+            AND mcc.exp_date > CURDATE()
         ORDER BY
             mcc.exp_date ASC`;
     const [couponData] = await db.query(getCouponSql,memberSid);
