@@ -273,3 +273,20 @@ router.get("/coupon", async (req, res) => {
 
   res.json(rows);
 });
+
+// 抓取訂單
+router.get("/order/:sid", async (req, res) => {
+  let { sid } = req.params;
+
+  const [rows] = await db.query(`
+  SELECT * FROM shop_product sp 
+  JOIN order_details od 
+  On sp.product_sid = od.rel_sid 
+  JOIN order_main o 
+  ON o.order_sid = od.order_sid 
+  WHERE o.member_sid = '${sid}' 
+  ORDER BY o.create_dt DESC
+  `);
+
+  res.json(rows);
+});
