@@ -48,6 +48,7 @@ router.get("/", async (req, res) => {
     tableware: "service_sid = 4 ",
     clean: "service_sid = 9",
     have_seat: "rule_sid = 4 ",
+    hot_DESC:'',
   };
 
   //queryString條件判斷
@@ -74,6 +75,14 @@ router.get("/", async (req, res) => {
   if (!page || page < 1) {
     page = 1;
   }
+
+  //order_by
+  let orderBy = req.query.orderBy || "hot_DESC";
+  //queryString排序判斷
+  let order = " ORDER BY ";
+  const order_escaped = dict[orderBy];
+  order += ` ${order_escaped} `;
+
 
   //取得總筆數資訊
   const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
@@ -118,6 +127,8 @@ router.get("/", async (req, res) => {
             LIMIT ${perPage * (page - 1)}, ${perPage}
           `;
 
+
+          //要插入${order}在group by下面
     [rows] = await db.query(sql);
 
     output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
