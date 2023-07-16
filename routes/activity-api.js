@@ -34,11 +34,13 @@ router.get("/", async (req, res) => {
 
 // list 拿取各分類資料
 router.get("/activity", async (req, res) => {
+    // 網址在這裡看 http://localhost:3002/activity-api/activity?activity_type_sid=分類值
+
     const { activity_type_sid } = req.query;
+    console.log(req.query);
+  const dict = {}; // 空對象
 
-  const dict = {}; // 空对象
-
-  // 从数据库或其他数据源获取 activity_type_sid 和对应的值
+  // 從資料庫拿 activity_type_sid 和對應的值
   const activityTypes = [
     { activity_type_sid: 1, value: "1" },
     { activity_type_sid: 2, value: "2" },
@@ -48,7 +50,7 @@ router.get("/activity", async (req, res) => {
     { activity_type_sid: 6, value: "6" },
   ];
 
-  // 动态生成 dict 对象
+  // 動態生成 dict 
   activityTypes.forEach((type) => {
     dict[type.activity_type_sid] = ["activity_type_sid", type.value];
   });
