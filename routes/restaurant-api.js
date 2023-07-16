@@ -41,6 +41,15 @@ router.get("/", async (req, res) => {
     rows: [],
   };
 
+  const dict = {
+    no_rope: "rule_sid = 6",
+    free: "rule_sid = 8",
+    sell_food: "service_sid = 3 ",
+    tableware: "service_sid = 4 ",
+    clean: "service_sid = 9",
+    have_seat: "rule_sid = 4 ",
+  };
+
   //queryString條件判斷
   let where = " WHERE 1 ";
 
@@ -50,6 +59,15 @@ router.get("/", async (req, res) => {
     let keyword_escaped = db.escape("%" + keyword + "%");
     where += ` AND name LIKE ${keyword_escaped} `;
   }
+
+  // 友善分類
+  let category = req.query.category || "";
+  if (category) {
+    const friendly_con = dict[category];
+    //讀取到service和rule的sid
+    where += ` AND "${friendly_con}"`;
+  }
+
   // const perPage=15;
   let perPage = req.query.perPage || 15;
   let page = req.query.page ? parseInt(req.query.page) : 1;
