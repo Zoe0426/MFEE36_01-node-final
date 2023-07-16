@@ -4,36 +4,35 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
-router.get("/", async (req, res) => {
-  //卡片取得
-  const sql = `SELECT
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area,
-  GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
-  GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-  AVG(rr.friendly) AS average_friendly
-FROM
-  restaurant_information AS r
-  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-  JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-  LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-GROUP BY
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area;
-`;
-  const [data] = await db.query(sql);
-  res.json(data);
-});
+// router.get("/", async (req, res) => {
+//   //卡片取得
+//   const sql = `SELECT
+//   r.rest_sid,
+//   r.name,
+//   r.city,
+//   r.area,
+//   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
+//   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+//   GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
+//   AVG(rr.friendly) AS average_friendly
+//   FROM restaurant_information AS r
+//   JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+//   JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+//   JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+//   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+//   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+//   LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+//   GROUP BY
+//   r.rest_sid,
+//   r.name,
+//   r.city,
+//   r.area;
+// `;
+//   const [data] = await db.query(sql);
+//   res.json(data);
+// });
 
-router.get("/restaurants/list", async (req, res) => {
+router.get("/", async (req, res) => {
   let output = {
     totalRows: 0,
     perPage: 15,
@@ -41,19 +40,20 @@ router.get("/restaurants/list", async (req, res) => {
     page: 1,
     rows: [],
   };
-
+  //queryString條件判斷
+  let where = " WHERE 1 ";
+  // 關鍵字宣告
+  let keyword = req.query.keyword || "";
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    where += ` AND r.name LIKE ${keyword_escaped} `;
+  }
   // const perPage=15;
   let perPage = req.query.perPage || 15;
+  let page = req.query.page ? parseInt(req.query.page) : 1;
   if (!page || page < 1) {
     page = 1;
   }
-
-  //queryString條件判斷
-  let where = " WHERE 1 ";
-
-  let order = " ORDER BY ";
-  const order_escaped = dict[orderBy];
-  order += ` ${order_escaped} `;
 
   //取得總筆數資訊
   const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
@@ -90,7 +90,7 @@ router.get("/restaurants/list", async (req, res) => {
             JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
             LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
             ${where}
-          GROUP BY
+            GROUP BY
             r.rest_sid,
             r.name,
             r.city,
@@ -98,7 +98,7 @@ router.get("/restaurants/list", async (req, res) => {
             LIMIT ${perPage * (page - 1)}, ${perPage}
           `;
 
-    const [rows] = await db.query(sql);
+    [rows] = await db.query(sql);
 
     output = { ...output, totalRows, perPage, totalPages, page, rows };
     return res.json(output);
