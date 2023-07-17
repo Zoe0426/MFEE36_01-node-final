@@ -45,8 +45,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             spd.price as prod_price,
             oc.product_qty as prod_qty,
             oc.rel_type as rel_type,
-            0 as adult_price,
-            0 as child_price,
+            0 as adult_price, 0 as child_price,
             0 as adult_qty,
             0 as child_qty,
             sp.img as img
@@ -59,7 +58,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             oc.member_sid = ? 
             AND oc.order_status = '001'
         UNION
-        ALL -- get activity in cart
+        ALL 
         SELECT
             oc.cart_sid as cart_sid,
             ai.activity_sid as rel_sid,
@@ -84,10 +83,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             AND oc.order_status = '001'`;
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
 
-
     output.shop = cartData.filter(p=>p.rel_type === "product");
     const actData = cartData.filter(p=>p.rel_type === "activity")
-    //console.log(actData);
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
     //getHistoryPostDetails
@@ -115,7 +112,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             mcs.coupon_status
         FROM
             member_coupon_send mcs
-            JOIN member_coupon_category mcc ON mcs.coupon_sid = mcc.coupon_sid
+            JOIN member_coupon_category mcc 
+            ON mcs.coupon_sid = mcc.coupon_sid
         WHERE
             mcs.member_sid = ?
             AND mcs.coupon_status = 0
@@ -128,6 +126,7 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     res.json(output);
 })
+
 const getNewOrderSid = async () => {
     try {
         const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
@@ -144,9 +143,79 @@ const getNewOrderSid = async () => {
         throw new Error('取訂單編號時出錯');
     }
 }
+
+const createOrder = async(data)=>{
+    const result = {
+        addtoOrdermain: false,
+        addtoOrderdetail:false,
+    };
+    const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
+    const {coupon_send_sid, price}=couponInfo[0];
+    const sendto = postInfo.filter(v=>v.selected)[0];
+    const {recipient,recipient_phone,post_type, store_name}= sendto;
+    const post_amount = sendto.post_type === 1?90:60; 
+    const post_address = sendto.city+sendto.area+sendto.address;
+    const subtotal = checkoutItems.reduce((a, v) => {
+      const sub = v.prod_price * v.prod_qty;
+      return a + sub;
+    }, 0);
+     const newOrderSid = await getNewOrderSid();
+
+    try{
+        const orderMainSql = `INSERT INTO
+            order_main(
+                order_sid, member_sid, coupon_send_sid,
+                recipient, recipient_phone, post_type,
+                post_store_name, post_address, post_status, 
+                tread_type, rel_subtotal, post_amount,
+                coupon_amount,order_status, 
+                create_dt
+            )
+            VALUES
+                (?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,now()
+                )`
+            const [orderMainresult] = await db.query(orderMainSql,[
+                newOrderSid,member_sid,coupon_send_sid,
+                recipient,recipient_phone,post_type,
+                store_name, post_address , 1, 
+                paymentType, subtotal, post_amount,
+                price, 0])
+                orderMainresult.affectedRows && (result.addtoOrdermain = true);
+    }catch(error){
+        console.error(error);
+        throw new Error('加父表格時時出錯');
+    }
+    try{
+        const orderDetailSql = `INSERT INTO
+        order_details(
+            order_detail_sid, order_sid, rel_type,
+            rel_sid, rel_seq_sid, rel_name, 
+            rel_seqName,product_amount, product_qty, 
+            adult_amount,adult_qty, child_amount, 
+            child_qty,rel_subtotal
+        )
+        VALUES
+            (?,?,?,
+            ?,?,?,
+            ?,?,?,
+            ?,?,?,
+            ?,?)`
+
+        }catch(error){
+        console.error(error);
+        throw new Error('加子表格時時出錯');
+    }
+    
+    return result;
+}
 router.post('/create-order', async (req,res)=>{
     const output = {
-        createOrderSuccess : false,
+        createOrderMainSuccess : false,
+        createOrderDetailSuccess : false,
         paymentSuccess : false,
         checkoutType : "",
         paymentType:'',
@@ -154,54 +223,14 @@ router.post('/create-order', async (req,res)=>{
         couponInfo:[],
         postInfo:[]
     }
-  
-    const checkoutType = req.body.checkoutType;
-    const paymentType = req.body.paymentType;
-    const checkoutItems = req.body.checkoutItems;
-    const couponInfo = req.body.couponInfo;
-    const postInfo = req.body.postInfo;
 
-    // output.checkoutType= checkoutType;
-    // output.paymentType = paymentType;
-    // output.checkoutItems=checkoutItems;
-    // output.couponInfo=couponInfo;
-    // output.postInfo=postInfo;
-    // couponInfo[0] && 
-    const {member_sid,coupon_send_sid}=couponInfo[0];
-    console.log(member_sid,coupon_send_sid);
+    output.checkoutType= req.body.checkoutType;
+    output.paymentType = req.body.paymentType;
 
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
-    const newOrderSid = await getNewOrderSid();
-    //取得新訂單號碼
    
-    const orderMainSql = `INSERT INTO
-    order_main(
-        order_sid,
-        member_sid,
-        coupon_sid,
-        recipient,
-        recipient_phone,
-        post_type,
-        post_store_name,
-        post_address,
-        post_status,
-        tread_type,
-        rel_subtotal,
-        post_amount,
-        coupon_amount,
-        order_status,
-        create_dt
-    )
-VALUES
-    (?,?,?,
-        ?,?,?,
-        ?,?,?,
-        ?,?,?,
-        ?,?,now()
-
-    )`
- //const [orderMainresult] = await db.query(orderMainSql,[newOrderSid,])
-
+    const createOrderResult = await createOrder(req.body);
+    createOrderResult.addtoOrdermain && (output.createOrderMainSuccess = true);
     res.json(output);
 })
 
