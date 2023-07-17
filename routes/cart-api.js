@@ -100,7 +100,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         WHERE
             ma.member_sid = ? 
         ORDER BY ma.default_status DESC`;
-    const [postData] = await db.query(getAddressSql,memberSid);
+    const [postData] = await db.query(getAddressSql,[memberSid]);
     //console.log(postData);
     output.postAddress =  postData;
 
@@ -161,13 +161,14 @@ router.post('/create-order', async (req,res)=>{
     const couponInfo = req.body.couponInfo;
     const postInfo = req.body.postInfo;
 
-    output.checkoutType= checkoutType;
-    output.paymentType = paymentType;
-    output.checkoutItems=checkoutItems;
-    output.couponInfo=couponInfo;
-    output.postInfo=postInfo;
-
- 
+    // output.checkoutType= checkoutType;
+    // output.paymentType = paymentType;
+    // output.checkoutItems=checkoutItems;
+    // output.couponInfo=couponInfo;
+    // output.postInfo=postInfo;
+    // couponInfo[0] && 
+    const {member_sid,coupon_send_sid}=couponInfo[0];
+    console.log(member_sid,coupon_send_sid);
 
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
     const newOrderSid = await getNewOrderSid();
@@ -199,7 +200,7 @@ VALUES
         ?,?,now()
 
     )`
- const [orderMainresult] = await db.query(orderMainSql,[newOrderSid,])
+ //const [orderMainresult] = await db.query(orderMainSql,[newOrderSid,])
 
     res.json(output);
 })
