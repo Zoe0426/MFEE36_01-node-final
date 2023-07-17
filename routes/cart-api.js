@@ -30,10 +30,7 @@ router.post ('/get-cart-items', async(req,res)=>{
     let output ={
         shop : [],
         activity : [],
-        defaultAddress:[],
-        blackCat: [],
-        sevenEleven:[],
-        family:[],
+        postAddress:[],
         coupon:[],
     }
     const memberSid = req.body.member_sid;
@@ -95,27 +92,17 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     //getHistoryPostDetails
     const getAddressSql = `SELECT
-            ma.member_sid,
-            ma.category,
-            ma.store_name,
-            ma.default_status,
-            ma.city,
-            ma.area,
-            ma.address,
-            mi.name,
-            mi.email,
-            mi.mobile
+            ma.*,
+            mi.email
         FROM
             member_address ma
             JOIN member_info mi ON ma.member_sid = mi.member_sid
         WHERE
-            ma.member_sid = ?`;
+            ma.member_sid = ? 
+        ORDER BY ma.default_status DESC`;
     const [postData] = await db.query(getAddressSql,memberSid);
     console.log(postData);
-    output.defaultAddress =  postData.filter(p=>p.default_status === 0);
-    output.blackCat = postData.filter(p=>p.category === 1);
-    output.sevenEleven = postData.filter(p=>p.category === 2);
-    output.family = postData.filter(p=>p.category === 3);
+    output.postAddress =  postData;
 
     //getUsableCoupon
     const getCouponSql =  `SELECT
@@ -139,6 +126,15 @@ router.post ('/get-cart-items', async(req,res)=>{
     couponData.map(d=>d.exp_date = res.toDateString(d.exp_date))
     output.coupon = couponData;
 
+    res.json(output);
+})
+
+router.post('/create-order', async(req,res)=>{
+    const output = [
+        createOrderSuccess = false,
+        paymentSuccess = false
+    ]
+    //const 
     res.json(output);
 })
 
