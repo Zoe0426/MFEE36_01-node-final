@@ -52,6 +52,7 @@ router.get("/products", async (req, res) => {
   };
 
   const dict = {
+    狗:"D",
     dog: "D",
     cat: "C",
     both: "B",
@@ -116,7 +117,7 @@ router.get("/products", async (req, res) => {
   //關鍵字
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND p.name LIKE ${keyword_escaped} `;
+    where += ` AND p.name LIKE ${keyword_escaped} OR p.category_detail_sid="${dict[keyword]}"`;
   }
 
   //排序
