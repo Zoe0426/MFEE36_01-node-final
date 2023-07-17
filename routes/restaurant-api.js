@@ -237,17 +237,18 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
 
   //取得攜帶規則
   const sql_restRule = `SELECT rr.rule_name, rr.rule_icon
-FROM restaurant_rule AS rr
-JOIN restaurant_associated_rule AS ar ON rr.rule_sid = ar.rule_sid
-WHERE ar.rest_sid = ${rest_sid};`;
+    FROM restaurant_rule AS rr
+    JOIN restaurant_associated_rule AS ar
+    ON rr.rule_sid = ar.rule_sid
+    WHERE ar.rest_sid = ${rest_sid};`;
 
   let [ruleRows] = await db.query(sql_restRule);
 
   //取得服務項目
   const sql_restService = `SELECT rs.service_name, rs.service_icon
-FROM restaurant_service AS rs
-JOIN restaurant_associated_service AS ras ON rs.service_sid = ras.service_sid
-WHERE ras.rest_sid = ${rest_sid};`;
+  FROM restaurant_service AS rs
+  JOIN restaurant_associated_service AS ras ON rs.service_sid = ras.service_sid
+  WHERE ras.rest_sid = ${rest_sid};`;
 
   let [serviceRows] = await db.query(sql_restService);
 
