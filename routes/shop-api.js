@@ -42,6 +42,8 @@ router.get("/hompage-cards", async (req, res) => {
   res.json({ dogDatas, catDatas, brandData, newData });
 });
 
+
+//給列表頁面使用的API
 router.get("/products", async (req, res) => {
   let output = {
     totalRows: 0,
@@ -51,8 +53,35 @@ router.get("/products", async (req, res) => {
     rows: [],
   };
 
+
+  const keywordDict = [
+    { word: "犬", col: 'AND p.for_pet_type IN ("D", "B") '},
+    { word: "狗", col: 'AND p.for_pet_type IN ("D", "B") '},
+    { word: "汪星人", col: 'AND p.for_pet_type IN ("D", "B") '},
+    { word: "貓", col: 'AND p.for_pet_type IN ("C", "B") '},
+    { word: "喵星人", col: 'AND p.for_pet_type IN ("C", "B") '},
+    { word: "幼", col: 'AND ps.for_age IN (1, 4) ' },
+    { word: "成", col: 'AND ps.for_age IN (2, 4) ' },
+    { word: "高齡", col: 'AND ps.for_age IN (3, 4) ' },
+    { word: "老", col: 'AND ps.for_age IN (3, 4) ' },
+    { word: "飼料", col: 'AND p.category_detail_sid="FE" '},
+    { word: "罐頭", col: 'AND p.category_detail_sid="CA" '},
+    { word: "零食", col: 'AND p.category_detail_sid="SN" '},
+    { word: "保健", col: 'AND p.category_detail_sid="HE" '},
+    { word: "服飾", col: 'AND p.category_detail_sid="DR" '},
+    { word: "衣", col: 'AND p.category_detail_sid="DR" '},
+    { word: "外出用品", col: 'AND p.category_detail_sid="OD" '},
+    { word: "玩具", col: 'AND p.category_detail_sid="TO" '},
+    { word: "其他", col: 'AND p.category_detail_sid="OT" '},
+    { word: "Hills", col: 'AND s.name="Hills 希爾思" '},
+    { word: "希爾思", col: 'AND s.name="Hills 希爾思" '},
+    { word: "Orijen", col: 'AND s.name="Orijen 極緻" '},
+    { word: "極緻", col: 'AND s.name="Orijen 極緻" '},
+    { word: "Toma pro", col: 'AND s.name="Toma-pro 優格" '},
+    { word: "GoMo Pet Food", col: 'AND s.name="GoMo Pet Food" '},
+  ];
+
   const dict = {
-    狗:"D",
     dog: "D",
     cat: "C",
     both: "B",
@@ -92,6 +121,25 @@ router.get("/products", async (req, res) => {
 
   //queryString條件判斷
   let where = " WHERE 1 ";
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    let condition="";
+    keywordDict.forEach((v)=>{
+      if(keyword_escaped.includes(v.word)){
+        condition +=v.col
+      }
+    })
+    const newCondition=condition.slice(3)
+    console.log({newCondition})
+    if(newCondition){
+       where += ` AND (p.name LIKE ${keyword_escaped} OR ${newCondition})`
+    }else{
+      where += ` AND (p.name LIKE ${keyword_escaped})`
+    }
+   
+
+  }
 
   //篩選
   if (category.length > 0 && category.length < 8) {
@@ -112,12 +160,6 @@ router.get("/products", async (req, res) => {
   if (filterbrand.length > 0) {
     let newFilterbrand = filterbrand.map((v) => db.escape(v)).join(", ");
     where += ` AND s.name IN (${newFilterbrand}) `;
-  }
-
-  //關鍵字
-  if (keyword) {
-    let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND p.name LIKE ${keyword_escaped} OR p.category_detail_sid="${dict[keyword]}"`;
   }
 
   //排序
@@ -162,7 +204,6 @@ router.get("/products", async (req, res) => {
         ${order}
         LIMIT ${perPage * (page - 1)}, ${perPage}
         `;
-
     [rows] = await db.query(sql);
   }
 
@@ -196,7 +237,7 @@ router.get("/products", async (req, res) => {
     likeDatas,
     // brand,
   };
-
+  console.log({where})
   return res.json(output);
 });
 
