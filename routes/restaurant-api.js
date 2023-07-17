@@ -256,7 +256,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
   const sql_comment = `SELECT ROUND(AVG(friendly), 1) AS avg_friendly FROM restaurant_rating WHERE rest_sid =  ${rest_sid};`;
   let [commentRows] = await db.query(sql_comment);
 
-  //3.將上述資訊結合成預設資訊
+  //將上述資訊結合成預設資訊
   // const defaultObj = {
   //   rest_sid: "00",
   //   rest_sid: rest_sid,
@@ -265,6 +265,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
   //   img: mainImg,
   //   for_age: 0,
   // };
+  
   res.json({
     restDetailRows,
     imageRows,
