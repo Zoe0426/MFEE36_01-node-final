@@ -60,6 +60,8 @@ router.get("/list", async (req, res) => {
     clean:9,
     have_seat: 4 ,
     taipei:'台北市',
+    taichung:'台中市',
+    newtaipei:'新北市'
   };
 
   //queryString條件判斷
@@ -75,12 +77,11 @@ router.get("/list", async (req, res) => {
   // 友善分類
   let rule = req.query.rule || "";
   let service =  req.query.service || "";
-  let location =  req.query.location || "";
+  let cityParam = req.query.city || "";
 
-  if (location) {
-    const location = dict[location];
-    //讀取到和rule的sid
-    where += ` AND  r.city = '台北市'  `;
+  if (cityParam) {
+    const cityValue = dict[cityParam];
+    where += ` AND  r.city = '${cityValue}'  `;
   }
 
   if (rule) {
@@ -113,7 +114,19 @@ router.get("/list", async (req, res) => {
   // const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
 
 
-  const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information`;
+  const sql_totalRows = `SELECT COUNT(1) totalRows 
+  FROM (
+    SELECT r.rest_sid 
+    FROM restaurant_information r
+  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+  JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+  LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+  ${where}
+    GROUP BY r.rest_sid 
+  ) AS subquery;`;
 
 
 
