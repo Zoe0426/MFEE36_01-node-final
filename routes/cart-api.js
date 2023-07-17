@@ -128,8 +128,23 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     res.json(output);
 })
-
-router.post('/create-order', (req,res)=>{
+const getNewOrderSid = async () => {
+    try {
+        const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
+        const [maxSid] = await db.query(sqlHead);
+        if (maxSid[0].maxSid === undefined) { 
+        return 'ORD00001';
+        } else { 
+        const newOrdNum = parseInt(maxSid[0].maxSid.substring(3)) + 1;
+        const newOrdersid = `ORD${newOrdNum.toString().padStart(5, '0')}`;
+        return newOrdersid;
+        }
+    } catch (error) {
+        console.error(error);
+        throw new Error('取訂單編號時出錯');
+    }
+}
+router.post('/create-order', async (req,res)=>{
     const output = {
         createOrderSuccess : false,
         paymentSuccess : false,
@@ -145,12 +160,47 @@ router.post('/create-order', (req,res)=>{
     const checkoutItems = req.body.checkoutItems;
     const couponInfo = req.body.couponInfo;
     const postInfo = req.body.postInfo;
+
     output.checkoutType= checkoutType;
     output.paymentType = paymentType;
     output.checkoutItems=checkoutItems;
     output.couponInfo=couponInfo;
     output.postInfo=postInfo;
-    
+
+ 
+
+    //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
+    const newOrderSid = await getNewOrderSid();
+    //取得新訂單號碼
+   
+    const orderMainSql = `INSERT INTO
+    order_main(
+        order_sid,
+        member_sid,
+        coupon_sid,
+        recipient,
+        recipient_phone,
+        post_type,
+        post_store_name,
+        post_address,
+        post_status,
+        tread_type,
+        rel_subtotal,
+        post_amount,
+        coupon_amount,
+        order_status,
+        create_dt
+    )
+VALUES
+    (?,?,?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,now()
+
+    )`
+ const [orderMainresult] = await db.query(orderMainSql,[newOrderSid,])
+
     res.json(output);
 })
 
