@@ -4,8 +4,7 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
-router.get("/", async (req, res) =>{
-
+router.get("/", async (req, res) => {
   let output = {
     rows1: [],
     rows2: [],
@@ -80,9 +79,8 @@ router.get("/", async (req, res) =>{
   // ORDER BY hot_DESC
   [rows2] = await db.query(sql2);
 
-  output = { ...output ,rows1 ,rows2};
+  output = { ...output, rows1, rows2 };
   return res.json(output);
-
 });
 router.get("/list", async (req, res) => {
   let output = {
@@ -92,16 +90,6 @@ router.get("/list", async (req, res) => {
     page: 1,
     rows: [],
   };
-
-  // const dict = {
-  //   no_rope: "ar.rule_sid = 6",
-  //   free: "ar.rule_sid = 8",
-  //   sell_food: "as.service_sid = 3 ",
-  //   tableware: "as.service_sid = 4 ",
-  //   clean: "as.service_sid = 9",
-  //   have_seat: "ar.rule_sid = 4 ",
-  //   hot_DESC:'',
-  // };
 
   const dict = {
     no_rope: 6,
@@ -165,7 +153,7 @@ router.get("/list", async (req, res) => {
   const order_escaped = dict[orderBy];
   order += ` ${order_escaped} `;
 
-  console.log(order_escaped)
+  console.log(order_escaped);
 
   //取得總筆數資訊
   // const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
@@ -235,9 +223,54 @@ router.get("/list", async (req, res) => {
   return res.json(output);
 });
 
-router.get("restaurant/:rest_sid", async (req, res) => {
+router.get("/restaurant/:rest_sid", async (req, res) => {
   const { rest_sid } = req.params;
+  console.log(rest_sid)
+
   const sql_restDetail = `SELECT rest_sid, name, phone, city, area, address, acceptType, info, feature_title, feature_content, feature_img, start_at_1, end_at_1, start_at_2, end_at_2,  rest_date FROM restaurant_information WHERE rest_sid="${rest_sid}";`;
+
+  let [restDetailRows] = await db.query(sql_restDetail);
+// return res.json(restDetailRows)
+  //取得餐廳照片
+  const sql_image = `SELECT rest_sid, img_sid, img_name FROM restaurant_img WHERE rest_sid = ${rest_sid}`;
+  let [imageRows] = await db.query(sql_image);
+
+  //取得攜帶規則
+  const sql_restRule = `SELECT rr.rule_name, rr.rule_icon
+FROM restaurant_rule AS rr
+JOIN restaurant_associated_rule AS ar ON rr.rule_sid = ar.rule_sid
+WHERE ar.rest_sid = ${rest_sid};`;
+
+  let [ruleRows] = await db.query(sql_restRule);
+
+  //取得服務項目
+  const sql_restService = `SELECT rs.service_name, rs.service_icon
+FROM restaurant_service AS rs
+JOIN restaurant_associated_service AS ras ON rs.service_sid = ras.service_sid
+WHERE ras.rest_sid = ${rest_sid};`;
+
+  let [serviceRows] = await db.query(sql_restService);
+
+  //取得餐廳評分
+  const sql_comment = `SELECT ROUND(AVG(friendly), 1) AS avg_friendly FROM restaurant_rating WHERE rest_sid =  ${rest_sid};`;
+  let [commentRows] = await db.query(sql_comment);
+
+  //3.將上述資訊結合成預設資訊
+  // const defaultObj = {
+  //   rest_sid: "00",
+  //   rest_sid: rest_sid,
+  //   name: "default",
+  //   qty: 0,
+  //   img: mainImg,
+  //   for_age: 0,
+  // };
+  res.json({
+    restDetailRows,
+    imageRows,
+    ruleRows,
+    serviceRows,
+    commentRows,
+  });
 });
 
 module.exports = router;
