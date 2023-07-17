@@ -87,7 +87,7 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     output.shop = cartData.filter(p=>p.rel_type === "product");
     const actData = cartData.filter(p=>p.rel_type === "activity")
-    console.log(actData);
+    //console.log(actData);
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
     //getHistoryPostDetails
@@ -101,7 +101,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             ma.member_sid = ? 
         ORDER BY ma.default_status DESC`;
     const [postData] = await db.query(getAddressSql,memberSid);
-    console.log(postData);
+    //console.log(postData);
     output.postAddress =  postData;
 
     //getUsableCoupon
@@ -129,12 +129,28 @@ router.post ('/get-cart-items', async(req,res)=>{
     res.json(output);
 })
 
-router.post('/create-order', async(req,res)=>{
-    const output = [
-        createOrderSuccess = false,
-        paymentSuccess = false
-    ]
-    //const 
+router.post('/create-order', (req,res)=>{
+    const output = {
+        createOrderSuccess : false,
+        paymentSuccess : false,
+        checkoutType : "",
+        paymentType:'',
+        checkoutItems:[],
+        couponInfo:[],
+        postInfo:[]
+    }
+  
+    const checkoutType = req.body.checkoutType;
+    const paymentType = req.body.paymentType;
+    const checkoutItems = req.body.checkoutItems;
+    const couponInfo = req.body.couponInfo;
+    const postInfo = req.body.postInfo;
+    output.checkoutType= checkoutType;
+    output.paymentType = paymentType;
+    output.checkoutItems=checkoutItems;
+    output.couponInfo=couponInfo;
+    output.postInfo=postInfo;
+    
     res.json(output);
 })
 
