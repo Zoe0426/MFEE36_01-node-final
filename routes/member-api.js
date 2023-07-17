@@ -280,15 +280,29 @@ router.get("/order/:sid", async (req, res) => {
 
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
-  (SELECT COUNT(1) FROM order_main o WHERE o.order_sid = od.order_sid) as order_product
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
 FROM order_main o 
 JOIN order_details od 
 ON o.order_sid = od.order_sid 
 JOIN shop_product sp
-ON sp.product_sid = od.rel_sid  
+ON sp.product_sid = od.rel_sid    
 WHERE o.member_sid = '${sid}'
 ORDER BY o.create_dt DESC
   `);
 
-  res.json(rows);
+  const [rows2] = await db.query(`
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
+FROM order_main o 
+JOIN order_details od 
+ON o.order_sid = od.order_sid 
+JOIN activity_info af
+ON af.activity_sid = od.rel_sid  
+JOIN activity_group ag
+ON ag.activity_group_sid = od.rel_seq_sid  
+WHERE o.member_sid = '${sid}'
+ORDER BY o.create_dt DESC
+  `);
+
+  res.json({rows,rows2});
 });
