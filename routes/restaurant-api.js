@@ -32,7 +32,7 @@ const multipartParser = upload.none();
 //   res.json(data);
 // });
 
-router.get("/", async (req, res) => {
+router.get("/list", async (req, res) => {
   let output = {
     totalRows: 0,
     perPage: 15,
@@ -41,14 +41,25 @@ router.get("/", async (req, res) => {
     rows: [],
   };
 
+  // const dict = {
+  //   no_rope: "ar.rule_sid = 6",
+  //   free: "ar.rule_sid = 8",
+  //   sell_food: "as.service_sid = 3 ",
+  //   tableware: "as.service_sid = 4 ",
+  //   clean: "as.service_sid = 9",
+  //   have_seat: "ar.rule_sid = 4 ",
+  //   hot_DESC:'',
+  // };
+
+
   const dict = {
-    no_rope: "rule_sid = 6",
-    free: "rule_sid = 8",
-    sell_food: "service_sid = 3 ",
-    tableware: "service_sid = 4 ",
-    clean: "service_sid = 9",
-    have_seat: "rule_sid = 4 ",
-    hot_DESC:'',
+    no_rope: 6,
+    free: 8,
+    sell_food: 3 ,
+    tableware: 4,
+    clean:9,
+    have_seat: 4 ,
+    taipei:'台北市',
   };
 
   //queryString條件判斷
@@ -62,11 +73,26 @@ router.get("/", async (req, res) => {
   }
 
   // 友善分類
-  let category = req.query.category || "";
-  if (category) {
-    const friendly_con = dict[category];
-    //讀取到service和rule的sid
-    where += ` AND "${friendly_con}"`;
+  let rule = req.query.rule || "";
+  let service =  req.query.service || "";
+  let location =  req.query.location || "";
+
+  if (location) {
+    const location = dict[location];
+    //讀取到和rule的sid
+    where += ` AND  r.city = '台北市'  `;
+  }
+
+  if (rule) {
+    const rule_con = dict[rule];
+    //讀取到和rule的sid
+    where += ` AND ar.rule_sid = ${rule_con} `;
+  }
+
+  if (service) {
+    const service_con = dict[service];
+    //讀取到和service的sid
+    where += ` AND asr.service_sid = ${service_con} `;
   }
 
   // const perPage=15;
@@ -83,9 +109,14 @@ router.get("/", async (req, res) => {
   const order_escaped = dict[orderBy];
   order += ` ${order_escaped} `;
 
-
   //取得總筆數資訊
-  const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
+  // const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
+
+
+  const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information`;
+
+
+
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
   let rows = [];
@@ -109,7 +140,7 @@ router.get("/", async (req, res) => {
             GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
             GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
             GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-            AVG(rr.friendly) AS average_friendly
+            ROUND(AVG(rr.friendly), 1) AS average_friendly
           FROM
             restaurant_information AS r
             JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
@@ -127,8 +158,7 @@ router.get("/", async (req, res) => {
             LIMIT ${perPage * (page - 1)}, ${perPage}
           `;
 
-
-          //要插入${order}在group by下面
+    //要插入${order}在group by下面
     [rows] = await db.query(sql);
 
     output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
