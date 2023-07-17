@@ -4,34 +4,6 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
-// router.get("/", async (req, res) => {
-//   //卡片取得
-//   const sql = `SELECT
-//   r.rest_sid,
-//   r.name,
-//   r.city,
-//   r.area,
-//   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
-//   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-//   GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-//   AVG(rr.friendly) AS average_friendly
-//   FROM restaurant_information AS r
-//   JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-//   JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-//   JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-//   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-//   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-//   LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-//   GROUP BY
-//   r.rest_sid,
-//   r.name,
-//   r.city,
-//   r.area;
-// `;
-//   const [data] = await db.query(sql);
-//   res.json(data);
-// });
-
 router.get("/list", async (req, res) => {
   let output = {
     totalRows: 0,
@@ -61,11 +33,14 @@ router.get("/list", async (req, res) => {
     have_seat: 4 ,
     taipei:'台北市',
     taichung:'台中市',
-    newtaipei:'新北市'
+    newtaipei:'新北市',
+    hot_DESC: "",
   };
 
   //queryString條件判斷
   let where = " WHERE 1 ";
+
+  //排序
 
   // 關鍵字宣告
   let keyword = req.query.keyword || "";
@@ -103,9 +78,9 @@ router.get("/list", async (req, res) => {
     page = 1;
   }
 
-  //order_by
+  //排序
   let orderBy = req.query.orderBy || "hot_DESC";
-  //queryString排序判斷
+  //queryString 排序判斷
   let order = " ORDER BY ";
   const order_escaped = dict[orderBy];
   order += ` ${order_escaped} `;
