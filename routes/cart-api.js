@@ -148,8 +148,11 @@ const createOrder = async(data)=>{
     const result = {
         addtoOrdermain: false,
         addtoOrderdetail:false,
+        orderSid:"",
+        finalTotal:0
     };
     const newOrderSid = await getNewOrderSid();
+    result.orderSid = newOrderSid;
     const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
     const {coupon_send_sid, price}=couponInfo[0];
     const sendto = postInfo.filter(v=>v.selected)[0];
@@ -161,7 +164,7 @@ const createOrder = async(data)=>{
       return a + sub;
     }, 0);
     const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
-
+    result.finalTotal= subtotal + post_amount - price;
     try{
         const orderMainSql = `INSERT INTO
             order_main(
@@ -228,44 +231,54 @@ const createOrder = async(data)=>{
 }
 router.post('/create-order', async (req,res)=>{
     const output = {
+        success: false,
+        orderSid:"",
+        finalTotal:0,
         createOrderMainSuccess : false,
         createOrderDetailSuccess : false,
         paymentSuccess : false,
         checkoutType : "",
         paymentType:'',
-        checkoutItems:[],
-        couponInfo:[],
-        postInfo:[]
+
     }
 
     output.checkoutType= req.body.checkoutType;
     output.paymentType = req.body.paymentType;
 
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
-    
+    //TODO:更新優惠卷狀態
+
     //新增訂單(加到order_main && order_detail)
+    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
     const createOrderResult = await createOrder(req.body);
-    createOrderResult.addtoOrdermain && (output.createOrderMainSuccess = true);
-    createOrderResult.addtoOrderdetail && (output.createOrderDetailSuccess = true);
+    createOrderResult.addtoOrdermain &&  createOrderResult.addtoOrderdetail && (output.success = true);
+    output.orderSid = createOrderResult.orderSid;
+    output.finalTotal = createOrderResult.finalTotal;
     res.json(output);
 })
 
 router.get('/test',(req, res) => {
-    const test = {test: 'test'}
-    res.json(test);
+    console.log('req.query.orderSid:',req.query.orderSid)
+
+    res.json(req.query.totalAmount );
 } )
 
 router.get('/ecpay', (req, res) => {
+    console.log('req.query.orderSid:', req.query.orderSid);
+    console.log('req.query.totalAmount:', req.query.totalAmount);
+    const orderSid = req.query.orderSid;
+    const totalAmount = req.query.totalAmount;
     const mtn = uuid().split('-').join("");
     console.log('mtn:', mtn);
     let base_param = {
         MerchantTradeNo: mtn.slice(1,19), //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
         MerchantTradeDate: res.toDatetimeString2(new Date()), //ex: 2017/02/13 15:45:30
-        TotalAmount: '100',
-        TradeDesc: '測試交易描述',
-        ItemName: '測試商品等',
+        TotalAmount: totalAmount,
+        TradeDesc: '狗咪結帳',
+        ItemName: orderSid,
         ReturnURL: 'http://127.0.0.1:3002/cart-api/ecpaycallback',
         OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
+        CustomField1: orderSid
     };
     let inv_params = {
     };
@@ -293,7 +306,17 @@ router.post('/ecpayresult', (req, res) => {
         console.warn('error', e);
     }
     res.status(200);
-    res.send(req.body);
+    const {CustomField1,RtnMsg}= req.body;
+    if(RtnMsg==='Succeeded'){
+        //TODO: 前往結帳成功頁面
+        //res.redirect('http://localhost:3000/cart/order-complete');
+    }
+    if(RtnMsg==="ERROR"){
+        //TODO: 前往重新結帳頁面
+    }
+    res.send(req.body.CustomField1);
+    //console.log(req.body);
+    
 })
 
 router.post('/ecpaycallback', (req, res) => {
