@@ -42,6 +42,7 @@ router.get("/hompage-cards", async (req, res) => {
   res.json({ dogDatas, catDatas, brandData, newData });
 });
 
+//給列表頁面使用的API
 router.get("/products", async (req, res) => {
   let output = {
     totalRows: 0,
@@ -51,8 +52,34 @@ router.get("/products", async (req, res) => {
     rows: [],
   };
 
+  const keywordDict = [
+    { word: "犬", col: 'AND p.for_pet_type IN ("D", "B") ' },
+    { word: "狗", col: 'AND p.for_pet_type IN ("D", "B") ' },
+    { word: "汪星人", col: 'AND p.for_pet_type IN ("D", "B") ' },
+    { word: "貓", col: 'AND p.for_pet_type IN ("C", "B") ' },
+    { word: "喵星人", col: 'AND p.for_pet_type IN ("C", "B") ' },
+    { word: "幼", col: "AND ps.for_age IN (1, 4) " },
+    { word: "成", col: "AND ps.for_age IN (2, 4) " },
+    { word: "高齡", col: "AND ps.for_age IN (3, 4) " },
+    { word: "老", col: "AND ps.for_age IN (3, 4) " },
+    { word: "飼料", col: 'AND p.category_detail_sid="FE" ' },
+    { word: "罐頭", col: 'AND p.category_detail_sid="CA" ' },
+    { word: "零食", col: 'AND p.category_detail_sid="SN" ' },
+    { word: "保健", col: 'AND p.category_detail_sid="HE" ' },
+    { word: "服飾", col: 'AND p.category_detail_sid="DR" ' },
+    { word: "衣", col: 'AND p.category_detail_sid="DR" ' },
+    { word: "外出用品", col: 'AND p.category_detail_sid="OD" ' },
+    { word: "玩具", col: 'AND p.category_detail_sid="TO" ' },
+    { word: "其他", col: 'AND p.category_detail_sid="OT" ' },
+    { word: "Hills", col: 'AND s.name="Hills 希爾思" ' },
+    { word: "希爾思", col: 'AND s.name="Hills 希爾思" ' },
+    { word: "Orijen", col: 'AND s.name="Orijen 極緻" ' },
+    { word: "極緻", col: 'AND s.name="Orijen 極緻" ' },
+    { word: "Toma pro", col: 'AND s.name="Toma-pro 優格" ' },
+    { word: "GoMo Pet Food", col: 'AND s.name="GoMo Pet Food" ' },
+  ];
+
   const dict = {
-    狗:"D",
     dog: "D",
     cat: "C",
     both: "B",
@@ -78,6 +105,9 @@ router.get("/products", async (req, res) => {
   let perPage = req.query.perPage || 20;
   let keyword = req.query.keyword || "";
   let orderBy = req.query.orderBy || "new_DESC";
+  let maxPrice = parseInt(req.query.maxPrice || 0);
+  let minPrice = parseInt(req.query.minPrice || 0);
+
 
   let category = req.query.category ? req.query.category.split(",") : [];
   let typeForPet = req.query.typeForPet ? req.query.typeForPet.split(",") : [];
@@ -91,7 +121,36 @@ router.get("/products", async (req, res) => {
   }
 
   //queryString條件判斷
-  let where = " WHERE 1 ";
+  let where = ` WHERE 1`;
+  let having = "";
+
+  if (maxPrice) {
+    having += `OR ( MIN(ps.price) >= ${maxPrice} AND MAX(ps.price) <= ${maxPrice} ) `;
+  }
+  if (minPrice) {
+    having += `OR ( MIN(ps.price) <= ${minPrice} AND MAX(ps.price) >= ${minPrice} ) `;
+  }
+  if (having) {
+    having = `HAVING ${having.slice(2)}`;
+  }
+
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    let condition = "";
+    keywordDict.forEach((v) => {
+      if (keyword_escaped.includes(v.word)) {
+        condition += v.col;
+      }
+    });
+    const newCondition = condition.slice(3);
+    console.log({ newCondition });
+    if (newCondition) {
+      where += ` AND (p.name LIKE ${keyword_escaped} OR ${newCondition})`;
+    } else {
+      where += ` AND (p.name LIKE ${keyword_escaped})`;
+    }
+  }
 
   //篩選
   if (category.length > 0 && category.length < 8) {
@@ -114,12 +173,6 @@ router.get("/products", async (req, res) => {
     where += ` AND s.name IN (${newFilterbrand}) `;
   }
 
-  //關鍵字
-  if (keyword) {
-    let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND p.name LIKE ${keyword_escaped} OR p.category_detail_sid="${dict[keyword]}"`;
-  }
-
   //排序
   let order = " ORDER BY ";
   const order_escaped = dict[orderBy];
@@ -127,15 +180,17 @@ router.get("/products", async (req, res) => {
 
   //進資料庫拉資料---------------
   //取得總筆數資訊
-  const sql_totalRows = `SELECT COUNT(1) totalRows 
+  const sql_totalRows = `SELECT COUNT(1) totalRows
   FROM (
     SELECT p.product_sid
-    FROM shop_product p 
+    FROM shop_product p
     LEFT JOIN shop_product_detail ps ON p.product_sid = ps.product_sid
     LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
     ${where}
     GROUP BY p.product_sid
+    ${having}
   ) AS subquery`;
+
 
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
@@ -159,6 +214,7 @@ router.get("/products", async (req, res) => {
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid
         ${where}
         GROUP BY p.product_sid
+        ${having}
         ${order}
         LIMIT ${perPage * (page - 1)}, ${perPage}
         `;
@@ -196,7 +252,7 @@ router.get("/products", async (req, res) => {
     likeDatas,
     // brand,
   };
-
+  console.log({ where });
   return res.json(output);
 });
 
