@@ -161,7 +161,6 @@ const createOrder = async(data)=>{
       return a + sub;
     }, 0);
     const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
-    
 
     try{
         const orderMainSql = `INSERT INTO
@@ -192,32 +191,34 @@ const createOrder = async(data)=>{
         throw new Error('加父表格時時出錯');
     }
     try{
-        orderItems.map(v=>{
+
+        for(let item of orderItems){
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal}=item;
+            console.log(rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal);
             const orderDetailSql = `INSERT INTO
                     order_details(
-                        order_detail_sid, order_sid, rel_type,
-                        rel_sid, rel_seq_sid, rel_name, 
-                        rel_seqName,product_amount, product_qty, 
-                        adult_amount,adult_qty, child_amount, 
-                        child_qty,rel_subtotal
+                        order_sid, rel_type, rel_sid,
+                        rel_seq_sid, rel_name, rel_seq_name,
+                        product_price, product_qty, adult_price,
+                        adult_qty, child_price, child_qty,
+                        rel_subtotal
                     )
                     VALUES
                         (?,?,?,
                         ?,?,?,
                         ?,?,?,
                         ?,?,?,
-                        ?,?)`
+                        ?)`
                     
-            const [orderDetailresult] = db.query(orderDetailSql,[
-                    newOrderSid,member_sid,coupon_send_sid,
-                    recipient,recipient_phone,post_type,
-                    store_name, post_address , 1, 
-                    paymentType, subtotal, post_amount,
-                    price, 0])
-            orderDetailresult.affectedRows && (result.addtoOrdermain = true);
-        })
-        
+            const [orderDetailresult] = await db.query(orderDetailSql,[
+                    newOrderSid,checkoutType,rel_sid, 
+                    rel_seq_sid,rel_name,rel_seq_name,
+                    prod_price,prod_qty,adult_price,
+                    adult_qty,child_price, child_qty,
+                    rel_subtotal])
 
+            orderDetailresult.affectedRows &&  (result.addtoOrderdetail = true);
+     }
         }catch(error){
         console.error(error);
         throw new Error('加子表格時時出錯');
@@ -241,9 +242,11 @@ router.post('/create-order', async (req,res)=>{
     output.paymentType = req.body.paymentType;
 
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
-   
+    
+    //新增訂單(加到order_main && order_detail)
     const createOrderResult = await createOrder(req.body);
     createOrderResult.addtoOrdermain && (output.createOrderMainSuccess = true);
+    createOrderResult.addtoOrderdetail && (output.createOrderDetailSuccess = true);
     res.json(output);
 })
 
