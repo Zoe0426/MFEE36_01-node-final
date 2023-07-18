@@ -280,15 +280,69 @@ router.get("/order/:sid", async (req, res) => {
 
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
-  (SELECT COUNT(1) FROM order_main o WHERE o.order_sid = od.order_sid) as order_product
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
 FROM order_main o 
 JOIN order_details od 
 ON o.order_sid = od.order_sid 
+JOIN member_coupon_send ms 
+ON o.coupon_send_sid = ms.coupon_send_sid
+JOIN member_coupon_category mc 
+ON mc.coupon_sid = ms.coupon_sid
 JOIN shop_product sp
-ON sp.product_sid = od.rel_sid  
+ON sp.product_sid = od.rel_sid    
 WHERE o.member_sid = '${sid}'
 ORDER BY o.create_dt DESC
   `);
 
-  res.json(rows);
+  const [rows2] = await db.query(`
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
+FROM order_main o 
+JOIN order_details od 
+ON o.order_sid = od.order_sid
+JOIN member_coupon_send ms 
+ON o.coupon_send_sid = ms.coupon_send_sid
+JOIN member_coupon_category mc 
+ON mc.coupon_sid = ms.coupon_sid 
+JOIN activity_info af
+ON af.activity_sid = od.rel_sid  
+JOIN activity_group ag
+ON ag.activity_group_sid = od.rel_seq_sid  
+WHERE o.member_sid = '${sid}'
+ORDER BY o.create_dt DESC
+  `);
+
+  //合併成一個datas
+  const datas = rows.concat(rows2);
+
+  //整理datas
+  const updatedDatas = datas.map((i) => {
+    return {
+      order_sid: i.order_sid,
+      post_status: i.post_status,
+      rel_name: i.rel_name,
+      rel_seq_name: i.rel_seq_name,
+      product_qty: i.product_qty,
+      adult_qty: i.adult_qty,
+      child_qty: i.child_qty,
+      orderRelS: i.orderRelS + i.post_amount - i.price,
+      post_price: i.post_amount,
+      price: i.price,
+      img: i.img,
+      activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
+      order_product: i.order_product,
+      rel_type: i.rel_type,
+    };
+  });
+
+  // 分组
+  const groupedData = updatedDatas.reduce((acc, cur) => {
+    acc[cur.order_sid] = acc[cur.order_sid] ? [...acc[cur.order_sid], cur] : [cur];
+    return acc;
+  }, {});
+
+  // 取出每组的第一项
+  const firstItems = Object.values(groupedData).map((items) => items[0]);
+
+  res.json(firstItems);
 });
