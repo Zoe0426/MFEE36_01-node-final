@@ -335,8 +335,6 @@ ORDER BY o.create_dt DESC
     };
   });
 
-  console.log(updatedDatas);
-
   // 分组
   const groupedData = updatedDatas.reduce((acc, cur) => {
     acc[cur.order_sid] = acc[cur.order_sid] ? [...acc[cur.order_sid], cur] : [cur];
