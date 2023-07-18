@@ -69,6 +69,7 @@ router.get("/products", async (req, res) => {
     { word: "服飾", col: 'AND p.category_detail_sid="DR" ' },
     { word: "衣", col: 'AND p.category_detail_sid="DR" ' },
     { word: "外出用品", col: 'AND p.category_detail_sid="OD" ' },
+    { word: "戶外用品", col: 'AND p.category_detail_sid="OD" ' },
     { word: "玩具", col: 'AND p.category_detail_sid="TO" ' },
     { word: "其他", col: 'AND p.category_detail_sid="OT" ' },
     { word: "Hills", col: 'AND s.name="Hills 希爾思" ' },
@@ -120,28 +121,18 @@ router.get("/products", async (req, res) => {
 
   //queryString條件判斷
   let where = ` WHERE 1`;
+
   let having = "";
 
   if (maxPrice) {
-    having += `AND MAX(ps.price) <= ${maxPrice} `;
+    having += `AND price <= ${maxPrice} `;
   }
   if (minPrice) {
-    having += `AND MIN(ps.price) >= ${minPrice} `;
+    having += `AND price >= ${minPrice} `;
   }
   if (having) {
-    having = `HAVING ${having.slice(3)}`;
+    having = `WHERE 1 ${having} `;
   }
-
-
-  // if (maxPrice) {
-  //   having += `AND MIN(ps.price) <= ${maxPrice} `;
-  // }
-  // if (minPrice) {
-  //   having += `AND MAX(ps.price) >= ${minPrice} `;
-  // }
-  // if (having) {
-  //   having = `HAVING ${having.slice(3)} `;
-  // }
 
   //關鍵字
   if (keyword) {
@@ -153,7 +144,7 @@ router.get("/products", async (req, res) => {
       }
     });
     const newCondition = condition.slice(3);
-    console.log({ newCondition });
+
     if (newCondition) {
       where += ` AND (p.name LIKE ${keyword_escaped} OR ${newCondition})`;
     } else {
@@ -191,15 +182,12 @@ router.get("/products", async (req, res) => {
   //取得總筆數資訊
   const sql_totalRows = `SELECT COUNT(1) totalRows
   FROM (
-    SELECT p.product_sid
-    FROM shop_product p
-    LEFT JOIN shop_product_detail ps ON p.product_sid = ps.product_sid
-    LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-    ${where}
-    GROUP BY p.product_sid
-    ${having}
-  ) AS subquery`;
-
+  SELECT p.product_sid
+  FROM shop_product p
+  LEFT JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
+  INNER JOIN (SELECT * FROM shop_product_detail ${having}) ps ON p.product_sid = ps.product_sid
+  ${where}
+  GROUP BY p.product_sid) AS subquery`;
 
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
@@ -214,20 +202,18 @@ router.get("/products", async (req, res) => {
       page = totalPages;
     }
 
-    //確定要查詢的頁碼資料比總頁數小，才去拉資料
+    //確定要查詢的頁碼資料比總頁數小 在去拉資料
     const sql = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty
         FROM shop_product p
         LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-        LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+        INNER JOIN (SELECT * FROM shop_product_detail ${having}) ps ON p.product_sid = ps.product_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid
         ${where}
         GROUP BY p.product_sid
-        ${having}
         ${order}
         LIMIT ${perPage * (page - 1)}, ${perPage}
         `;
-
     [rows] = await db.query(sql);
   }
 
@@ -261,7 +247,7 @@ router.get("/products", async (req, res) => {
     likeDatas,
     // brand,
   };
-  console.log({ where });
+  // console.log({ where });
   return res.json(output);
 });
 
@@ -270,7 +256,7 @@ router.get("/brand-list", async (req, res) => {
   let output = {
     success: false,
     brand: [],
-    productName:[]
+    productName: [],
   };
 
   const dict = {
