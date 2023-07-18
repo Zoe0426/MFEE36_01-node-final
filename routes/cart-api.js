@@ -268,6 +268,7 @@ router.get('/ecpay', (req, res) => {
     console.log('req.query.totalAmount:', req.query.totalAmount);
     const orderSid = req.query.orderSid;
     const totalAmount = req.query.totalAmount;
+    const checkoutType = req.query.checkoutType;
     const mtn = uuid().split('-').join("");
     console.log('mtn:', mtn);
     let base_param = {
@@ -278,7 +279,8 @@ router.get('/ecpay', (req, res) => {
         ItemName: orderSid,
         ReturnURL: 'http://127.0.0.1:3002/cart-api/ecpaycallback',
         OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
-        CustomField1: orderSid
+        CustomField1: orderSid,
+        CustomField2: checkoutType,
     };
     let inv_params = {
     };
@@ -306,7 +308,8 @@ router.post('/ecpayresult', (req, res) => {
         console.warn('error', e);
     }
     res.status(200);
-    const {CustomField1,RtnMsg}= req.body;
+    //field1:orderSid, field2:checkoutType
+    const {CustomField1,CustomField2,RtnMsg}= req.body;
     if(RtnMsg==='Succeeded'){
         //TODO: 前往結帳成功頁面
         //res.redirect('http://localhost:3000/cart/order-complete');
