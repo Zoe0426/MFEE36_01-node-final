@@ -105,11 +105,9 @@ router.get("/products", async (req, res) => {
   let perPage = req.query.perPage || 20;
   let keyword = req.query.keyword || "";
   let orderBy = req.query.orderBy || "new_DESC";
-  let maxPrice = parseInt(req.query.maxPrice) || 0;
-  let minPrice = parseInt(req.query.minPrice) || 0;
+  let maxPrice = parseInt(req.query.maxPrice || 0);
+  let minPrice = parseInt(req.query.minPrice || 0);
 
-  console.log(maxPrice);
-  console.log(minPrice);
 
   let category = req.query.category ? req.query.category.split(",") : [];
   let typeForPet = req.query.typeForPet ? req.query.typeForPet.split(",") : [];
@@ -123,9 +121,19 @@ router.get("/products", async (req, res) => {
   }
 
   //queryString條件判斷
-  let where = " WHERE 1 ";
+  let where = ` WHERE 1`;
+  let having = "";
 
-  
+  if (maxPrice) {
+    having += `OR ( MIN(ps.price) >= ${maxPrice} AND MAX(ps.price) <= ${maxPrice} ) `;
+  }
+  if (minPrice) {
+    having += `OR ( MIN(ps.price) <= ${minPrice} AND MAX(ps.price) >= ${minPrice} ) `;
+  }
+  if (having) {
+    having = `HAVING ${having.slice(2)}`;
+  }
+
   //關鍵字
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
@@ -172,15 +180,17 @@ router.get("/products", async (req, res) => {
 
   //進資料庫拉資料---------------
   //取得總筆數資訊
-  const sql_totalRows = `SELECT COUNT(1) totalRows 
+  const sql_totalRows = `SELECT COUNT(1) totalRows
   FROM (
     SELECT p.product_sid
-    FROM shop_product p 
+    FROM shop_product p
     LEFT JOIN shop_product_detail ps ON p.product_sid = ps.product_sid
     LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
     ${where}
     GROUP BY p.product_sid
+    ${having}
   ) AS subquery`;
+
 
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
@@ -204,9 +214,11 @@ router.get("/products", async (req, res) => {
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid
         ${where}
         GROUP BY p.product_sid
+        ${having}
         ${order}
         LIMIT ${perPage * (page - 1)}, ${perPage}
         `;
+
     [rows] = await db.query(sql);
   }
 
