@@ -224,13 +224,38 @@ router.get("/list", async (req, res) => {
 });
 
 router.get("/restaurant/:rest_sid", async (req, res) => {
+  let output = {
+    restDetailRows: [],
+    imageRows: [],
+    ruleRows: [],
+    serviceRows: [],
+    commentRows: [],
+  };
   const { rest_sid } = req.params;
-  console.log(rest_sid)
+  console.log(rest_sid);
 
-  const sql_restDetail = `SELECT rest_sid, name, phone, city, area, address, acceptType, info, feature_title, feature_content, feature_img, start_at_1, end_at_1, start_at_2, end_at_2,  rest_date FROM restaurant_information WHERE rest_sid="${rest_sid}";`;
+  const sql_restDetail = `SELECT
+  rest_sid,
+  name,
+  phone,
+  city,
+  area,
+  address,
+  acceptType,
+  info,
+  feature_title,
+  feature_content,
+  feature_img,
+  SUBSTRING(start_at_1, 1, 5) AS start_at_1,
+  SUBSTRING(end_at_1, 1, 5) AS end_at_1,
+  SUBSTRING(start_at_2, 1, 5) AS start_at_2,
+  SUBSTRING(end_at_2, 1, 5) AS end_at_2,
+  rest_date
+FROM restaurant_information
+WHERE rest_sid="${rest_sid}";`;
 
   let [restDetailRows] = await db.query(sql_restDetail);
-// return res.json(restDetailRows)
+  // return res.json(restDetailRows)
   //取得餐廳照片
   const sql_image = `SELECT rest_sid, img_sid, img_name FROM restaurant_img WHERE rest_sid = ${rest_sid}`;
   let [imageRows] = await db.query(sql_image);
@@ -256,6 +281,11 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
   const sql_comment = `SELECT ROUND(AVG(friendly), 1) AS avg_friendly FROM restaurant_rating WHERE rest_sid =  ${rest_sid};`;
   let [commentRows] = await db.query(sql_comment);
 
+  //取得餐廳活動
+  const sql_restActivity=`SELECT rest_sid, act_sid, title, content, img, date FROM restaurant_activity WHERE rest_sid = ${rest_sid};`;
+
+  let [activityRows] = await db.query(sql_restActivity);
+
   //將上述資訊結合成預設資訊
   // const defaultObj = {
   //   rest_sid: "00",
@@ -265,14 +295,25 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
   //   img: mainImg,
   //   for_age: 0,
   // };
-  
-  res.json({
+
+  // res.json({
+  //   restDetailRows,
+  //   imageRows,
+  //   ruleRows,
+  //   serviceRows,
+  //   commentRows,
+  // });
+
+  output = {
+    ...output,
     restDetailRows,
     imageRows,
     ruleRows,
     serviceRows,
     commentRows,
-  });
+    activityRows,
+  };
+  return res.json(output);
 });
 
 module.exports = router;
