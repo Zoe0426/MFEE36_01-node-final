@@ -45,8 +45,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             spd.price as prod_price,
             oc.product_qty as prod_qty,
             oc.rel_type as rel_type,
-            0 as adult_price,
-            0 as child_price,
+            0 as adult_price, 0 as child_price,
             0 as adult_qty,
             0 as child_qty,
             sp.img as img
@@ -59,7 +58,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             oc.member_sid = ? 
             AND oc.order_status = '001'
         UNION
-        ALL -- get activity in cart
+        ALL 
         SELECT
             oc.cart_sid as cart_sid,
             ai.activity_sid as rel_sid,
@@ -84,10 +83,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             AND oc.order_status = '001'`;
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
 
-
     output.shop = cartData.filter(p=>p.rel_type === "product");
     const actData = cartData.filter(p=>p.rel_type === "activity")
-    //console.log(actData);
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
     //getHistoryPostDetails
@@ -100,7 +97,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         WHERE
             ma.member_sid = ? 
         ORDER BY ma.default_status DESC`;
-    const [postData] = await db.query(getAddressSql,memberSid);
+    const [postData] = await db.query(getAddressSql,[memberSid]);
     //console.log(postData);
     output.postAddress =  postData;
 
@@ -115,7 +112,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             mcs.coupon_status
         FROM
             member_coupon_send mcs
-            JOIN member_coupon_category mcc ON mcs.coupon_sid = mcc.coupon_sid
+            JOIN member_coupon_category mcc 
+            ON mcs.coupon_sid = mcc.coupon_sid
         WHERE
             mcs.member_sid = ?
             AND mcs.coupon_status = 0
@@ -129,47 +127,160 @@ router.post ('/get-cart-items', async(req,res)=>{
     res.json(output);
 })
 
-router.post('/create-order', (req,res)=>{
+const getNewOrderSid = async () => {
+    try {
+        const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
+        const [maxSid] = await db.query(sqlHead);
+        if (maxSid[0].maxSid === undefined) { 
+        return 'ORD00001';
+        } else { 
+        const newOrdNum = parseInt(maxSid[0].maxSid.substring(3)) + 1;
+        const newOrdersid = `ORD${newOrdNum.toString().padStart(5, '0')}`;
+        return newOrdersid;
+        }
+    } catch (error) {
+        console.error(error);
+        throw new Error('取訂單編號時出錯');
+    }
+}
+
+const createOrder = async(data)=>{
+    const result = {
+        addtoOrdermain: false,
+        addtoOrderdetail:false,
+        orderSid:"",
+        finalTotal:0
+    };
+    const newOrderSid = await getNewOrderSid();
+    result.orderSid = newOrderSid;
+    const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
+    const {coupon_send_sid, price}=couponInfo[0];
+    const sendto = postInfo.filter(v=>v.selected)[0];
+    const {recipient,recipient_phone,post_type, store_name}= sendto;
+    const post_amount = sendto.post_type === 1?90:60; 
+    const post_address = sendto.city+sendto.area+sendto.address;
+    const subtotal = checkoutItems.reduce((a, v) => {
+      const sub = v.prod_price * v.prod_qty;
+      return a + sub;
+    }, 0);
+    const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
+    result.finalTotal= subtotal + post_amount - price;
+    try{
+        const orderMainSql = `INSERT INTO
+            order_main(
+                order_sid, member_sid, coupon_send_sid,
+                recipient, recipient_phone, post_type,
+                post_store_name, post_address, post_status, 
+                tread_type, rel_subtotal, post_amount,
+                coupon_amount,order_status, 
+                create_dt
+            )
+            VALUES
+                (?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,now()
+                )`
+        const [orderMainresult] = await db.query(orderMainSql,[
+            newOrderSid,member_sid,coupon_send_sid,
+            recipient,recipient_phone,post_type,
+            store_name, post_address , 1, 
+            paymentType, subtotal, post_amount,
+            price, 0])
+        orderMainresult.affectedRows && (result.addtoOrdermain = true);
+    }catch(error){
+        console.error(error);
+        throw new Error('加父表格時時出錯');
+    }
+    try{
+
+        for(let item of orderItems){
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal}=item;
+            console.log(rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal);
+            const orderDetailSql = `INSERT INTO
+                    order_details(
+                        order_sid, rel_type, rel_sid,
+                        rel_seq_sid, rel_name, rel_seq_name,
+                        product_price, product_qty, adult_price,
+                        adult_qty, child_price, child_qty,
+                        rel_subtotal
+                    )
+                    VALUES
+                        (?,?,?,
+                        ?,?,?,
+                        ?,?,?,
+                        ?,?,?,
+                        ?)`
+                    
+            const [orderDetailresult] = await db.query(orderDetailSql,[
+                    newOrderSid,checkoutType,rel_sid, 
+                    rel_seq_sid,rel_name,rel_seq_name,
+                    prod_price,prod_qty,adult_price,
+                    adult_qty,child_price, child_qty,
+                    rel_subtotal])
+
+            orderDetailresult.affectedRows &&  (result.addtoOrderdetail = true);
+     }
+        }catch(error){
+        console.error(error);
+        throw new Error('加子表格時時出錯');
+    }
+    
+    return result;
+}
+router.post('/create-order', async (req,res)=>{
     const output = {
-        createOrderSuccess : false,
+        success: false,
+        orderSid:"",
+        finalTotal:0,
+        createOrderMainSuccess : false,
+        createOrderDetailSuccess : false,
         paymentSuccess : false,
         checkoutType : "",
         paymentType:'',
-        checkoutItems:[],
-        couponInfo:[],
-        postInfo:[]
+
     }
-  
-    const checkoutType = req.body.checkoutType;
-    const paymentType = req.body.paymentType;
-    const checkoutItems = req.body.checkoutItems;
-    const couponInfo = req.body.couponInfo;
-    const postInfo = req.body.postInfo;
-    output.checkoutType= checkoutType;
-    output.paymentType = paymentType;
-    output.checkoutItems=checkoutItems;
-    output.couponInfo=couponInfo;
-    output.postInfo=postInfo;
-    
+
+    output.checkoutType= req.body.checkoutType;
+    output.paymentType = req.body.paymentType;
+
+    //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
+    //TODO:更新優惠卷狀態
+
+    //新增訂單(加到order_main && order_detail)
+    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
+    const createOrderResult = await createOrder(req.body);
+    createOrderResult.addtoOrdermain &&  createOrderResult.addtoOrderdetail && (output.success = true);
+    output.orderSid = createOrderResult.orderSid;
+    output.finalTotal = createOrderResult.finalTotal;
     res.json(output);
 })
 
 router.get('/test',(req, res) => {
-    const test = {test: 'test'}
-    res.json(test);
+    console.log('req.query.orderSid:',req.query.orderSid)
+
+    res.json(req.query.totalAmount );
 } )
 
 router.get('/ecpay', (req, res) => {
+    console.log('req.query.orderSid:', req.query.orderSid);
+    console.log('req.query.totalAmount:', req.query.totalAmount);
+    const orderSid = req.query.orderSid;
+    const totalAmount = req.query.totalAmount;
+    const checkoutType = req.query.checkoutType;
     const mtn = uuid().split('-').join("");
     console.log('mtn:', mtn);
     let base_param = {
         MerchantTradeNo: mtn.slice(1,19), //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
         MerchantTradeDate: res.toDatetimeString2(new Date()), //ex: 2017/02/13 15:45:30
-        TotalAmount: '100',
-        TradeDesc: '測試交易描述',
-        ItemName: '測試商品等',
+        TotalAmount: totalAmount,
+        TradeDesc: '狗咪結帳',
+        ItemName: orderSid,
         ReturnURL: 'http://127.0.0.1:3002/cart-api/ecpaycallback',
         OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
+        CustomField1: orderSid,
+        CustomField2: checkoutType,
     };
     let inv_params = {
     };
@@ -197,7 +308,18 @@ router.post('/ecpayresult', (req, res) => {
         console.warn('error', e);
     }
     res.status(200);
-    res.send(req.body);
+    //field1:orderSid, field2:checkoutType
+    const {CustomField1,CustomField2,RtnMsg}= req.body;
+    if(RtnMsg==='Succeeded'){
+        //TODO: 前往結帳成功頁面
+        //res.redirect('http://localhost:3000/cart/order-complete');
+    }
+    if(RtnMsg==="ERROR"){
+        //TODO: 前往重新結帳頁面
+    }
+    res.send(req.body.CustomField1);
+    //console.log(req.body);
+    
 })
 
 router.post('/ecpaycallback', (req, res) => {

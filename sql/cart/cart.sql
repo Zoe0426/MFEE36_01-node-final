@@ -77,3 +77,43 @@ WHERE
     AND mcs.coupon_status = 0
 ORDER BY
     mcc.exp_date ASC;
+
+INSERT INTO
+    order_main(
+        order_sid,
+        member_sid,
+        coupon_sid,
+        recipient,
+        recipient_phone,
+        post_type,
+        post_store_name,
+        post_address,
+        post_status,
+        tread_type,
+        rel_subtotal,
+        post_amount,
+        coupon_amount,
+        order_status,
+        create_dt
+    )
+VALUES
+    ()
+INSERT INTO
+    order_details(
+        order_detail_sid,
+        order_sid,
+        rel_type,
+        rel_sid,
+        rel_seq_sid,
+        rel_name,
+        rel_seqName,
+        product_amount,
+        product_qty,
+        adult_amount,
+        adult_qty,
+        child_amount,
+        child_qty,
+        rel_subtotal
+    )
+VALUES
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
