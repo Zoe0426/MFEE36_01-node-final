@@ -101,13 +101,11 @@ router.get("/products", async (req, res) => {
     sales_DESC: "sales_qty DESC",
   };
 
-  // const perPage=16;
   let perPage = req.query.perPage || 20;
   let keyword = req.query.keyword || "";
   let orderBy = req.query.orderBy || "new_DESC";
   let maxPrice = parseInt(req.query.maxPrice || 0);
   let minPrice = parseInt(req.query.minPrice || 0);
-
 
   let category = req.query.category ? req.query.category.split(",") : [];
   let typeForPet = req.query.typeForPet ? req.query.typeForPet.split(",") : [];
@@ -125,14 +123,25 @@ router.get("/products", async (req, res) => {
   let having = "";
 
   if (maxPrice) {
-    having += `OR ( MIN(ps.price) >= ${maxPrice} AND MAX(ps.price) <= ${maxPrice} ) `;
+    having += `AND MAX(ps.price) <= ${maxPrice} `;
   }
   if (minPrice) {
-    having += `OR ( MIN(ps.price) <= ${minPrice} AND MAX(ps.price) >= ${minPrice} ) `;
+    having += `AND MIN(ps.price) >= ${minPrice} `;
   }
   if (having) {
-    having = `HAVING ${having.slice(2)}`;
+    having = `HAVING ${having.slice(3)}`;
   }
+
+
+  // if (maxPrice) {
+  //   having += `AND MIN(ps.price) <= ${maxPrice} `;
+  // }
+  // if (minPrice) {
+  //   having += `AND MAX(ps.price) >= ${minPrice} `;
+  // }
+  // if (having) {
+  //   having = `HAVING ${having.slice(3)} `;
+  // }
 
   //關鍵字
   if (keyword) {
@@ -256,11 +265,12 @@ router.get("/products", async (req, res) => {
   return res.json(output);
 });
 
-//給列表頁供應商的選項API
+//給列表頁供應商+商品名稱的選項API
 router.get("/brand-list", async (req, res) => {
   let output = {
     success: false,
     brand: [],
+    productName:[]
   };
 
   const dict = {
