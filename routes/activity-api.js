@@ -30,21 +30,74 @@ router.get("/", async (req, res) => {
     "SELECT aw.activity_wish_sid, aw.member_sid, aw.name, aw.city, aw.area, aw.content, aw.other_message, aw.wish_date, IFNULL(v.vote_count, 0) AS vote_count FROM activity_wish aw LEFT JOIN ( SELECT activity_wish_sid, COUNT(activity_vote_sid) AS vote_count FROM activity_vote GROUP BY activity_wish_sid ) v ON aw.activity_wish_sid = v.activity_wish_sid LIMIT 6"
   );
 
+
   // 日期處理
   data.forEach((i) => {
     i.recent_date = res.toDateString(i.recent_date);
     i.farthest_date = res.toDateString(i.farthest_date);
   });
 
+  // 全部欄位都取得的 終極sql
+  // SELECT ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date,
+  // GROUP_CONCAT(DISTINCT af.`name`) AS feature_names, aty.`name` AS type_name, ag.`time`, ag.`price_adult`, CAST(ar.`avg_star` AS UNSIGNED) AS avg_star FROM `activity_info` ai LEFT JOIN `activity_group` ag ON ai.`activity_sid` = ag.`activity_sid` LEFT JOIN  `activity_feature_with_info` afwi ON ai.`activity_sid` = afwi.`activity_sid` LEFT JOIN `activity_feature` af ON afwi.`activity_feature_sid` = af.`activity_feature_sid` LEFT JOIN `activity_type` aty ON ai.`activity_type_sid` = aty.`activity_type_sid`
+  // LEFT JOIN ( SELECT `activity_sid`, MIN(`date`) AS recent_date,  MAX(`date`) AS farthest_date FROM  `activity_group` GROUP BY `activity_sid` ) ag_temp ON ai.`activity_sid` = ag_temp.`activity_sid`
+  // LEFT JOIN ( SELECT `activity_sid`,  AVG(`star`) AS avg_star FROM `activity_rating` GROUP BY `activity_sid`) ar ON ai.`activity_sid` = ar.`activity_sid` WHERE ag.`time` IS NOT NULL AND ag.`price_adult` IS NOT NULL GROUP BY ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, aty.`name`, ag.`time`, ag.`price_adult`, ar.`avg_star`
 
   // 取上面全部資料
   res.json({ data, topCityData, wish });
 });
 
-
+// list 用query string篩選 (type + keyword)
 router.get("/activity", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity?activity_type_sid=分類值
 
+  // const { activity_type_sid, keyword } = req.query;
+  // console.log(req.query);
+
+  // let where = " WHERE 1 ";
+
+  // if (activity_type_sid) {
+  //   where += ` AND aty.activity_type_sid = ${activity_type_sid}`;
+  // }
+
+  // if (keyword) {
+  //   const kw_escaped = db.escape("%" + keyword + "%");
+  //   where += ` AND ai.name LIKE ${kw_escaped}`;
+  // }
+
+  // const subquery = `(SELECT DISTINCT ai.activity_sid FROM activity_info ai 
+  //   JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+  //   JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+  //   JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+  //   JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+  //   LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  //   LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
+  //   ${where})`;
+
+  // const sqlQuery = `
+  //   SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
+  //   FROM activity_info ai
+  //   JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+  //   JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+  //   JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+  //   JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+  //   LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  //   LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
+  //   WHERE ai.activity_sid IN ${subquery}
+  //   GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ar.avg_star
+  //   LIMIT 0, 16`;
+
+  // const [cid_data] = await db.query(sqlQuery);
+
+  // // 日期處理
+  // cid_data.forEach((i) => {
+  //   i.recent_date = new Date(i.recent_date).toISOString().slice(0, 10);
+  //   i.farthest_date = new Date(i.farthest_date).toISOString().slice(0, 10);
+  // });
+
+
+
+  //07-16版本
   const { activity_type_sid, keyword } = req.query;
   console.log(req.query);
 
@@ -89,7 +142,7 @@ router.get("/activity", async (req, res) => {
 });
 
 
-// list 拿取各分類資料 (old)
+//  (old) list 拿取各分類資料
 // router.get("/activity", async (req, res) => {
 //     // 網址在這裡看 http://localhost:3002/activity-api/activity?activity_type_sid=分類值
 
@@ -247,5 +300,38 @@ router.get("/activity", async (req, res) => {
 
 //   res.json({cid_data, sqlQueryKeyword});
 // });
+
+
+
+// [aid] 動態路由
+router.get("/activity/:activity_sid", async (req, res) => {
+  // 網址在這裡看 
+
+  const { activity_sid } = req.params;
+console.log(req.params);
+
+const sqlQuery = `
+  SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
+  FROM activity_info ai
+  JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+  JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+  JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+  JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+  LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
+  WHERE ai.activity_sid = ${activity_sid}
+  GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ar.avg_star
+  LIMIT 0, 16`;
+
+const [cid_data] = await db.query(sqlQuery);
+
+//日期處理
+cid_data.forEach((i) => {
+  i.recent_date = res.toDateString(i.recent_date);
+  i.farthest_date = res.toDateString(i.farthest_date);
+});
+
+  res.json({ cid_data });
+});
 
 module.exports = router;
