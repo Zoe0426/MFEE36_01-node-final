@@ -230,6 +230,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     ruleRows: [],
     serviceRows: [],
     commentRows: [],
+    activityRows:[],
   };
   const { rest_sid } = req.params;
   console.log(rest_sid);
