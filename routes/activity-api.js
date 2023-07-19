@@ -314,6 +314,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actImageRows: [],
     actDateRows: [],
     actFeatureRows: [],
+    actRatingRows: [],
   };
 
   const { activity_sid } = req.params;
@@ -352,6 +353,15 @@ router.get("/activity/:activity_sid", async (req, res) => {
 
   let [actFeatureRows] = await db.query(sql_feature);
 
+
+  // 取得 rating
+  const sql_rating = `SELECT r.*, m.name, m.profile FROM activity_rating AS r LEFT JOIN member_info m ON m.member_sid=r.member_sid WHERE activity_sid="${activity_sid}" ORDER BY r.date DESC`;
+
+  let [actRatingRows] = await db.query(sql_rating);
+
+
+  
+
  
   // feature處理 (字串->陣列)
   // actDetailRows.map((activity) => {
@@ -366,7 +376,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
 
 
   // 圖片處理 (字串->陣列)
-  // activity_sid_data.map((pic) => {
+  // actImageRows.map((pic) => {
   //   const imgNames = pic.activity_pic; 
   //   const imgs = imgNames.split(','); 
   //   const trimmedImgs = imgs.map(img => img.trim()); 
@@ -376,7 +386,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
   // });
 
 
-  // 日期處理 (actDetailRows + actDateRows)
+  // 日期處理 (actDetailRows + actDateRows+actRatingRows)
   actDetailRows.map((i) => {
     i.recent_date = res.toDateString(i.recent_date);
     i.farthest_date = res.toDateString(i.farthest_date);
@@ -387,6 +397,10 @@ router.get("/activity/:activity_sid", async (req, res) => {
     i.date=res.toDateString(i.date);
   });
 
+  actRatingRows.map((i) => {
+    i.date=res.toDateString(i.date);
+  });
+
 
   output = {
     ...output,
@@ -394,6 +408,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actImageRows,
     actDateRows,
     actFeatureRows,
+    actRatingRows,
   };
 
   return res.json(output);
