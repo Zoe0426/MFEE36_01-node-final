@@ -377,6 +377,7 @@ router.post('/get-orderDetail', async(req,res)=>{
                 om.post_address,
                 om.post_store_name,
                 om.create_dt,
+                od.order_detail_sid,
                 od.rel_name,
                 od.rel_seq_name,
                 od.product_price,
@@ -398,12 +399,14 @@ router.post('/get-orderDetail', async(req,res)=>{
                 om.order_sid,
                 om.member_sid,
                 om.create_dt,
+                od.order_detail_sid,
                 od.rel_name,
                 od.rel_seq_name,
                 od.adult_price,
                 od.adult_qty,
                 od.child_price,
-                od.child_qty om.rel_subtotal,
+                od.child_qty,
+                om.rel_subtotal,
                 om.coupon_amount,
                 ai.activity_pic,
                 mi.email
@@ -419,18 +422,31 @@ router.post('/get-orderDetail', async(req,res)=>{
         const [orderDetailResult] = await db.query(getOrderDetailSql, [order_sid]);
         output.member_sid=orderDetailResult[0].member_sid;
         output.email=orderDetailResult[0].email;
-        output.create_dt=orderDetailResult[0].create_dt;
+        output.create_dt=res.toDatetimeString(orderDetailResult[0].create_dt);
         output.coupon_amount=orderDetailResult[0].coupon_amount;
+
         if(checkoutType === 'shop'){
+            const pt = "";
+                if(orderDetailResult[0].post_type===0){
+                    pt='黑貓宅急便'
+                } else if (orderDetailResult[0] ===1){
+                    pt='7-Eleven'
+                }else if(orderDetailResult[0] === 2){
+                    pt='全家便利商店'
+                }
+            output.post_type=pt;
             output.recipient=orderDetailResult[0].recipient;
             output.recipient_phone=orderDetailResult[0].recipient_phone;
-            output.post_type=orderDetailResult[0].post_type;
             output.post_address=orderDetailResult[0].post_address;
             output.post_store_name=orderDetailResult[0].post_store_name;
             output.post_amount=orderDetailResult[0].post_amount;
-            output.orderDetailItems=orderDetailResult;
+            output.orderDetailItems=orderDetailResult.map(v=>({...v, item_subTotal: (v.prod_price* v.prod_qty)}));
         }else if (checkoutType === 'activity'){
-            output.orderDetailItems=orderDetailResult;
+            output.orderDetailItems=orderDetailResult.map(v=>{
+                const st = (v.adult_price* v.adult_qty_qty+v.child_price*v.child_qty);
+                const img = v.activity_pic.split(',')[0];
+                return {...v, create_dt: dt, item_subTotal: st, activity_pic: img}
+            });
         }
         
     } catch(error) { console.error(error);
