@@ -365,16 +365,16 @@ ORDER BY o.create_dt DESC
 router.get("/orderdetail/:sid", async (req, res) => {
   let { sid } = req.params;
 
-  const output = {
-    success: false,
-    error: "",
-    data: null,
-  };
+  // const output = {
+  //   success: false,
+  //   error: "",
+  //   data: null,
+  // };
 
-  if (!res.locals.jwtData) {
-    output.error = "沒有驗證";
-    return res.json(output);
-  }
+  // if (!res.locals.jwtData) {
+  //   output.error = "沒有驗證";
+  //   return res.json(output);
+  // }
   // console.log(jwtData);
 
   //const sid = res.locals.jwtData.id;
@@ -404,7 +404,6 @@ router.get("/orderdetail/:sid", async (req, res) => {
   ORDER BY o.create_dt DESC;
   `);
 
-
   //合併成一個datas
   const datas = rows.concat(rows2);
 
@@ -419,6 +418,8 @@ router.get("/orderdetail/:sid", async (req, res) => {
 
     return {
       order_detail_sid: i.order_detail_sid,
+      member_sid: i.member_sid,
+      activity_sid: i.activity_sid,
       member_name: i.name,
       member_mobile: i.mobile,
       order_sid: i.order_sid,
@@ -450,8 +451,23 @@ router.get("/orderdetail/:sid", async (req, res) => {
   res.json(updatedDatas);
 });
 
-
 //新增評價
-router.post("/reviews",async(req,res)=>{
+router.post("/reviews", async (req, res) => {
+  const sqlAct = `INSERT INTO activity_rating(
+  member_sid, activity_sid, order_detail_sid, 
+  star, date, content
+  ) 
+  VALUES (
+    ?,?,?,
+    ?,NOW(),?)`;
 
-})
+  const [rowsAct] = await db.query(sqlAct, [
+    req.body.memberSid,
+    req.body.actSid,
+    req.body.odSid,
+    req.body.starts,
+    req.body.content,
+  ]);
+
+  res.json(rowsAct);
+});
