@@ -144,27 +144,57 @@ const getNewOrderSid = async () => {
     }
 }
 
+const updateCouponStatus = async(couponSendSid, status)=>{
+    //status: 0=>unused, 1=>used
+try{
+    const updateCouponSql = `UPDATE member_coupon_send
+                            SET 
+                                coupon_status = ?,
+                                used_time = now()
+                            WHERE
+                                coupon_send_sid = ?`    
+    const [updateCouponResult] = await db.query(updateCouponSql,[status, couponSendSid]);
+    return updateCouponResult.affectedRows? true : false;
+
+    }catch(error){
+        console.error(error);
+        throw new Error('更新優惠券狀態時出錯');
+    }
+}
+
 const createOrder = async(data)=>{
+    
     const result = {
         addtoOrdermain: false,
         addtoOrderdetail:false,
         orderSid:"",
         finalTotal:0
     };
+    //準備sql所需資料
     const newOrderSid = await getNewOrderSid();
-    result.orderSid = newOrderSid;
     const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
-    const {coupon_send_sid, price}=couponInfo[0];
-    const sendto = postInfo.filter(v=>v.selected)[0];
-    const {recipient,recipient_phone,post_type, store_name}= sendto;
-    const post_amount = sendto.post_type === 1?90:60; 
-    const post_address = sendto.city+sendto.area+sendto.address;
+    //coupon
+    const coupon_send_sid = (couponInfo.length)? couponInfo[0].coupon_send_sid: '';
+    const couponPrice = (couponInfo.length)? couponInfo[0].price: 0;
+    //send to 
+    const sendto = (postInfo.length)?postInfo.filter(v=>v.selected)[0]:postInfo;
+    const recipient= (postInfo.length)?sendto.recipient:null;
+    const recipient_phone= (postInfo.length)?sendto.recipient_phone:null;
+    const post_type= (postInfo.length)?sendto.post_type:null;
+    const store_name= (postInfo.length)?sendto.store_name:null;
+    const post_amount = (postInfo.length)?(sendto.post_type?90:60): 0; 
+    const post_address = (postInfo.length)? (sendto.city+sendto.area+sendto.address): null;
+
     const subtotal = checkoutItems.reduce((a, v) => {
       const sub = v.prod_price * v.prod_qty;
       return a + sub;
     }, 0);
     const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
-    result.finalTotal= subtotal + post_amount - price;
+
+    result.orderSid = newOrderSid;
+    result.finalTotal= subtotal + post_amount - couponPrice;
+    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
+    //新增到訂單-父表
     try{
         const orderMainSql = `INSERT INTO
             order_main(
@@ -191,13 +221,11 @@ const createOrder = async(data)=>{
         orderMainresult.affectedRows && (result.addtoOrdermain = true);
     }catch(error){
         console.error(error);
-        throw new Error('加父表格時時出錯');
+        throw new Error('加父表格時出錯');
     }
+      //新增到訂單明細-子表
     try{
-
         for(let item of orderItems){
-            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal}=item;
-            console.log(rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal);
             const orderDetailSql = `INSERT INTO
                     order_details(
                         order_sid, rel_type, rel_sid,
@@ -212,7 +240,8 @@ const createOrder = async(data)=>{
                         ?,?,?,
                         ?,?,?,
                         ?)`
-                    
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,    child_qty,rel_subtotal}=item;  
+
             const [orderDetailresult] = await db.query(orderDetailSql,[
                     newOrderSid,checkoutType,rel_sid, 
                     rel_seq_sid,rel_name,rel_seq_name,
@@ -224,9 +253,18 @@ const createOrder = async(data)=>{
      }
         }catch(error){
         console.error(error);
-        throw new Error('加子表格時時出錯');
+        throw new Error('加子表格時出錯');
     }
-    
+    //有使用coupon的話更新狀態
+    if(coupon_send_sid){
+        const updateCouponResult = await updateCouponStatus(coupon_send_sid, 1);
+        updateCouponResult && (result.couponUpdated = true);
+    }
+    if(checkoutType==='shop'){
+        //TODO:更新預設地址
+    }
+
+    //TODO:更新購物車
     return result;
 }
 router.post('/create-order', async (req,res)=>{
@@ -234,26 +272,20 @@ router.post('/create-order', async (req,res)=>{
         success: false,
         orderSid:"",
         finalTotal:0,
-        createOrderMainSuccess : false,
-        createOrderDetailSuccess : false,
-        paymentSuccess : false,
         checkoutType : "",
         paymentType:'',
-
     }
 
     output.checkoutType= req.body.checkoutType;
     output.paymentType = req.body.paymentType;
 
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
-    //TODO:更新優惠卷狀態
 
-    //新增訂單(加到order_main && order_detail)
-    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
     const createOrderResult = await createOrder(req.body);
-    createOrderResult.addtoOrdermain &&  createOrderResult.addtoOrderdetail && (output.success = true);
     output.orderSid = createOrderResult.orderSid;
     output.finalTotal = createOrderResult.finalTotal;
+    createOrderResult.addtoOrdermain && createOrderResult.addtoOrderdetail && (output.success = true);
+
     res.json(output);
 })
 
@@ -308,9 +340,10 @@ router.post('/ecpayresult', (req, res) => {
         console.warn('error', e);
     }
     res.status(200);
-    //field1:orderSid, field2:checkoutType
+    //CustomField1:orderSid, CustomField2:checkoutType
     const {CustomField1,CustomField2,RtnMsg}= req.body;
     if(RtnMsg==='Succeeded'){
+        //TODO: 打PUT SQL更改訂單狀態
         //TODO: 前往結帳成功頁面
         //res.redirect('http://localhost:3000/cart/order-complete');
     }

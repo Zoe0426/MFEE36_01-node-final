@@ -78,6 +78,7 @@ WHERE
 ORDER BY
     mcc.exp_date ASC;
 
+--create order-main
 INSERT INTO
     order_main(
         order_sid,
@@ -97,7 +98,7 @@ INSERT INTO
         create_dt
     )
 VALUES
-    ()
+    () --create order detail
 INSERT INTO
     order_details(
         order_detail_sid,
@@ -116,4 +117,13 @@ INSERT INTO
         rel_subtotal
     )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+--update coupon
+UPDATE
+    member_coupon_send
+SET
+    coupon_status = ?,
+    used_time = now()
+WHERE
+    coupon_send_sid = ?;
