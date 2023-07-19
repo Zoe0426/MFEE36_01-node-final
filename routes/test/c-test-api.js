@@ -30,3 +30,12 @@ router.post('/img-uploads', upload.array('photos', 10),(req,res)=>{
 })
 
 module.exports = router;
+
+//--常用code--
+// try {
+    // const ..Sql = `` 
+    // const [..Result] = await db.query(..Sql, []);
+    // return ..Result.affectedRows? 'success' : 'failed';
+// } catch(error) { console.error(error);
+    // throw new Error('');
+// }

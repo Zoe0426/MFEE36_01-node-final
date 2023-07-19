@@ -127,3 +127,19 @@ SET
     used_time = now()
 WHERE
     coupon_send_sid = ?;
+
+--update cart
+UPDATE
+    order_cart
+SET
+    order_status = ?
+WHERE
+    cart_sid = ?;
+
+--update order
+UPDATE
+    order_main
+SET
+    order_status = ?
+WHERE
+    order_sid = ?;
