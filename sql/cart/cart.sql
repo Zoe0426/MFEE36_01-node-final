@@ -143,3 +143,47 @@ SET
     order_status = ?
 WHERE
     order_sid = ?;
+
+--getOrderDetail/shop
+SELECT
+    om.order_sid,
+    om.recipient,
+    om.recipient_phone,
+    om.post_type,
+    om.post_address,
+    om.post_store_name,
+    om.create_dt,
+    od.rel_name,
+    od.rel_seq_name,
+    od.product_price,
+    od.product_qty,
+    om.rel_subtotal,
+    om.coupon_amount,
+    om.post_amount,
+    sp.img
+FROM
+    order_main om
+    JOIN order_details od ON om.order_sid = od.order_sid
+    JOIN shop_product sp ON od.rel_sid = sp.product_sid
+WHERE
+    om.order_sid = ?;
+
+--get OrderDetail/activity
+SELECT
+    om.order_sid,
+    om.create_dt,
+    od.rel_name,
+    od.rel_seq_name,
+    od.adult_price,
+    od.adult_qty,
+    od.child_price,
+    od.child_qty om.rel_subtotal,
+    om.coupon_amount,
+    om.post_amount,
+    ai.activity_pic
+FROM
+    order_main om
+    JOIN order_details od ON om.order_sid = od.order_sid
+    JOIN activity_info ai ON od.rel_sid = ai.activity_sid
+WHERE
+    om.order_sid = ?;

@@ -352,6 +352,94 @@ router.post('/create-order', async (req,res)=>{
     output.success = createOrderResult.createOrderSuccess;
     res.json(output);
 })
+router.post('/get-orderDetail', async(req,res)=>{
+    const output = {
+        order_sid:"",
+        email:"",
+        checkoutType:"",
+        create_dt:'',
+        orderDetailItems:'',
+        coupon_amount:0
+    };
+    const order_sid = req.body.orderSid;
+    const checkoutType = req.body.checkoutType;
+    console.log(order_sid);
+    console.log(checkoutType);
+
+    const getOrderDetailSql = '';
+    if(checkoutType ==='shop'){
+        getOrderDetailSql = `SELECT
+                om.order_sid,
+                om.member_sid,
+                om.recipient,
+                om.recipient_phone,
+                om.post_type,
+                om.post_address,
+                om.post_store_name,
+                om.create_dt,
+                od.rel_name,
+                od.rel_seq_name,
+                od.product_price,
+                od.product_qty,
+                om.rel_subtotal,
+                om.coupon_amount,
+                om.post_amount,
+                sp.img,
+                mi.email
+            FROM
+                order_main om
+                JOIN order_details od ON om.order_sid = od.order_sid
+                JOIN shop_product sp ON od.rel_sid = sp.product_sid
+                JOIN member_info mi ON om.member_sid = mi.member_sid
+            WHERE
+                om.order_sid = ?`;   
+    }else if(checkoutType === 'activity'){
+        getOrderDetailSql = `SELECT
+                om.order_sid,
+                om.member_sid,
+                om.create_dt,
+                od.rel_name,
+                od.rel_seq_name,
+                od.adult_price,
+                od.adult_qty,
+                od.child_price,
+                od.child_qty om.rel_subtotal,
+                om.coupon_amount,
+                ai.activity_pic,
+                mi.email
+            FROM
+                order_main om
+                JOIN order_details od ON om.order_sid = od.order_sid
+                JOIN activity_info ai ON od.rel_sid = ai.activity_sid
+                JOIN member_info mi ON om.member_sid = mi.member_sid
+            WHERE
+                om.order_sid = ?;`;
+    }
+    try {
+        const [orderDetailResult] = await db.query(getOrderDetailSql, [order_sid]);
+        output.member_sid=orderDetailResult[0].member_sid;
+        output.email=orderDetailResult[0].email;
+        output.create_dt=orderDetailResult[0].create_dt;
+        output.coupon_amount=orderDetailResult[0].coupon_amount;
+        if(checkoutType === 'shop'){
+            output.recipient=orderDetailResult[0].recipient;
+            output.recipient_phone=orderDetailResult[0].recipient_phone;
+            output.post_type=orderDetailResult[0].post_type;
+            output.post_address=orderDetailResult[0].post_address;
+            output.post_store_name=orderDetailResult[0].post_store_name;
+            output.post_amount=orderDetailResult[0].post_amount;
+            output.orderDetailItems=orderDetailResult;
+        }else if (checkoutType === 'activity'){
+            output.orderDetailItems=orderDetailResult;
+        }
+        
+    } catch(error) { console.error(error);
+        throw new Error('讀取訂單明細失敗');
+    }
+    output.order_sid = order_sid;
+    output.checkoutType = checkoutType;
+    res.json(output);
+})
 router.get('/test',(req, res) => {
     console.log('req.query.orderSid:',req.query.orderSid)
 
