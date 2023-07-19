@@ -104,6 +104,18 @@ router.get("/list", async (req, res) => {
     hot_DESC: "booking_count DESC",
     new_DESC: "r.created_at DESC",
     cmt_DESC: "average_friendly DESC",
+    brunch: 1,
+    afternoon_tea: 2,
+    bistro: 3,
+    barbecue: 4,
+    hot_pot: 5,
+    coffee_tea: 6,
+    chinese_cuisine: 7,
+    japan_cuisine: 8,
+    koren_cuisine: 9,
+    us_cuisine: 10,
+    italian_cuisine: 11,
+    ice: 12,
   };
 
   //queryString條件判斷
@@ -122,6 +134,12 @@ router.get("/list", async (req, res) => {
   let rule = req.query.rule || "";
   let service = req.query.service || "";
   let cityParam = req.query.city || "";
+  let category = req.query.category || "";
+
+  if (category) {
+    const categoryValue = dict[category];
+    where += ` AND  ac.category_sid = '${categoryValue}'  `;
+  }
 
   if (cityParam) {
     const cityValue = dict[cityParam];
@@ -168,6 +186,7 @@ router.get("/list", async (req, res) => {
   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
   LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+  JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
   ${where}
     GROUP BY r.rest_sid 
   ) AS subquery;`;
@@ -186,7 +205,34 @@ router.get("/list", async (req, res) => {
     }
 
     //確定要查詢的頁碼資料比總頁數小，才去拉資料
-
+    // const sql = `SELECT
+    // r.rest_sid,
+    // r.name,
+    // r.city,
+    // r.area,
+    // GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
+    // GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+    // GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
+    // ROUND(AVG(rr.friendly), 1) AS average_friendly,
+    // COUNT(b.booking_sid) AS booking_count
+    // FROM
+    // restaurant_information AS r
+    // JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+    // JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+    // JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+    // JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+    // JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+    // LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+    // LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
+    // ${where}
+    // GROUP BY
+    // r.rest_sid,
+    // r.name,
+    // r.city,
+    // r.area
+    // ${order}
+    // LIMIT ${perPage * (page - 1)}, ${perPage}
+    // `;
     const sql = `SELECT
     r.rest_sid,
     r.name,
@@ -197,29 +243,53 @@ router.get("/list", async (req, res) => {
     GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
     ROUND(AVG(rr.friendly), 1) AS average_friendly,
     COUNT(b.booking_sid) AS booking_count
-    FROM
-    restaurant_information AS r
-    JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-    JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-    JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-    JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-    JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-    LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-    LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
-    ${where}
-    GROUP BY
-    r.rest_sid,
-    r.name,
-    r.city,
-    r.area
-    ${order}
-    LIMIT ${perPage * (page - 1)}, ${perPage}
-    `;
+      FROM
+          restaurant_information AS r
+      JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+      JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+      JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+      JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+      JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+      LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+      LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
+      JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
+      ${where}
+      GROUP BY
+          r.rest_sid,
+          r.name,
+          r.city,
+          r.area
+      ${order}
+      LIMIT ${perPage * (page - 1)}, ${perPage};`;
 
     //要插入${order}在group by下面
     [rows] = await db.query(sql);
   }
   output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
+  return res.json(output);
+});
+
+//取得餐廳種類路由
+router.get("/category", async (req, res) => {
+  let output = {
+    restKind: [],
+    restKindhas: [],
+  };
+  const sql_restKind = `SELECT category_sid, category_name FROM restaurant_category WHERE 1`;
+
+  const [restKind] = await db.query(sql_restKind);
+
+  const sql_restKindhas = `SELECT ra.rest_sid, rc.category_sid, rc.category_name, r.name
+  FROM restaurant_associated_category ra
+  JOIN restaurant_category rc ON ra.category_sid = rc.category_sid
+  JOIN restaurant_information r ON ra.rest_sid = r.rest_sid;`;
+
+  const [restKindhas] = await db.query(sql_restKindhas);
+  output = {
+    ...output,
+    restKind,
+    restKindhas,
+  };
   return res.json(output);
 });
 
@@ -230,7 +300,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     ruleRows: [],
     serviceRows: [],
     commentRows: [],
-    activityRows:[],
+    activityRows: [],
   };
   const { rest_sid } = req.params;
   console.log(rest_sid);
@@ -283,27 +353,9 @@ WHERE rest_sid="${rest_sid}";`;
   let [commentRows] = await db.query(sql_comment);
 
   //取得餐廳活動
-  const sql_restActivity=`SELECT rest_sid, act_sid, title, content, img, date FROM restaurant_activity WHERE rest_sid = ${rest_sid};`;
+  const sql_restActivity = `SELECT rest_sid, act_sid, title, content, img, date FROM restaurant_activity WHERE rest_sid = ${rest_sid};`;
 
   let [activityRows] = await db.query(sql_restActivity);
-
-  //將上述資訊結合成預設資訊
-  // const defaultObj = {
-  //   rest_sid: "00",
-  //   rest_sid: rest_sid,
-  //   name: "default",
-  //   qty: 0,
-  //   img: mainImg,
-  //   for_age: 0,
-  // };
-
-  // res.json({
-  //   restDetailRows,
-  //   imageRows,
-  //   ruleRows,
-  //   serviceRows,
-  //   commentRows,
-  // });
 
   output = {
     ...output,
