@@ -423,6 +423,7 @@ router.get("/orderdetail/:sid", async (req, res) => {
       member_name: i.name,
       member_mobile: i.mobile,
       order_sid: i.order_sid,
+      product_sid: i.product_sid,
       post_status: i.post_status,
       rel_name: i.rel_name,
       rel_seq_name: i.rel_seq_name,
@@ -451,8 +452,8 @@ router.get("/orderdetail/:sid", async (req, res) => {
   res.json(updatedDatas);
 });
 
-//新增評價
-router.post("/reviews", async (req, res) => {
+//新增活動評價
+router.post("/actReviews", async (req, res) => {
   const sqlAct = `INSERT INTO activity_rating(
   member_sid, activity_sid, order_detail_sid, 
   star, date, content
@@ -470,4 +471,24 @@ router.post("/reviews", async (req, res) => {
   ]);
 
   res.json(rowsAct);
+});
+
+//新增商品評價
+router.post("/prodReviews", async (req, res) => {
+  const sqlProd = `INSERT INTO shop_comment(
+    order_detail_sid, product_sid, member_sid, 
+    date, rating, content
+    ) VALUES (
+      ?,?,?,
+      NOW(),?,?)`;
+
+  const [rowsProd] = await db.query(sqlProd, [
+    req.body.odSid,
+    req.body.prodSid,
+    req.body.memberSid,
+    req.body.starts,
+    req.body.content,
+  ]);
+
+  res.json(rowsProd);
 });
