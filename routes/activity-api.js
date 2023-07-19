@@ -356,7 +356,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     i.date=res.toDateString(i.date);
   });
 
-res.json({ activity_sid_data });
+res.json({activity_sid_data});
 });
 
 module.exports = router;
