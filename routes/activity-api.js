@@ -304,14 +304,23 @@ router.get("/activity", async (req, res) => {
 
 
 // [aid] 動態路由
+
+
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
+
+  let output = {
+    actDetailRows: [],
+    actImageRows: [],
+    actDateRows: [],
+    actFeatureRows: [],
+  };
 
   const { activity_sid } = req.params;
   console.log(req.params);
 
-  const activitySidData = `
-    SELECT ai.activity_sid, ai.name, ai.content,ai.policy,ai.schedule,ai.policy,ai.must_know, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.date, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
+  const sql_activityDetail = `
+    SELECT ai.activity_sid, ai.name, ai.content,ai.policy,ai.schedule,ai.policy,ai.must_know, ai.city, ai.area, ai.address, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.date, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
     FROM activity_info ai
     JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
     JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
@@ -320,43 +329,74 @@ router.get("/activity/:activity_sid", async (req, res) => {
     LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
     LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
     WHERE ai.activity_sid = ${activity_sid}
-    GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.date, ag.time, ag.price_adult, ar.avg_star`;
+    GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, recent_date, farthest_date, aty.name, ag.date, ag.time, ag.price_adult, ar.avg_star`;
 
-  const [activity_sid_data] = await db.query(activitySidData);
+  let [actDetailRows] = await db.query(sql_activityDetail);
+
+  // 取得 活動照片
+  const sql_image = `SELECT activity_sid, activity_pic FROM activity_info WHERE activity_sid= ${activity_sid}`;
+
+  let [actImageRows] = await db.query(sql_image);
 
 
+  // 取得 各期別
+  const sql_date = `SELECT activity_group_sid, activity_sid, date, time FROM activity_group WHERE activity_sid= ${activity_sid}`;
 
+  let [actDateRows] = await db.query(sql_date);
+
+
+  // 取得 feature
+  const sql_feature = `SELECT af.activity_feature_sid, af.name
+  FROM activity_feature af
+  JOIN activity_feature_with_info afi ON af.activity_feature_sid = afi.activity_feature_sid WHERE activity_sid= ${activity_sid}`;
+
+  let [actFeatureRows] = await db.query(sql_feature);
+
+ 
   // feature處理 (字串->陣列)
-  activity_sid_data.map((activity) => {
-    const featureNames = activity.feature_names; 
-    const features = featureNames.split(','); 
-    const trimmedFeatures = features.map(feature => feature.trim()); 
-    activity.feature_names = trimmedFeatures; 
-    console.log(trimmedFeatures); //測試
-    console.log(activity.feature_names); //測試
-  });
+  // actDetailRows.map((activity) => {
+  //   const featureNames = activity.feature_names; 
+  //   const features = featureNames.split(','); 
+  //   const trimmedFeatures = features.map(feature => feature.trim()); 
+  //   activity.feature_names = trimmedFeatures; 
+  //   console.log(trimmedFeatures); //測試
+  //   console.log(activity.feature_names); //測試
+  // });
   
 
 
   // 圖片處理 (字串->陣列)
-  activity_sid_data.map((pic) => {
-    const imgNames = pic.activity_pic; 
-    const imgs = imgNames.split(','); 
-    const trimmedImgs = imgs.map(img => img.trim()); 
-    pic.activity_pic = trimmedImgs; 
-    console.log(trimmedImgs); //測試
-    console.log(pic.imgNames); //測試
-  });
+  // activity_sid_data.map((pic) => {
+  //   const imgNames = pic.activity_pic; 
+  //   const imgs = imgNames.split(','); 
+  //   const trimmedImgs = imgs.map(img => img.trim()); 
+  //   pic.activity_pic = trimmedImgs; 
+  //   console.log(trimmedImgs); //測試
+  //   console.log(pic.imgNames); //測試
+  // });
 
 
-  // 日期處理
-  activity_sid_data.map((i) => {
+  // 日期處理 (actDetailRows + actDateRows)
+  actDetailRows.map((i) => {
     i.recent_date = res.toDateString(i.recent_date);
     i.farthest_date = res.toDateString(i.farthest_date);
     i.date=res.toDateString(i.date);
   });
 
-res.json({activity_sid_data});
+  actDateRows.map((i) => {
+    i.date=res.toDateString(i.date);
+  });
+
+
+  output = {
+    ...output,
+    actDetailRows,
+    actImageRows,
+    actDateRows,
+    actFeatureRows,
+  };
+
+  return res.json(output);
 });
 
 module.exports = router;
