@@ -368,6 +368,9 @@ WHERE rest_sid="${rest_sid}";`;
   };
   return res.json(output);
 });
+//booking路由
+router.get("/bookiing", async (req, res) => {
 
+});
 module.exports = router;
 // console.log(JSON.stringify(router, null, 4));
