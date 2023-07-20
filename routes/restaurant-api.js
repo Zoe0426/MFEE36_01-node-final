@@ -130,7 +130,7 @@ router.get("/list", async (req, res) => {
     where += ` AND r.name LIKE ${keyword_escaped} `;
   }
 
-  // 友善分類
+  // 分類
   let rule = req.query.rule || "";
   let service = req.query.service || "";
   let cityParam = req.query.city || "";
@@ -138,8 +138,12 @@ router.get("/list", async (req, res) => {
 
   if (category) {
     const categoryValue = dict[category];
-    where += ` AND  ac.category_sid = '${categoryValue}'  `;
+    // where += ` AND  ac.category_sid = '${categoryValue}'  `
+    where += `AND ac.category_sid IN ('${categoryValue}')  `;
+    // console.log(categoryValue)
   }
+  console.log(category)
+
 
   if (cityParam) {
     const cityValue = dict[cityParam];
@@ -171,7 +175,7 @@ router.get("/list", async (req, res) => {
   const order_escaped = dict[orderBy];
   order += ` ${order_escaped} `;
 
-  console.log(order_escaped);
+
 
   //取得總筆數資訊
   // const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
@@ -188,8 +192,7 @@ router.get("/list", async (req, res) => {
   LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
   JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
   ${where}
-    GROUP BY r.rest_sid 
-  ) AS subquery;`;
+  GROUP BY r.rest_sid) AS subquery;`;
 
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
