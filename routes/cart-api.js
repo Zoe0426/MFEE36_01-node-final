@@ -1,4 +1,5 @@
 const express = require('express');
+const createLinePayClient = require('line-pay-merchant').createLinePayClient;
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect")
 const upload = require(__dirname+"/../modules/img-upload.js");
@@ -24,6 +25,11 @@ const options = {
 }
 const ECPayPayment = require('ecpay_aio_nodejs/lib/ecpay_payment');
 const ecpayPayment = new ECPayPayment(options);
+const linePayClient = createLinePayClient({
+  channelId: '1657486223', // channel ID
+  channelSecretKey: 'a71103a6d1f405d02429e09c22e72f0f', // channel secret key
+  env: 'development' // env can be 'development' or 'production'
+})
 
 const getNewOrderSid = async () => {
     try {
@@ -516,5 +522,40 @@ router.post('/ecpayresult', (req, res) => {
 })
 router.post('/ecpaycallback', (req, res) => {
     console.log('paycallback:' + JSON.stringify(req));
+})
+router.get('/linepay', async(req,res)=>{
+      try {
+    const response = await linePayClient.request.send({
+      body: {
+        amount: 10,
+        currency: 'TWD',
+        orderId: 'ORD68735154f',
+        packages: [
+          {
+            id: 'c99abc79-3b29-4f40-8851-bc618ca57856',
+            amount: 10,
+            products: [
+              {
+                name: 'Product Name',
+                quantity: 1,
+                price: 10
+              }
+            ]
+          }
+        ],
+        redirectUrls: {
+          confirmUrl: 'http://localhost:3003/cart-api/linepayResult',
+          cancelUrl: 'http://localhost:3003/cart-api/linepayResult'
+        }
+      }
+    })
+    console.log('response::',response.body.info.paymentUrl);
+  } catch (e) {
+    console.log('error', e)
+  }
+})
+router.get('/linepayResult', async(req,res)=>{
+    console.log(req.query.transactionId);
+    res.json(JSON.stringify(req.query.transactionId));
 })
 module.exports = router;
