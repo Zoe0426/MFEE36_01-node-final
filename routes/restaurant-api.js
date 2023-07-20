@@ -136,14 +136,20 @@ router.get("/list", async (req, res) => {
   let cityParam = req.query.city || "";
   let category = req.query.category || "";
 
-  if (category) {
-    const categoryValue = dict[category];
-    // where += ` AND  ac.category_sid = '${categoryValue}'  `
-    where += `AND ac.category_sid IN ('${categoryValue}')  `;
-    // console.log(categoryValue)
-  }
-  console.log(category)
 
+  //取得多個用餐類別
+  if (category) {
+    const categoryValues = category.split(",");
+    const validCategoryValues = categoryValues
+      .map((value) => dict[value])
+      .filter(Boolean);
+    if (validCategoryValues.length > 0) {
+      const categorySids = validCategoryValues.join(",");
+      where += `AND ac.category_sid IN (${categorySids})  `;
+    }
+  }
+  
+  console.log(category);
 
   if (cityParam) {
     const cityValue = dict[cityParam];
