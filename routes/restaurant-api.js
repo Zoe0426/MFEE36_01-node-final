@@ -122,18 +122,17 @@ router.get("/list", async (req, res) => {
   let where = " WHERE 1 ";
 
   //日期篩選
-  let weekly = req.query.weekly ||"";
-  if(weekly){
+  let weekly = req.query.weekly || "";
+  if (weekly) {
     where += ` AND (NOT FIND_IN_SET(${weekly} , rest_date)OR rest_date IS NULL)`;
   }
 
   //時間篩選
   let startTime = req.query.startTime || "";
   let endTime = req.query.endTime || "";
-  if(startTime && endTime){
+  if (startTime && endTime) {
     where += ` AND ((start_at_1 BETWEEN '${startTime}' AND '${endTime}') OR (end_at_1 BETWEEN '${startTime}' AND '${endTime}') OR (start_at_2 BETWEEN '${startTime}' AND '${endTime}') OR (end_at_2 BETWEEN '${startTime}' AND '${endTime}')) `;
   }
-
 
   // 關鍵字宣告
   let keyword = req.query.keyword || "";
@@ -149,7 +148,6 @@ router.get("/list", async (req, res) => {
   let cityParam = req.query.city || "";
   let category = req.query.category || "";
 
-
   //取得多個用餐類別
   if (category) {
     const categoryValues = category.split(",");
@@ -161,7 +159,7 @@ router.get("/list", async (req, res) => {
       where += `AND ac.category_sid IN (${categorySids})  `;
     }
   }
-  
+
   console.log(category);
 
   if (cityParam) {
@@ -193,8 +191,6 @@ router.get("/list", async (req, res) => {
   let order = " ORDER BY ";
   const order_escaped = dict[orderBy];
   order += ` ${order_escaped} `;
-
-
 
   //取得總筆數資訊
   // const sql_totalRows = `SELECT COUNT(1) totalRows FROM restaurant_information ${where}`;
@@ -391,8 +387,6 @@ WHERE rest_sid="${rest_sid}";`;
   return res.json(output);
 });
 //booking路由
-router.get("/bookiing", async (req, res) => {
-
-});
+router.get("/bookiing", async (req, res) => {});
 module.exports = router;
 // console.log(JSON.stringify(router, null, 4));
