@@ -111,17 +111,23 @@ const createOrder = async(data)=>{
     const recipient_phone= (postInfo.length)?sendto.recipient_phone:null;
     const post_type= (postInfo.length)?sendto.post_type:null;
     const store_name= (postInfo.length)?sendto.store_name:null;
-    const post_amount = (postInfo.length)?(sendto.post_type?90:60): 0; 
+    const post_amount = (postInfo.length)?(sendto.post_type ===1? 90 : 60 ): 0; 
     const post_address = (postInfo.length)? (sendto.city+sendto.area+sendto.address): null;
 
     const subtotal = checkoutItems.reduce((a, v) => {
-      const sub = v.prod_price * v.prod_qty;
+      const sub = (v.prod_price * v.prod_qty)+ (v.adult_price * v.adult_qty)+ (v.child_price * v.child_qty);
       return a + sub;
     }, 0);
-    const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
+
+    const orderItems = checkoutType === 'shop'
+    ? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty}))
+    : checkoutItems.map(v=>({...v, 'rel_subtotal':(v.adult_price*v.adult_qty)+(v.child_price*v.child_qty)}));
 
     const updateCartData = checkoutItems.map(v=>({'cart_sid' :v.cart_sid,'order_status':'002'}));
     createOrderResult.orderSid = newOrderSid;
+    console.log('subtotal:',subtotal);
+    console.log('post_amount:',post_amount);
+    console.log('couponPrice:',couponPrice);
     createOrderResult.finalTotal= subtotal + post_amount - couponPrice;
     //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
     //新增到訂單-父表
@@ -206,7 +212,7 @@ const createOrder = async(data)=>{
 
     return createOrderResult;
 }
-const paymentSucceeded=async(data)=>{
+const paymentSucceeded=async(data,res)=>{
     const {CustomField1,CustomField2, CustomField3}= data;
     //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
     try {
@@ -216,8 +222,10 @@ const paymentSucceeded=async(data)=>{
                                     order_status = ?
                                 WHERE
                                     order_sid = ?;` 
+        
         const [updateOrderResult] = await db.query(updateOrderSql, [1,CustomField1]);
         if(updateOrderResult.affectedRows){
+            console.log('redirect to:', `http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`)
             res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
         }else{
             //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
@@ -361,14 +369,14 @@ router.post('/get-orderDetail', async(req,res)=>{
         orderDetailItems:'',
         coupon_amount:0
     };
-    const order_sid = req.body.orderSid;
+    const order_sid = req.body.order_sid;
     const checkoutType = req.body.checkoutType;
     console.log(order_sid);
     console.log(checkoutType);
 
-    const getOrderDetailSql = '';
+    let getOrderDetailSql = '';
     if(checkoutType ==='shop'){
-        getOrderDetailSql = `SELECT
+        getOrderDetailSql =(`SELECT
                 om.order_sid,
                 om.member_sid,
                 om.recipient,
@@ -393,7 +401,7 @@ router.post('/get-orderDetail', async(req,res)=>{
                 JOIN shop_product sp ON od.rel_sid = sp.product_sid
                 JOIN member_info mi ON om.member_sid = mi.member_sid
             WHERE
-                om.order_sid = ?`;   
+                om.order_sid = ?`);   
     }else if(checkoutType === 'activity'){
         getOrderDetailSql = `SELECT
                 om.order_sid,
@@ -424,6 +432,7 @@ router.post('/get-orderDetail', async(req,res)=>{
         output.email=orderDetailResult[0].email;
         output.create_dt=res.toDatetimeString(orderDetailResult[0].create_dt);
         output.coupon_amount=orderDetailResult[0].coupon_amount;
+        output.subtotal_amount=orderDetailResult[0].rel_subtotal;
 
         if(checkoutType === 'shop'){
             const pt = "";
@@ -445,7 +454,7 @@ router.post('/get-orderDetail', async(req,res)=>{
             output.orderDetailItems=orderDetailResult.map(v=>{
                 const st = (v.adult_price* v.adult_qty_qty+v.child_price*v.child_qty);
                 const img = v.activity_pic.split(',')[0];
-                return {...v, create_dt: dt, item_subTotal: st, activity_pic: img}
+                return {...v, item_subTotal: st, activity_pic: img}
             });
         }
         
@@ -457,9 +466,9 @@ router.post('/get-orderDetail', async(req,res)=>{
     res.json(output);
 })
 router.get('/test',(req, res) => {
-    console.log('req.query.orderSid:',req.query.orderSid)
+    console.log("test")
 
-    res.json(req.query.totalAmount );
+    res.send("test");
 } )
 router.get('/ecpay', (req, res) => {
     const orderSid = req.query.orderSid;
@@ -495,10 +504,10 @@ router.post('/ecpayresult', (req, res) => {
         const {RtnMsg}= req.body;
         if(RtnMsg === 'Succeeded'){
             //TODO: 前往結帳成功頁面
-            paymentSucceeded(req.body);
+            paymentSucceeded(req.body,res);
         } else {
             //TODO: 前往重新結帳頁面
-            paymentFailed(req.body);
+            paymentFailed(req.body,res);
         }
     } catch (error) {
         console.warn('error', error);
