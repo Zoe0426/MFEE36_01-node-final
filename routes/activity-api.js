@@ -70,7 +70,8 @@ router.get("/activity", async (req, res) => {
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
 
-    new_DESC: "ag.post_date DESC",
+    // new_DESC: "ag.post_date DESC",
+    new_DESC: "recent_date DESC",
     hot_DESC: "sales_qty DESC", // TODO: 需再確認cart那邊怎麼抓熱門活動
   };
 
