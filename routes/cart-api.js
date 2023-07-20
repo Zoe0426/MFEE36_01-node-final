@@ -25,9 +25,6 @@ const options = {
 const ECPayPayment = require('ecpay_aio_nodejs/lib/ecpay_payment');
 const ecpayPayment = new ECPayPayment(options);
 
-
-
-
 const getNewOrderSid = async () => {
     try {
         const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
@@ -44,7 +41,6 @@ const getNewOrderSid = async () => {
         throw new Error('取訂單編號時出錯');
     }
 }
-
 const updateCouponStatus = async(couponSendSid, status)=>{
     //status: 0=>unused, 1=>used
 try{
@@ -62,11 +58,9 @@ try{
         throw new Error('更新優惠券狀態時出錯');
     }
 }
-
 const updateCart = async(cartItems)=>{
     //cartItems: [{cart_sid:xxx, order_status:xxx}]
     //status: 001=>cart, 002=>order, 003=>delete
-    //console.log('updateCart的items:', cartItems)
     try{
         const result = [];
         for(let item of cartItems){
@@ -85,7 +79,7 @@ const updateCart = async(cartItems)=>{
 
     }catch(error){
         console.error(error);
-        throw new Error('更新優惠券狀態時出錯');
+        throw new Error('更新購物車商品狀態時出錯');
     }
 }
 const createOrder = async(data)=>{
@@ -339,6 +333,12 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     res.json(output);
 })
+router.post('/remove-cart-item', async (req,res)=>{
+    const cartItems = [{cart_sid:req.body.cart_sid, order_status:'003'}]
+    const removeResult = await updateCart(cartItems);
+    console.log(removeResult);
+    res.json(removeResult);
+})
 router.post('/create-order', async (req,res)=>{
     const output = {
         success: false,
@@ -497,7 +497,6 @@ router.get('/ecpay', (req, res) => {
     res.status(200);
     res.send(data);
 });
-
 router.post('/ecpayresult', (req, res) => {
     try {
         console.log('payresult:' + JSON.stringify(req.body));
@@ -515,7 +514,6 @@ router.post('/ecpayresult', (req, res) => {
     }
     res.status(200);
 })
-
 router.post('/ecpaycallback', (req, res) => {
     console.log('paycallback:' + JSON.stringify(req));
 })

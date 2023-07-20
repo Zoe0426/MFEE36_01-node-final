@@ -1,4 +1,3 @@
---reset mem00471 coupon
 UPDATE
     member_coupon_send
 SET
@@ -7,7 +6,6 @@ SET
 WHERE
     member_sid = 'mem00471';
 
---reset mem00471 cart
 UPDATE
     order_cart
 SET
