@@ -121,13 +121,26 @@ router.get("/list", async (req, res) => {
   //queryString條件判斷
   let where = " WHERE 1 ";
 
-  //排序
+  //日期篩選
+  let weekly = req.query.weekly ||"";
+  if(weekly){
+    where += ` AND (NOT FIND_IN_SET(${weekly} , rest_date)OR rest_date IS NULL)`;
+  }
+
+  //時間篩選
+  let startTime = req.query.startTime || "";
+  let endTime = req.query.endTime || "";
+  if(startTime && endTime){
+    where += ` AND ((start_at_1 BETWEEN '${startTime}' AND '${endTime}') OR (end_at_1 BETWEEN '${startTime}' AND '${endTime}') OR (start_at_2 BETWEEN '${startTime}' AND '${endTime}') OR (end_at_2 BETWEEN '${startTime}' AND '${endTime}')) `;
+  }
+
 
   // 關鍵字宣告
   let keyword = req.query.keyword || "";
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND r.name LIKE ${keyword_escaped} `;
+    // where += ` AND r.name LIKE ${keyword_escaped} `;
+    where += ` AND (r.name LIKE ${keyword_escaped} OR r.city LIKE ${keyword_escaped} OR r.area LIKE ${keyword_escaped}) `;
   }
 
   // 分類
