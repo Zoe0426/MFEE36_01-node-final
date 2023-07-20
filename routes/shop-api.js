@@ -53,9 +53,6 @@ router.get("/hompage-cards", async (req, res) => {
     });
     productsName = [...new Set(productsName)];
 
-
-
-
     tags = [...product_names].map((v) => {
       return v.name.split("-")[1].split("(")[1];
     });
@@ -63,11 +60,14 @@ router.get("/hompage-cards", async (req, res) => {
     tags = [...new Set(tags)];
   }
 
-  brandsName = brandData.map((v) => v.name);
+  brandsName = brandData.map((v) => {
+    let chineseBrandName = v.name.split(" ");
+    return (chineseBrandName = chineseBrandName[chineseBrandName.length - 1]);
+  });
 
   keywords = [...productsName, ...tags, ...brandsName];
 
-  res.json({ dogDatas, catDatas, brandData, newData,keywords });
+  res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
 //給列表頁面使用的API
@@ -165,17 +165,17 @@ router.get("/products", async (req, res) => {
   //關鍵字
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND (p.name LIKE ${keyword_escaped})`
+    where += ` AND (p.name LIKE ${keyword_escaped})`;
     let condition = "";
     // keywordDict.forEach((v) => {
-      // if (keyword_escaped.includes(v.word)) {
-      //   condition += v.col;
-      // }
+    // if (keyword_escaped.includes(v.word)) {
+    //   condition += v.col;
+    // }
 
-      // if (keyword===v.word) {
+    // if (keyword===v.word) {
 
-      //   condition += v.col;
-      // }     
+    //   condition += v.col;
+    // }
     // });
     // const newCondition = condition.slice(3);
 
@@ -375,7 +375,10 @@ router.get("/search-brand-list", async (req, res) => {
     tags = [...new Set(tags)];
   }
 
-  brandsName = brand.map((v) => v.label);
+  brandsName = brand.map((v) => {
+    let chineseBrandName = v.label.split(" ");
+    return (chineseBrandName = chineseBrandName[chineseBrandName.length - 1]);
+  });
 
   keywords = [...productsName, ...tags, ...brandsName];
 
