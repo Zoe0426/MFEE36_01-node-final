@@ -524,38 +524,73 @@ router.post('/ecpaycallback', (req, res) => {
     console.log('paycallback:' + JSON.stringify(req));
 })
 router.get('/linepay', async(req,res)=>{
-      try {
-    const response = await linePayClient.request.send({
-      body: {
-        amount: 10,
-        currency: 'TWD',
-        orderId: 'ORD68735154f',
-        packages: [
-          {
-            id: 'c99abc79-3b29-4f40-8851-bc618ca57856',
-            amount: 10,
-            products: [
-              {
-                name: 'Product Name',
-                quantity: 1,
-                price: 10
-              }
-            ]
-          }
-        ],
+    const orderSid = req.query.orderSid;
+    const totalAmount = req.query.totalAmount;
+    const checkoutType = req.query.checkoutType;
+    const memberSid = req.query.memberSid;
+    try {
+        const response = await linePayClient.request.send({
+        body: {
+            amount:totalAmount,
+            currency: 'TWD',
+            orderId: `${orderSid}${checkoutType}${memberSid}`,
+            packages: [
+            {
+                id: 'c99abc79-3b29-4f40-8851-bc618ca57856',
+                amount: totalAmount,
+                products: [
+                {
+                    name: '狗with咪商城/活動',
+                    quantity: 1,
+                    price: totalAmount
+                },
+
+                ]
+            }
+            ],
         redirectUrls: {
-          confirmUrl: 'http://localhost:3003/cart-api/linepayResult',
-          cancelUrl: 'http://localhost:3003/cart-api/linepayResult'
-        }
+        confirmUrl: 'http://localhost:3002/cart-api/linepayResult',
+        cancelUrl: 'http://localhost:3002/cart-api/linepayResult'
+            }
       }
     })
-    console.log('response::',response.body.info.paymentUrl);
+    console.log('response:', response);
+
+    res.redirect(response.body.info.paymentUrl.web)
   } catch (e) {
     console.log('error', e)
   }
 })
 router.get('/linepayResult', async(req,res)=>{
-    console.log(req.query.transactionId);
-    res.json(JSON.stringify(req.query.transactionId));
+    console.log("req.query:",req.query.orderId);
+    const response = {RtnMsg:'Succeeded'}; 
+    const data={};
+    try{
+    const str=req.query.orderId;
+    data.CustomField1 = str.slice(0,8);
+    data.CustomField2 = str.includes('shop')?str.slice(8,12):str.slice(8,16)
+    data.CustomField3 = str.slice(-8);
+    }catch(error){
+        console.warn('error', error);
+        throw new Error('Line解晰回傳結果出錯');
+    }
+    console.log('data', data);
+    try {
+        console.log('payresult:' + JSON.stringify(req.body));
+        const {RtnMsg}= response;
+        if(RtnMsg === 'Succeeded'){
+            //TODO: 前往結帳成功頁面
+            console.log('data in payResult', data);
+            paymentSucceeded(data,res);
+        } else {
+            //TODO: 前往重新結帳頁面
+             console.log('data in repay', data);
+            paymentFailed(data,res);
+        }
+    } catch (error) {
+        console.warn('error', error);
+        throw new Error('付款結果出錯');
+    }
+    res.status(200);
 })
 module.exports = router;
