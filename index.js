@@ -41,7 +41,11 @@ app.use((req, res, next) => {
     const djs = dayjs(d);
     return djs.format(fm);
   };
-
+  res.toDatetimeString2 = (d)=>{
+        const fm = "YYYY/MM/DD HH:mm:ss";
+        const djs = dayjs(d);
+        return djs.format(fm);
+  }
   const auth = req.get("Authorization");
   if (auth && auth.indexOf("Bearer ") === 0) {
     const token = auth.slice(7);
@@ -54,11 +58,7 @@ app.use((req, res, next) => {
     }
     console.log(jwtData);
   }
-    res.toDatetimeString2 = (d)=>{
-        const fm = "YYYY/MM/DD HH:mm:ss";
-        const djs = dayjs(d);
-        return djs.format(fm);
-    }
+   
   next();
 });
 //=====測試=====
