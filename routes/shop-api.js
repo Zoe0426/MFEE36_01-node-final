@@ -80,7 +80,7 @@ router.get("/products", async (req, res) => {
     rows: [],
   };
 
-   const dict = {
+  const dict = {
     dog: "D",
     cat: "C",
     both: "B",
@@ -101,15 +101,6 @@ router.get("/products", async (req, res) => {
     new_DESC: "shelf_date DESC",
     sales_DESC: "sales_qty DESC",
   };
-
-
-  let where_member=''
-  //判斷用戶有沒有登入，用token驗證
-  if(res.locals.jwtData){
-    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
-    console.log(res.locals.jwtData.id)
-  }
-
 
   let perPage = req.query.perPage || 20;
   let keyword = req.query.keyword || "";
@@ -200,13 +191,12 @@ router.get("/products", async (req, res) => {
     }
 
     //確定要查詢的頁碼資料比總頁數小 在去拉資料
-    const sql = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty, sl.product_sid like
+    const sql = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty 
         FROM shop_product p
         LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
         INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid
-        LEFT JOIN shop_like sl ON sl.product_sid=p.product_sid ${where_member}
         ${where}
         GROUP BY p.product_sid
         ${order}
@@ -219,21 +209,37 @@ router.get("/products", async (req, res) => {
   rows.forEach((v) => {
     v.shelf_date = res.toDatetimeString(v.shelf_date);
     v.update_date = res.toDatetimeString(v.update_date);
+    v.like = false;
   });
+
+  //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過蒐藏
+  if (res.locals.jwtData) {
+    const sql_like = `SELECT * FROM shop_like where member_sid="${res.locals.jwtData.id}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      rows=rows.map((v1) => {
+        const foundLike = like_rows.find((v2) => v1.product_sid === v2.product_sid);
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+    }
+    // console.log(res.locals.jwtData.id);
+  }
+
+  // console.log(rows);
 
   //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
-    FROM shop_like l
-    JOIN shop_product p ON p.product_sid=l.product_sid
-    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-    WHERE member_sid='mem00002'
-    GROUP BY p.product_sid
-    ORDER BY date DESC`;
-  const [likeDatas] = await db.query(sql_likeList);
+  // const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+  //   FROM shop_like l
+  //   JOIN shop_product p ON p.product_sid=l.product_sid
+  //   LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+  //   WHERE member_sid='mem00002'
+  //   GROUP BY p.product_sid
+  //   ORDER BY date DESC`;
+  // const [likeDatas] = await db.query(sql_likeList);
 
-  likeDatas.forEach((v) => {
-    v.date = res.toDateString(v.date);
-  });
+  // likeDatas.forEach((v) => {
+  //   v.date = res.toDateString(v.date);
+  // });
 
   output = {
     ...output,
@@ -242,7 +248,7 @@ router.get("/products", async (req, res) => {
     totalPages,
     page,
     rows,
-    likeDatas,
+    // likeDatas,
   };
   return res.json(output);
 });
@@ -473,8 +479,11 @@ router.get("/product/:product_sid", async (req, res) => {
   });
 });
 
-//刪除收藏清單的API
+//處理收藏清單的API
+router.post("")
 
+
+//刪除收藏清單的API
 router.delete("/likelist/:pid/:mid", async (req, res) => {
   const { pid, mid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `shop_like` WHERE ";
