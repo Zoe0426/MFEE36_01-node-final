@@ -39,7 +39,35 @@ router.get("/hompage-cards", async (req, res) => {
     LIMIT 0, 23`;
   const [catDatas] = await db.query(sql_catData);
 
-  res.json({ dogDatas, catDatas, brandData, newData });
+  //拿關鍵字資料
+  let keywords = [];
+  let productsName = [];
+  let brandsName = [];
+  let tags = [];
+
+  const sql_product_names = "SELECT name FROM `shop_product`";
+  const [product_names] = await db.query(sql_product_names);
+  if (product_names.length > 0) {
+    productsName = [...product_names].map((v) => {
+      return v.name.split("-")[1].split("(")[0];
+    });
+    productsName = [...new Set(productsName)];
+
+    tags = [...product_names].map((v) => {
+      return v.name.split("-")[1].split("(")[1];
+    });
+    tags = tags.filter((v) => v != null).map((v) => v.split(")")[0]);
+    tags = [...new Set(tags)];
+  }
+
+  brandsName = brandData.map((v) => {
+    let chineseBrandName = v.name.split(" ");
+    return (chineseBrandName = chineseBrandName[chineseBrandName.length - 1]);
+  });
+
+  keywords = [...productsName, ...tags, ...brandsName];
+
+  res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
 //給列表頁面使用的API
@@ -52,34 +80,7 @@ router.get("/products", async (req, res) => {
     rows: [],
   };
 
-  const keywordDict = [
-    { word: "犬", col: 'AND p.for_pet_type IN ("D", "B") ' },
-    { word: "狗", col: 'AND p.for_pet_type IN ("D", "B") ' },
-    { word: "汪星人", col: 'AND p.for_pet_type IN ("D", "B") ' },
-    { word: "貓", col: 'AND p.for_pet_type IN ("C", "B") ' },
-    { word: "喵星人", col: 'AND p.for_pet_type IN ("C", "B") ' },
-    { word: "幼", col: "AND ps.for_age IN (1, 4) " },
-    { word: "成", col: "AND ps.for_age IN (2, 4) " },
-    { word: "高齡", col: "AND ps.for_age IN (3, 4) " },
-    { word: "老", col: "AND ps.for_age IN (3, 4) " },
-    { word: "飼料", col: 'AND p.category_detail_sid="FE" ' },
-    { word: "罐頭", col: 'AND p.category_detail_sid="CA" ' },
-    { word: "零食", col: 'AND p.category_detail_sid="SN" ' },
-    { word: "保健", col: 'AND p.category_detail_sid="HE" ' },
-    { word: "服飾", col: 'AND p.category_detail_sid="DR" ' },
-    { word: "衣", col: 'AND p.category_detail_sid="DR" ' },
-    { word: "外出用品", col: 'AND p.category_detail_sid="OD" ' },
-    { word: "玩具", col: 'AND p.category_detail_sid="TO" ' },
-    { word: "其他", col: 'AND p.category_detail_sid="OT" ' },
-    { word: "Hills", col: 'AND s.name="Hills 希爾思" ' },
-    { word: "希爾思", col: 'AND s.name="Hills 希爾思" ' },
-    { word: "Orijen", col: 'AND s.name="Orijen 極緻" ' },
-    { word: "極緻", col: 'AND s.name="Orijen 極緻" ' },
-    { word: "Toma pro", col: 'AND s.name="Toma-pro 優格" ' },
-    { word: "GoMo Pet Food", col: 'AND s.name="GoMo Pet Food" ' },
-  ];
-
-  const dict = {
+   const dict = {
     dog: "D",
     cat: "C",
     both: "B",
@@ -101,13 +102,20 @@ router.get("/products", async (req, res) => {
     sales_DESC: "sales_qty DESC",
   };
 
-  // const perPage=16;
+
+  let where_member=''
+  //判斷用戶有沒有登入，用token驗證
+  if(res.locals.jwtData){
+    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
+    console.log(res.locals.jwtData.id)
+  }
+
+
   let perPage = req.query.perPage || 20;
   let keyword = req.query.keyword || "";
   let orderBy = req.query.orderBy || "new_DESC";
   let maxPrice = parseInt(req.query.maxPrice || 0);
   let minPrice = parseInt(req.query.minPrice || 0);
-
 
   let category = req.query.category ? req.query.category.split(",") : [];
   let typeForPet = req.query.typeForPet ? req.query.typeForPet.split(",") : [];
@@ -122,34 +130,23 @@ router.get("/products", async (req, res) => {
 
   //queryString條件判斷
   let where = ` WHERE 1`;
-  let having = "";
+
+  let where_price = "";
 
   if (maxPrice) {
-    having += `OR ( MIN(ps.price) >= ${maxPrice} AND MAX(ps.price) <= ${maxPrice} ) `;
+    where_price += `AND price <= ${maxPrice} `;
   }
   if (minPrice) {
-    having += `OR ( MIN(ps.price) <= ${minPrice} AND MAX(ps.price) >= ${minPrice} ) `;
+    where_price += `AND price >= ${minPrice} `;
   }
-  if (having) {
-    having = `HAVING ${having.slice(2)}`;
+  if (where_price) {
+    where_price = `WHERE 1 ${where_price} `;
   }
 
   //關鍵字
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    let condition = "";
-    keywordDict.forEach((v) => {
-      if (keyword_escaped.includes(v.word)) {
-        condition += v.col;
-      }
-    });
-    const newCondition = condition.slice(3);
-    console.log({ newCondition });
-    if (newCondition) {
-      where += ` AND (p.name LIKE ${keyword_escaped} OR ${newCondition})`;
-    } else {
-      where += ` AND (p.name LIKE ${keyword_escaped})`;
-    }
+    where += ` AND (p.name LIKE ${keyword_escaped})`;
   }
 
   //篩選
@@ -182,15 +179,12 @@ router.get("/products", async (req, res) => {
   //取得總筆數資訊
   const sql_totalRows = `SELECT COUNT(1) totalRows
   FROM (
-    SELECT p.product_sid
-    FROM shop_product p
-    LEFT JOIN shop_product_detail ps ON p.product_sid = ps.product_sid
-    LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-    ${where}
-    GROUP BY p.product_sid
-    ${having}
-  ) AS subquery`;
-
+  SELECT p.product_sid
+  FROM shop_product p
+  LEFT JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
+  INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
+  ${where}
+  GROUP BY p.product_sid) AS subquery`;
 
   const [[{ totalRows }]] = await db.query(sql_totalRows);
   let totalPages = 0;
@@ -205,20 +199,19 @@ router.get("/products", async (req, res) => {
       page = totalPages;
     }
 
-    //確定要查詢的頁碼資料比總頁數小，才去拉資料
-    const sql = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty
+    //確定要查詢的頁碼資料比總頁數小 在去拉資料
+    const sql = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating, SUM(product_qty) sales_qty, sl.product_sid like
         FROM shop_product p
         LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-        LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+        INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid
+        LEFT JOIN shop_like sl ON sl.product_sid=p.product_sid ${where_member}
         ${where}
         GROUP BY p.product_sid
-        ${having}
         ${order}
         LIMIT ${perPage * (page - 1)}, ${perPage}
         `;
-
     [rows] = await db.query(sql);
   }
 
@@ -250,17 +243,16 @@ router.get("/products", async (req, res) => {
     page,
     rows,
     likeDatas,
-    // brand,
   };
-  console.log({ where });
   return res.json(output);
 });
 
-//給列表頁供應商的選項API
-router.get("/brand-list", async (req, res) => {
+//給列表頁供應商+商品名稱的選項API
+router.get("/search-brand-list", async (req, res) => {
   let output = {
     success: false,
     brand: [],
+    keywords: [],
   };
 
   const dict = {
@@ -281,6 +273,7 @@ router.get("/brand-list", async (req, res) => {
     other: "OT",
   };
 
+  //取得品牌資訊
   const sql_brand = `SELECT s.name label, s.name value, s.supplier_sid id 
     FROM shop_product p
     LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
@@ -289,6 +282,7 @@ router.get("/brand-list", async (req, res) => {
 
   const [brand] = await db.query(sql_brand);
 
+  //取得品牌有出哪些類別的商品
   const sql_brand_has = `SELECT p.supplier_sid id, p.category_detail_sid, p.for_pet_type, ps.for_age
     FROM shop_product p
     LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
@@ -325,11 +319,38 @@ router.get("/brand-list", async (req, res) => {
     });
   });
 
+  let keywords = [];
+  let productsName = [];
+  let brandsName = [];
+  let tags = [];
+
+  const sql_product_names = "SELECT name FROM `shop_product`";
+  const [product_names] = await db.query(sql_product_names);
+  if (product_names.length > 0) {
+    productsName = [...product_names].map((v) => {
+      return v.name.split("-")[1].split("(")[0];
+    });
+    productsName = [...new Set(productsName)];
+
+    tags = [...product_names].map((v) => {
+      return v.name.split("-")[1].split("(")[1];
+    });
+    tags = tags.filter((v) => v != null).map((v) => v.split(")")[0]);
+    tags = [...new Set(tags)];
+  }
+
+  brandsName = brand.map((v) => {
+    let chineseBrandName = v.label.split(" ");
+    return (chineseBrandName = chineseBrandName[chineseBrandName.length - 1]);
+  });
+
+  keywords = [...productsName, ...tags, ...brandsName];
+
   output = {
     ...output,
+    keywords,
     brand,
   };
-  console.log(brand);
   return res.json(output);
 });
 
@@ -451,74 +472,6 @@ router.get("/product/:product_sid", async (req, res) => {
     likeDatas,
   });
 });
-
-// router.get("/maincard/:cat", async (req, res) => {
-//   const { cat } = req.params;
-
-//   //製作類別字典，以判斷動態路由，所選擇責的類別
-//   const dict = {
-//     can: ["category_detail_sid", "CA"],
-//     food: ["category_detail_sid", "FE"],
-//     snack: ["category_detail_sid", "SN"],
-//     health: ["category_detail_sid", "HE"],
-//     dress: ["category_detail_sid", "DR"],
-//     outdoor: ["category_detail_sid", "OD"],
-//     toy: ["category_detail_sid", "TO"],
-//     other: ["category_detail_sid", "OT"],
-//   };
-
-//   //取得卡片資訊
-//   const sql_cardData = `SELECT p.*, s.name supplier, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
-//         FROM shop_product p
-//         LEFT JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-//         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-//         LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE ${dict[cat][0]}='${dict[cat][1]}'
-//         GROUP BY p.product_sid
-//         LIMIT 0, 15`;
-//   const [cardData] = await db.query(sql_cardData);
-//   console.log(cardData);
-
-//   //將卡片內的日期轉換為當地格式
-//   cardData.forEach((v) => {
-//     v.shelf_date = res.toDatetimeString(v.shelf_date);
-//     v.update_date = res.toDatetimeString(v.update_date);
-//   });
-
-//   //取得總筆數資訊
-//   const sql_totalRows = `SELECT COUNT(1) totalRows FROM shop_product WHERE ${dict[cat][0]}='${dict[cat][1]}'`;
-//   const [[{ totalRows }]] = await db.query(sql_totalRows);
-
-//   //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-//   const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
-//         FROM shop_like l
-//         JOIN shop_product p ON p.product_sid=l.product_sid
-//         LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-//         WHERE member_sid='mem00002'
-//         GROUP BY p.product_sid
-//         ORDER BY date DESC`;
-//   const [likeDatas] = await db.query(sql_likeList);
-
-//   likeDatas.forEach((v) => {
-//     v.date = res.toDateString(v.date);
-//   });
-
-//   //依據類別給回傳篩選時有哪幾家品牌
-//   const sql_brandDatas = `SELECT s.name label, s.supplier_sid value
-//     FROM shop_product p
-//     JOIN shop_supplier s ON s.supplier_sid=p.supplier_sid
-//     WHERE ${dict[cat][0]}='${dict[cat][1]}'
-//     GROUP BY p.supplier_sid
-//     ORDER BY s.name ASC`;
-
-//   const [brandDatas] = await db.query(sql_brandDatas);
-
-//   res.json({ totalRows, cardData, likeDatas, brandDatas });
-//   // data.forEach(i=>{
-//   //     i.birthday = res.toDatetimeString(i.birthday)
-//   //     i.created_at = res.toDatetimeString(i.created_at)
-//   // });
-//   // res.json(data)
-// });
 
 //刪除收藏清單的API
 
