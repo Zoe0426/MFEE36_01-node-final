@@ -78,6 +78,7 @@ WHERE
 ORDER BY
     mcc.exp_date ASC;
 
+--create order-main
 INSERT INTO
     order_main(
         order_sid,
@@ -97,7 +98,7 @@ INSERT INTO
         create_dt
     )
 VALUES
-    ()
+    () --create order detail
 INSERT INTO
     order_details(
         order_detail_sid,
@@ -116,4 +117,73 @@ INSERT INTO
         rel_subtotal
     )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+--update coupon
+UPDATE
+    member_coupon_send
+SET
+    coupon_status = ?,
+    used_time = now()
+WHERE
+    coupon_send_sid = ?;
+
+--update cart
+UPDATE
+    order_cart
+SET
+    order_status = ?
+WHERE
+    cart_sid = ?;
+
+--update order
+UPDATE
+    order_main
+SET
+    order_status = ?
+WHERE
+    order_sid = ?;
+
+--getOrderDetail/shop
+SELECT
+    om.order_sid,
+    om.recipient,
+    om.recipient_phone,
+    om.post_type,
+    om.post_address,
+    om.post_store_name,
+    om.create_dt,
+    od.rel_name,
+    od.rel_seq_name,
+    od.product_price,
+    od.product_qty,
+    om.rel_subtotal,
+    om.coupon_amount,
+    om.post_amount,
+    sp.img
+FROM
+    order_main om
+    JOIN order_details od ON om.order_sid = od.order_sid
+    JOIN shop_product sp ON od.rel_sid = sp.product_sid
+WHERE
+    om.order_sid = ?;
+
+--get OrderDetail/activity
+SELECT
+    om.order_sid,
+    om.create_dt,
+    od.rel_name,
+    od.rel_seq_name,
+    od.adult_price,
+    od.adult_qty,
+    od.child_price,
+    od.child_qty om.rel_subtotal,
+    om.coupon_amount,
+    om.post_amount,
+    ai.activity_pic
+FROM
+    order_main om
+    JOIN order_details od ON om.order_sid = od.order_sid
+    JOIN activity_info ai ON od.rel_sid = ai.activity_sid
+WHERE
+    om.order_sid = ?;

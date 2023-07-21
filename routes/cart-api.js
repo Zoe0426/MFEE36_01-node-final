@@ -1,4 +1,5 @@
 const express = require('express');
+const createLinePayClient = require('line-pay-merchant').createLinePayClient;
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect")
 const upload = require(__dirname+"/../modules/img-upload.js");
@@ -24,8 +25,220 @@ const options = {
 }
 const ECPayPayment = require('ecpay_aio_nodejs/lib/ecpay_payment');
 const ecpayPayment = new ECPayPayment(options);
+const linePayClient = createLinePayClient({
+  channelId: '1657486223', // channel ID
+  channelSecretKey: 'a71103a6d1f405d02429e09c22e72f0f', // channel secret key
+  env: 'development' // env can be 'development' or 'production'
+})
 
+const getNewOrderSid = async () => {
+    try {
+        const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
+        const [maxSid] = await db.query(sqlHead);
+        if (maxSid[0].maxSid === undefined) { 
+        return 'ORD00001';
+        } else { 
+        const newOrdNum = parseInt(maxSid[0].maxSid.substring(3)) + 1;
+        const newOrdersid = `ORD${newOrdNum.toString().padStart(5, '0')}`;
+        return newOrdersid;
+        }
+    } catch (error) {
+        console.error(error);
+        throw new Error('取訂單編號時出錯');
+    }
+}
+const updateCouponStatus = async(couponSendSid, status)=>{
+    //status: 0=>unused, 1=>used
+try{
+    const updateCouponSql = `UPDATE member_coupon_send
+                            SET 
+                                coupon_status = ?,
+                                used_time = now()
+                            WHERE
+                                coupon_send_sid = ?`    
+    const [updateCouponResult] = await db.query(updateCouponSql,[status, couponSendSid]);
+    return updateCouponResult.affectedRows? 'success' : 'failed';
 
+    }catch(error){
+        console.error(error);
+        throw new Error('更新優惠券狀態時出錯');
+    }
+}
+const updateCart = async(cartItems)=>{
+    //cartItems: [{cart_sid:xxx, order_status:xxx}]
+    //status: 001=>cart, 002=>order, 003=>delete
+    try{
+        const result = [];
+        for(let item of cartItems){
+            const {cart_sid, order_status} = item;
+            const updateCartSql = `UPDATE
+                                    order_cart
+                                SET
+                                    order_status = ?
+                                WHERE
+                                    cart_sid = ?`    
+        const [updateCartSqlResult] = await db.query(updateCartSql,[order_status, cart_sid]);
+        result.push(updateCartSqlResult.affectedRows);
+        //console.log("updateCartResult:" ,result);
+        }
+        return result.includes(0)?'failed': 'success';
+
+    }catch(error){
+        console.error(error);
+        throw new Error('更新購物車商品狀態時出錯');
+    }
+}
+const createOrder = async(data)=>{
+    const createOrderResult = {
+        createOrderSuccess :false,
+        orderSid: "",
+        finalTotal:0
+    }
+    const result = {
+        addtoOrdermain: false,
+        addtoOrderdetail:false,
+        cartUpdated:false,
+    };
+    //準備sql所需資料
+    const newOrderSid = await getNewOrderSid();
+    const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
+    //coupon
+    const coupon_send_sid = (couponInfo.length)? couponInfo[0].coupon_send_sid: '';
+    const couponPrice = (couponInfo.length)? couponInfo[0].price: 0;
+    //send to 
+    const sendto = (postInfo.length)?postInfo.filter(v=>v.selected)[0]:postInfo;
+    const recipient= (postInfo.length)?sendto.recipient:null;
+    const recipient_phone= (postInfo.length)?sendto.recipient_phone:null;
+    const post_type= (postInfo.length)?sendto.post_type:null;
+    const store_name= (postInfo.length)?sendto.store_name:null;
+    const post_amount = (postInfo.length)?(sendto.post_type ===1? 90 : 60 ): 0; 
+    const post_address = (postInfo.length)? (sendto.city+sendto.area+sendto.address): null;
+
+    const subtotal = checkoutItems.reduce((a, v) => {
+      const sub = (v.prod_price * v.prod_qty)+ (v.adult_price * v.adult_qty)+ (v.child_price * v.child_qty);
+      return a + sub;
+    }, 0);
+
+    const orderItems = checkoutType === 'shop'
+    ? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty}))
+    : checkoutItems.map(v=>({...v, 'rel_subtotal':(v.adult_price*v.adult_qty)+(v.child_price*v.child_qty)}));
+
+    const updateCartData = checkoutItems.map(v=>({'cart_sid' :v.cart_sid,'order_status':'002'}));
+    createOrderResult.orderSid = newOrderSid;
+    console.log('subtotal:',subtotal);
+    console.log('post_amount:',post_amount);
+    console.log('couponPrice:',couponPrice);
+    createOrderResult.finalTotal= subtotal + post_amount - couponPrice;
+    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
+    //新增到訂單-父表
+    try{
+        const orderMainSql = `INSERT INTO
+            order_main(
+                order_sid, member_sid, coupon_send_sid,
+                recipient, recipient_phone, post_type,
+                post_store_name, post_address, post_status, 
+                tread_type, rel_subtotal, post_amount,
+                coupon_amount,order_status, 
+                create_dt
+            )
+            VALUES
+                (?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,now()
+                )`
+        const [orderMainresult] = await db.query(orderMainSql,[
+            newOrderSid,member_sid,coupon_send_sid,
+            recipient,recipient_phone,post_type,
+            store_name, post_address , 1, 
+            paymentType, subtotal, post_amount,
+            couponPrice, 0])
+        orderMainresult.affectedRows && (result.addtoOrdermain = true);
+    }catch(error){
+        console.error(error);
+        throw new Error('加父表格時出錯');
+    }
+      //新增到訂單明細-子表
+    try{
+        for(let item of orderItems){
+            const orderDetailSql = `INSERT INTO
+                    order_details(
+                        order_sid, rel_type, rel_sid,
+                        rel_seq_sid, rel_name, rel_seq_name,
+                        product_price, product_qty, adult_price,
+                        adult_qty, child_price, child_qty,
+                        rel_subtotal
+                    )
+                    VALUES
+                        (?,?,?,
+                        ?,?,?,
+                        ?,?,?,
+                        ?,?,?,
+                        ?)`
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,    child_qty,rel_subtotal}=item;  
+
+            const [orderDetailresult] = await db.query(orderDetailSql,[
+                    newOrderSid,checkoutType,rel_sid, 
+                    rel_seq_sid,rel_name,rel_seq_name,
+                    prod_price,prod_qty,adult_price,
+                    adult_qty,child_price, child_qty,
+                    rel_subtotal])
+
+            orderDetailresult.affectedRows &&  (result.addtoOrderdetail = true);
+     }
+        }catch(error){
+        console.error(error);
+        throw new Error('加子表格時出錯');
+    }
+    //有使用coupon的話更新狀態
+    if(coupon_send_sid){
+        const updateCouponResult = await updateCouponStatus(coupon_send_sid, 1);
+        updateCouponResult === 'success'? (result.couponUpdated = true):(result.couponUpdated = false);
+    }
+    if(checkoutType==='shop'){
+        //TODO:更新預設地址
+    }
+    const updateCartResult = await updateCart(updateCartData);
+    updateCartResult === 'success'? (result.cartUpdated = true):(result.cartUpdated = false);
+    //更新購物車
+    if(coupon_send_sid){
+        (result.addtoOrdermain && result.addtoOrderdetail && result.cartUpdated && result.couponUpdated)? createOrderResult.createOrderSuccess = true: createOrderResult.createOrderSuccess = false;
+    }else{
+        (result.addtoOrdermain && result.addtoOrderdetail && result.cartUpdated )? createOrderResult.createOrderSuccess = true: createOrderResult.createOrderSuccess = false;
+    }
+    console.log(result);
+    console.log(createOrderResult);
+
+    return createOrderResult;
+}
+const paymentSucceeded=async(data,res)=>{
+    const {CustomField1,CustomField2, CustomField3}= data;
+    //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
+    try {
+        const updateOrderSql = `UPDATE
+                                    order_main
+                                SET
+                                    order_status = ?
+                                WHERE
+                                    order_sid = ?;` 
+        
+        const [updateOrderResult] = await db.query(updateOrderSql, [1,CustomField1]);
+        if(updateOrderResult.affectedRows){
+            console.log('redirect to:', `http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`)
+            res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+        }else{
+            //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+                //res.send(req.body.CustomField1);
+                //console.log(req.body);
+        }
+    } catch(error) { console.error(error);
+        throw new Error('update order status failed 更新訂單狀態失敗');
+    }
+}
+const paymentFailed = async()=>{
+    //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+}
 router.post ('/get-cart-items', async(req,res)=>{
     let output ={
         shop : [],
@@ -126,151 +339,149 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     res.json(output);
 })
-
-const getNewOrderSid = async () => {
-    try {
-        const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
-        const [maxSid] = await db.query(sqlHead);
-        if (maxSid[0].maxSid === undefined) { 
-        return 'ORD00001';
-        } else { 
-        const newOrdNum = parseInt(maxSid[0].maxSid.substring(3)) + 1;
-        const newOrdersid = `ORD${newOrdNum.toString().padStart(5, '0')}`;
-        return newOrdersid;
-        }
-    } catch (error) {
-        console.error(error);
-        throw new Error('取訂單編號時出錯');
-    }
-}
-
-const createOrder = async(data)=>{
-    const result = {
-        addtoOrdermain: false,
-        addtoOrderdetail:false,
-        orderSid:"",
-        finalTotal:0
-    };
-    const newOrderSid = await getNewOrderSid();
-    result.orderSid = newOrderSid;
-    const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
-    const {coupon_send_sid, price}=couponInfo[0];
-    const sendto = postInfo.filter(v=>v.selected)[0];
-    const {recipient,recipient_phone,post_type, store_name}= sendto;
-    const post_amount = sendto.post_type === 1?90:60; 
-    const post_address = sendto.city+sendto.area+sendto.address;
-    const subtotal = checkoutItems.reduce((a, v) => {
-      const sub = v.prod_price * v.prod_qty;
-      return a + sub;
-    }, 0);
-    const orderItems = checkoutType === 'shop'? checkoutItems.map(v=>({...v, 'rel_subtotal':v.prod_price*v.prod_qty})): checkoutItems.map(v=>({...v, 'rel_subtotal':v.adult_price*v.adult_qty+v.child_price+v.child_qty}));
-    result.finalTotal= subtotal + post_amount - price;
-    try{
-        const orderMainSql = `INSERT INTO
-            order_main(
-                order_sid, member_sid, coupon_send_sid,
-                recipient, recipient_phone, post_type,
-                post_store_name, post_address, post_status, 
-                tread_type, rel_subtotal, post_amount,
-                coupon_amount,order_status, 
-                create_dt
-            )
-            VALUES
-                (?,?,?,
-                ?,?,?,
-                ?,?,?,
-                ?,?,?,
-                ?,?,now()
-                )`
-        const [orderMainresult] = await db.query(orderMainSql,[
-            newOrderSid,member_sid,coupon_send_sid,
-            recipient,recipient_phone,post_type,
-            store_name, post_address , 1, 
-            paymentType, subtotal, post_amount,
-            price, 0])
-        orderMainresult.affectedRows && (result.addtoOrdermain = true);
-    }catch(error){
-        console.error(error);
-        throw new Error('加父表格時時出錯');
-    }
-    try{
-
-        for(let item of orderItems){
-            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal}=item;
-            console.log(rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price, child_qty,rel_subtotal);
-            const orderDetailSql = `INSERT INTO
-                    order_details(
-                        order_sid, rel_type, rel_sid,
-                        rel_seq_sid, rel_name, rel_seq_name,
-                        product_price, product_qty, adult_price,
-                        adult_qty, child_price, child_qty,
-                        rel_subtotal
-                    )
-                    VALUES
-                        (?,?,?,
-                        ?,?,?,
-                        ?,?,?,
-                        ?,?,?,
-                        ?)`
-                    
-            const [orderDetailresult] = await db.query(orderDetailSql,[
-                    newOrderSid,checkoutType,rel_sid, 
-                    rel_seq_sid,rel_name,rel_seq_name,
-                    prod_price,prod_qty,adult_price,
-                    adult_qty,child_price, child_qty,
-                    rel_subtotal])
-
-            orderDetailresult.affectedRows &&  (result.addtoOrderdetail = true);
-     }
-        }catch(error){
-        console.error(error);
-        throw new Error('加子表格時時出錯');
-    }
-    
-    return result;
-}
+router.post('/remove-cart-item', async (req,res)=>{
+    const cartItems = [{cart_sid:req.body.cart_sid, order_status:'003'}]
+    const removeResult = await updateCart(cartItems);
+    console.log(removeResult);
+    res.json(removeResult);
+})
 router.post('/create-order', async (req,res)=>{
     const output = {
         success: false,
         orderSid:"",
         finalTotal:0,
-        createOrderMainSuccess : false,
-        createOrderDetailSuccess : false,
-        paymentSuccess : false,
         checkoutType : "",
         paymentType:'',
-
+        memberSid:""
     }
 
     output.checkoutType= req.body.checkoutType;
     output.paymentType = req.body.paymentType;
-
+    output.memberSid = req.body.member_sid;
     //TODO:處理預設地址. 若是新增地址的話, 要記得補歷史地址
-    //TODO:更新優惠卷狀態
 
-    //新增訂單(加到order_main && order_detail)
-    //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
     const createOrderResult = await createOrder(req.body);
-    createOrderResult.addtoOrdermain &&  createOrderResult.addtoOrderdetail && (output.success = true);
     output.orderSid = createOrderResult.orderSid;
     output.finalTotal = createOrderResult.finalTotal;
+    output.success = createOrderResult.createOrderSuccess;
     res.json(output);
 })
+router.post('/get-orderDetail', async(req,res)=>{
+    const output = {
+        order_sid:"",
+        email:"",
+        checkoutType:"",
+        create_dt:'',
+        orderDetailItems:'',
+        coupon_amount:0
+    };
+    const order_sid = req.body.order_sid;
+    const checkoutType = req.body.checkoutType;
+    console.log(order_sid);
+    console.log(checkoutType);
 
+    let getOrderDetailSql = '';
+    if(checkoutType ==='shop'){
+        getOrderDetailSql =(`SELECT
+                om.order_sid,
+                om.member_sid,
+                om.recipient,
+                om.recipient_phone,
+                om.post_type,
+                om.post_address,
+                om.post_store_name,
+                om.create_dt,
+                od.order_detail_sid,
+                od.rel_name,
+                od.rel_seq_name,
+                od.product_price,
+                od.product_qty,
+                om.rel_subtotal,
+                om.coupon_amount,
+                om.post_amount,
+                sp.img,
+                mi.email
+            FROM
+                order_main om
+                JOIN order_details od ON om.order_sid = od.order_sid
+                JOIN shop_product sp ON od.rel_sid = sp.product_sid
+                JOIN member_info mi ON om.member_sid = mi.member_sid
+            WHERE
+                om.order_sid = ?`);   
+    }else if(checkoutType === 'activity'){
+        getOrderDetailSql = `SELECT
+                om.order_sid,
+                om.member_sid,
+                om.create_dt,
+                od.order_detail_sid,
+                od.rel_name,
+                od.rel_seq_name,
+                od.adult_price,
+                od.adult_qty,
+                od.child_price,
+                od.child_qty,
+                om.rel_subtotal,
+                om.coupon_amount,
+                ai.activity_pic,
+                mi.email
+            FROM
+                order_main om
+                JOIN order_details od ON om.order_sid = od.order_sid
+                JOIN activity_info ai ON od.rel_sid = ai.activity_sid
+                JOIN member_info mi ON om.member_sid = mi.member_sid
+            WHERE
+                om.order_sid = ?;`;
+    }
+    try {
+        const [orderDetailResult] = await db.query(getOrderDetailSql, [order_sid]);
+        output.member_sid=orderDetailResult[0].member_sid;
+        output.email=orderDetailResult[0].email;
+        output.create_dt=res.toDatetimeString(orderDetailResult[0].create_dt);
+        output.coupon_amount=orderDetailResult[0].coupon_amount;
+        output.subtotal_amount=orderDetailResult[0].rel_subtotal;
+
+        if(checkoutType === 'shop'){
+            const pt = "";
+                if(orderDetailResult[0].post_type===0){
+                    pt='黑貓宅急便'
+                } else if (orderDetailResult[0] ===1){
+                    pt='7-Eleven'
+                }else if(orderDetailResult[0] === 2){
+                    pt='全家便利商店'
+                }
+            output.post_type=pt;
+            output.recipient=orderDetailResult[0].recipient;
+            output.recipient_phone=orderDetailResult[0].recipient_phone;
+            output.post_address=orderDetailResult[0].post_address;
+            output.post_store_name=orderDetailResult[0].post_store_name;
+            output.post_amount=orderDetailResult[0].post_amount;
+            output.orderDetailItems=orderDetailResult.map(v=>({...v, item_subTotal: (v.prod_price* v.prod_qty)}));
+        }else if (checkoutType === 'activity'){
+            output.orderDetailItems=orderDetailResult.map(v=>{
+                const st = (v.adult_price* v.adult_qty_qty+v.child_price*v.child_qty);
+                const img = v.activity_pic.split(',')[0];
+                return {...v, item_subTotal: st, activity_pic: img}
+            });
+        }
+        
+    } catch(error) { console.error(error);
+        throw new Error('讀取訂單明細失敗');
+    }
+    output.order_sid = order_sid;
+    output.checkoutType = checkoutType;
+    res.json(output);
+})
 router.get('/test',(req, res) => {
-    console.log('req.query.orderSid:',req.query.orderSid)
+    console.log("test")
 
-    res.json(req.query.totalAmount );
+    res.send("test");
 } )
-
 router.get('/ecpay', (req, res) => {
-    console.log('req.query.orderSid:', req.query.orderSid);
-    console.log('req.query.totalAmount:', req.query.totalAmount);
     const orderSid = req.query.orderSid;
     const totalAmount = req.query.totalAmount;
     const checkoutType = req.query.checkoutType;
+    const memberSid = req.query.memberSid;
     const mtn = uuid().split('-').join("");
-    console.log('mtn:', mtn);
     let base_param = {
         MerchantTradeNo: mtn.slice(1,19), //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
         MerchantTradeDate: res.toDatetimeString2(new Date()), //ex: 2017/02/13 15:45:30
@@ -281,6 +492,7 @@ router.get('/ecpay', (req, res) => {
         OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
         CustomField1: orderSid,
         CustomField2: checkoutType,
+        CustomField3: memberSid,
     };
     let inv_params = {
     };
@@ -291,38 +503,94 @@ router.get('/ecpay', (req, res) => {
     res.status(200);
     res.send(data);
 });
-
 router.post('/ecpayresult', (req, res) => {
     try {
         console.log('payresult:' + JSON.stringify(req.body));
-        if(req.body.RtnMsg === 'Succeeded'){
-            // i have orderNo , change order status
-            // redirect to paysucceed use req.body.MerchantTradeNo
-            // http://127.0.0.1/paysucceed?orderNo={req.body.MerchantTradeNo}
+        const {RtnMsg}= req.body;
+        if(RtnMsg === 'Succeeded'){
+            //TODO: 前往結帳成功頁面
+            paymentSucceeded(req.body,res);
         } else {
-            // pay error/。
-            // http://127.0.0.1/payerror?orderNo={req.body.MerchantTradeNo}
+            //TODO: 前往重新結帳頁面
+            paymentFailed(req.body,res);
         }
-
-    } catch (e) {
-        console.warn('error', e);
+    } catch (error) {
+        console.warn('error', error);
+        throw new Error('付款結果出錯');
     }
     res.status(200);
-    //field1:orderSid, field2:checkoutType
-    const {CustomField1,CustomField2,RtnMsg}= req.body;
-    if(RtnMsg==='Succeeded'){
-        //TODO: 前往結帳成功頁面
-        //res.redirect('http://localhost:3000/cart/order-complete');
-    }
-    if(RtnMsg==="ERROR"){
-        //TODO: 前往重新結帳頁面
-    }
-    res.send(req.body.CustomField1);
-    //console.log(req.body);
-    
 })
-
 router.post('/ecpaycallback', (req, res) => {
     console.log('paycallback:' + JSON.stringify(req));
+})
+router.get('/linepay', async(req,res)=>{
+    const orderSid = req.query.orderSid;
+    const totalAmount = req.query.totalAmount;
+    const checkoutType = req.query.checkoutType;
+    const memberSid = req.query.memberSid;
+    try {
+        const response = await linePayClient.request.send({
+        body: {
+            amount:totalAmount,
+            currency: 'TWD',
+            orderId: `${orderSid}${checkoutType}${memberSid}`,
+            packages: [
+            {
+                id: 'c99abc79-3b29-4f40-8851-bc618ca57856',
+                amount: totalAmount,
+                products: [
+                {
+                    name: '狗with咪商城/活動',
+                    quantity: 1,
+                    price: totalAmount
+                },
+
+                ]
+            }
+            ],
+        redirectUrls: {
+        confirmUrl: 'http://localhost:3002/cart-api/linepayResult',
+        cancelUrl: 'http://localhost:3002/cart-api/linepayResult'
+            }
+      }
+    })
+    console.log('response:', response);
+
+    res.redirect(response.body.info.paymentUrl.web)
+  } catch (e) {
+    console.log('error', e)
+  }
+})
+router.get('/linepayResult', async(req,res)=>{
+    console.log("req.query:",req.query.orderId);
+    const response = {RtnMsg:'Succeeded'}; 
+    const data={};
+    try{
+    const str=req.query.orderId;
+    data.CustomField1 = str.slice(0,8);
+    data.CustomField2 = str.includes('shop')?str.slice(8,12):str.slice(8,16)
+    data.CustomField3 = str.slice(-8);
+    }catch(error){
+        console.warn('error', error);
+        throw new Error('Line解晰回傳結果出錯');
+    }
+    console.log('data', data);
+    try {
+        console.log('payresult:' + JSON.stringify(req.body));
+        const {RtnMsg}= response;
+        if(RtnMsg === 'Succeeded'){
+            //TODO: 前往結帳成功頁面
+            console.log('data in payResult', data);
+            paymentSucceeded(data,res);
+        } else {
+            //TODO: 前往重新結帳頁面
+             console.log('data in repay', data);
+            paymentFailed(data,res);
+        }
+    } catch (error) {
+        console.warn('error', error);
+        throw new Error('付款結果出錯');
+    }
+    res.status(200);
 })
 module.exports = router;
