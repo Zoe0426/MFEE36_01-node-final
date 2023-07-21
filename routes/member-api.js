@@ -346,6 +346,10 @@ ORDER BY o.create_dt DESC
       activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
       order_product: i.order_product,
       rel_type: i.rel_type,
+      city: i.city,
+      area: i.area,
+      address: i.address,
+      actAddress: i.city + i.area + i.address,
     };
   });
 
@@ -364,20 +368,6 @@ ORDER BY o.create_dt DESC
 // 詳細訂單
 router.get("/orderdetail/:sid", async (req, res) => {
   let { sid } = req.params;
-
-  // const output = {
-  //   success: false,
-  //   error: "",
-  //   data: null,
-  // };
-
-  // if (!res.locals.jwtData) {
-  //   output.error = "沒有驗證";
-  //   return res.json(output);
-  // }
-  // console.log(jwtData);
-
-  //const sid = res.locals.jwtData.id;
 
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
@@ -446,6 +436,10 @@ router.get("/orderdetail/:sid", async (req, res) => {
       post_type: i.post_type,
       tread_type: i.tread_type,
       order_create_time: orderCreate,
+      city: i.city,
+      area: i.area,
+      address: i.address,
+      actAddress: i.city + i.area + i.address,
     };
   });
 
@@ -492,3 +486,8 @@ router.post("/prodReviews", async (req, res) => {
 
   res.json(rowsProd);
 });
+
+// 讀取活動評價
+router.get("/getActReviews",async(req,res)=>{
+  const sqlGetActReviews=`S`
+})
