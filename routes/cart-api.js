@@ -35,7 +35,8 @@ const getNewOrderSid = async () => {
     try {
         const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
         const [maxSid] = await db.query(sqlHead);
-        if (maxSid[0].maxSid === undefined) { 
+        console.log('maxSid:',maxSid);
+        if (maxSid[0].maxSid === null) { 
         return 'ORD00001';
         } else { 
         const newOrdNum = parseInt(maxSid[0].maxSid.substring(3)) + 1;
@@ -295,8 +296,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             oc.member_sid = ? 
             AND oc.order_status = '001'`;
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
-
-    output.shop = cartData.filter(p=>p.rel_type === "product");
+    console.log(cartData);
+    output.shop = cartData.filter(p=>p.rel_type === "shop");
     const actData = cartData.filter(p=>p.rel_type === "activity")
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
 
