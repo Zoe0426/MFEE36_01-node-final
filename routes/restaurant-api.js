@@ -98,9 +98,6 @@ router.get("/list", async (req, res) => {
     tableware: 4,
     clean: 9,
     have_seat: 4,
-    taipei: "台北市",
-    taichung: "台中市",
-    newtaipei: "新北市",
     hot_DESC: "booking_count DESC",
     new_DESC: "r.created_at DESC",
     cmt_DESC: "average_friendly DESC",
@@ -117,7 +114,15 @@ router.get("/list", async (req, res) => {
     italian_cuisine: 11,
     ice: 12,
   };
-
+  const locationDict ={
+    台北市: "台北市",
+    新北市: "新北市",
+    大安區:"大安區",
+    台中市: "台中市",
+    西區:"西區",
+    大同區:"大同區",
+    中正區:"中正區",
+  }
   //queryString條件判斷
   let where = " WHERE 1 ";
 
@@ -146,6 +151,7 @@ router.get("/list", async (req, res) => {
   let rule = req.query.rule || "";
   let service = req.query.service || "";
   let cityParam = req.query.city || "";
+  let area = req.query.area ||"";
   let category = req.query.category || "";
 
   //取得多個用餐類別
@@ -163,8 +169,13 @@ router.get("/list", async (req, res) => {
   console.log(category);
 
   if (cityParam) {
-    const cityValue = dict[cityParam];
+    const cityValue = locationDict[cityParam];
     where += ` AND  r.city = '${cityValue}'  `;
+  }
+
+  if(area){
+    const areaValue = locationDict[area];
+    where += ` AND  r.area = '${areaValue}'  `;
   }
 
   if (rule) {
