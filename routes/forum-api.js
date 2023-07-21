@@ -185,6 +185,11 @@ router.get("/forum/blog", async (req, res) => {
     success:false,
     error:"",
     data:null,
+    totalRows: 0,
+    perPage: 15,
+    totalPages: 0,
+    page: 1,
+    rows: [],
   };
 
   if(!res.locals.jwtData){
@@ -195,6 +200,17 @@ router.get("/forum/blog", async (req, res) => {
   console.log(res.locals.jwtData.id);
 
   const sid = res.locals.jwtData.id;
+  const page = parseInt(req.query.page) || 1;
+  const perPage = output.perPage;
+  const offset = (page - 1) * perPage;
+
+  const [totalRowsData] = await db.query(
+    `SELECT COUNT(1) AS totalRows FROM post_list_member plm
+    JOIN member_info mi ON mi.member_sid = plm.member_sid
+    WHERE mi.member_sid = '${sid}';`
+  );
+  const totalRows = totalRowsData[0].totalRows;
+  const totalPages = Math.ceil(totalRows / perPage);
 
   const [blogPostData] = await db.query(
     `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date, 
@@ -207,9 +223,15 @@ router.get("/forum/blog", async (req, res) => {
         FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
         JOIN post_board pb ON plm.board_sid = pb.board_sid 
         WHERE mi.member_sid = '${sid}' 
-        ORDER BY post_date DESC;`
+        ORDER BY post_date DESC
+        LIMIT ${offset}, ${perPage};`
   );
-  res.json(blogPostData);
+  output.success = true;
+  output.totalRows = totalRows;
+  output.totalPages = totalPages;
+  output.page = page;
+  output.rows = blogPostData;
+  res.json(output);
   //console.log("blogPostData", blogPostData);
 });
 
