@@ -275,8 +275,22 @@ router.get("/coupon", async (req, res) => {
 });
 
 // 抓取訂單
-router.get("/order/:sid", async (req, res) => {
-  let { sid } = req.params;
+router.get("/order", async (req, res) => {
+  //let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
 
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
@@ -332,6 +346,10 @@ ORDER BY o.create_dt DESC
       activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
       order_product: i.order_product,
       rel_type: i.rel_type,
+      city: i.city,
+      area: i.area,
+      address: i.address,
+      actAddress: i.city + i.area + i.address,
     };
   });
 
@@ -346,3 +364,130 @@ ORDER BY o.create_dt DESC
 
   res.json(firstItems);
 });
+
+// 詳細訂單
+router.get("/orderdetail/:sid", async (req, res) => {
+  let { sid } = req.params;
+
+  const [rows] = await db.query(`
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
+  FROM order_main o 
+  JOIN member_info mi ON o.member_sid = mi.member_sid 
+  JOIN order_details od ON o.order_sid = od.order_sid 
+  JOIN member_coupon_send ms ON o.coupon_send_sid = ms.coupon_send_sid 
+  JOIN member_coupon_category mc ON mc.coupon_sid = ms.coupon_sid 
+  JOIN shop_product sp ON sp.product_sid = od.rel_sid 
+  WHERE od.order_sid = '${sid}' 
+  ORDER BY o.create_dt DESC;
+  `);
+
+  const [rows2] = await db.query(`
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
+  FROM order_main o 
+  JOIN member_info mi ON o.member_sid = mi.member_sid 
+  JOIN order_details od ON o.order_sid = od.order_sid 
+  JOIN member_coupon_send ms ON o.coupon_send_sid = ms.coupon_send_sid 
+  JOIN member_coupon_category mc ON mc.coupon_sid = ms.coupon_sid 
+  JOIN activity_info af ON af.activity_sid = od.rel_sid 
+  JOIN activity_group ag ON ag.activity_group_sid = od.rel_seq_sid 
+  WHERE od.order_sid = '${sid}' 
+  ORDER BY o.create_dt DESC;
+  `);
+
+  //合併成一個datas
+  const datas = rows.concat(rows2);
+
+  //整理datas
+  const updatedDatas = datas.map((i) => {
+    let orderCreate = dayjs(i.create_dt);
+    if (orderCreate.isValid()) {
+      orderCreate = orderCreate.format("YYYY-MM-DD HH:ss");
+    } else {
+      orderCreate = null;
+    }
+
+    return {
+      order_detail_sid: i.order_detail_sid,
+      member_sid: i.member_sid,
+      activity_sid: i.activity_sid,
+      member_name: i.name,
+      member_mobile: i.mobile,
+      order_sid: i.order_sid,
+      product_sid: i.product_sid,
+      post_status: i.post_status,
+      rel_name: i.rel_name,
+      rel_seq_name: i.rel_seq_name,
+      product_qty: i.product_qty,
+      product_price: i.product_price,
+      rel_subtotal: i.rel_subtotal,
+      adult_qty: i.adult_qty,
+      adult_price: i.adult_price,
+      child_qty: i.child_qty,
+      child_price: i.child_price,
+      originRelS: i.orderRelS,
+      orderRelS: i.orderRelS + i.post_amount - i.price,
+      post_price: i.post_amount,
+      coupon_price: i.price,
+      img: i.img,
+      activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
+      order_product: i.order_product,
+      rel_type: i.rel_type,
+      address: i.post_city + i.post_area + i.post_address,
+      post_type: i.post_type,
+      tread_type: i.tread_type,
+      order_create_time: orderCreate,
+      city: i.city,
+      area: i.area,
+      address: i.address,
+      actAddress: i.city + i.area + i.address,
+    };
+  });
+
+  res.json(updatedDatas);
+});
+
+//新增活動評價
+router.post("/actReviews", async (req, res) => {
+  const sqlAct = `INSERT INTO activity_rating(
+  member_sid, activity_sid, order_detail_sid, 
+  star, date, content
+  ) 
+  VALUES (
+    ?,?,?,
+    ?,NOW(),?)`;
+
+  const [rowsAct] = await db.query(sqlAct, [
+    req.body.memberSid,
+    req.body.actSid,
+    req.body.odSid,
+    req.body.starts,
+    req.body.content,
+  ]);
+
+  res.json(rowsAct);
+});
+
+//新增商品評價
+router.post("/prodReviews", async (req, res) => {
+  const sqlProd = `INSERT INTO shop_comment(
+    order_detail_sid, product_sid, member_sid, 
+    date, rating, content
+    ) VALUES (
+      ?,?,?,
+      NOW(),?,?)`;
+
+  const [rowsProd] = await db.query(sqlProd, [
+    req.body.odSid,
+    req.body.prodSid,
+    req.body.memberSid,
+    req.body.starts,
+    req.body.content,
+  ]);
+
+  res.json(rowsProd);
+});
+
+// 讀取活動評價
+router.get("/getActReviews",async(req,res)=>{
+  const sqlGetActReviews=`S`
+})
