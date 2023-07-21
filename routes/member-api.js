@@ -369,6 +369,7 @@ ORDER BY o.create_dt DESC
 router.get("/orderdetail/:sid", async (req, res) => {
   let { sid } = req.params;
 
+  //商品訂單
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
   FROM order_main o 
@@ -381,8 +382,9 @@ router.get("/orderdetail/:sid", async (req, res) => {
   ORDER BY o.create_dt DESC;
   `);
 
+  //活動訂單
   const [rows2] = await db.query(`
-  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile, af.address actInfoAddress
   FROM order_main o 
   JOIN member_info mi ON o.member_sid = mi.member_sid 
   JOIN order_details od ON o.order_sid = od.order_sid 
@@ -394,11 +396,54 @@ router.get("/orderdetail/:sid", async (req, res) => {
   ORDER BY o.create_dt DESC;
   `);
 
+  //商品評價
+  const [rows3] = await db.query(
+    `SELECT od.order_detail_sid, od.order_sid, sc.rating shopStar, sc.product_comment_sid, sc.content shopContent
+    FROM order_details od
+    JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
+  //活動評價
+  const [rows4] = await db.query(
+    `SELECT od.order_detail_sid, od.order_sid, ar.activity_rating_sid, ar.star actStar, ar.content actContent
+    FROM order_details od
+    JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
   //合併成一個datas
-  const datas = rows.concat(rows2);
+  const orderDatas = rows.concat(rows2);
+  const reviewData = rows3.concat(rows4);
+
+  let array1 = orderDatas;
+  let array2 = reviewData;
+
+  let result = array1.map((item1) => {
+    // find object in array1 which has the same order_detail_sid as in item2
+    let item2 = array2.find((item) => item.order_detail_sid === item1.order_detail_sid);
+
+    if (item2) {
+      // if it exists, then merge both items
+      return { ...item1, ...item2 };
+    } else {
+      return {
+        ...item1,
+        order_sid: null,
+        product_comment_sid: null,
+        shopStar: null,
+        shopContent: null,
+        activity_rating_sid: null,
+        actStar: null,
+        actContent: null,
+      };
+    }
+  });
 
   //整理datas
-  const updatedDatas = datas.map((i) => {
+  const updatedDatas = result.map((i) => {
     let orderCreate = dayjs(i.create_dt);
     if (orderCreate.isValid()) {
       orderCreate = orderCreate.format("YYYY-MM-DD HH:ss");
@@ -438,8 +483,14 @@ router.get("/orderdetail/:sid", async (req, res) => {
       order_create_time: orderCreate,
       city: i.city,
       area: i.area,
-      address: i.address,
+      actInfoAddress: i.address,
       actAddress: i.city + i.area + i.address,
+      prodCommentSid: i.product_comment_sid,
+      shopStar: i.shopStar,
+      shopContent: i.shopContent,
+      actCommentSid: i.activity_rating_sid,
+      actStar: i.actStar,
+      actContent: i.actContent,
     };
   });
 
@@ -460,8 +511,8 @@ router.post("/actReviews", async (req, res) => {
     req.body.memberSid,
     req.body.actSid,
     req.body.odSid,
-    req.body.starts,
-    req.body.content,
+    req.body.actStar,
+    req.body.actContent,
   ]);
 
   res.json(rowsAct);
@@ -480,14 +531,34 @@ router.post("/prodReviews", async (req, res) => {
     req.body.odSid,
     req.body.prodSid,
     req.body.memberSid,
-    req.body.starts,
-    req.body.content,
+    req.body.shopStar,
+    req.body.shopContent,
   ]);
 
   res.json(rowsProd);
 });
 
-// 讀取活動評價
-router.get("/getActReviews",async(req,res)=>{
-  const sqlGetActReviews=`S`
-})
+// 讀取評價
+router.get("/getReviews/:sid", async (req, res) => {
+  let { sid } = req.params;
+
+  const [rows] = await db.query(
+    `SELECT *, od.order_detail_sid, od.order_sid
+    FROM order_details od
+    JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
+  const [rows2] = await db.query(
+    `SELECT *, od.order_detail_sid, od.order_sid
+    FROM order_details od
+    JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
+  const datas = rows.concat(rows2);
+
+  res.json(datas);
+});
