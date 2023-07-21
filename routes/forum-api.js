@@ -179,7 +179,22 @@ router.get("/board/:boardid", async (req, res) => {
 });
 
 // 個人頁面：我的文章
-router.get("/blogPost", async (req, res) => {
+router.get("/blog/:memberid", async (req, res) => {
+   let { memberid } = req.params;
+  // const output = {
+  //   success:false,
+  //   error:"",
+  //   data:null,
+  // };
+
+  // if(!res.locals.jwtData){
+  //   output.error="沒有驗證";
+  //   return res.json(output);
+  // }
+  // console.log(jwtData);
+
+  // const sid = res.locals.jwtData.id;
+
   const [blogPostData] = await db.query(
     `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date, 
         CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
@@ -190,7 +205,7 @@ router.get("/blogPost", async (req, res) => {
         (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
         FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
         JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        WHERE mi.member_sid = "mem00300" 
+        WHERE mi.member_sid = '${memberid}' 
         ORDER BY post_date DESC;`
   );
   res.json(blogPostData);
