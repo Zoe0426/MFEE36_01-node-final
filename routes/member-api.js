@@ -365,7 +365,7 @@ ORDER BY o.create_dt DESC
   res.json(firstItems);
 });
 
-// 詳細訂單
+// 詳細訂單---------------------------------
 router.get("/orderdetail/:sid", async (req, res) => {
   let { sid } = req.params;
 
@@ -431,7 +431,7 @@ router.get("/orderdetail/:sid", async (req, res) => {
     } else {
       return {
         ...item1,
-        order_sid: null,
+        //order_sid: null,
         product_comment_sid: null,
         shopStar: null,
         shopContent: null,
@@ -477,14 +477,12 @@ router.get("/orderdetail/:sid", async (req, res) => {
       activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
       order_product: i.order_product,
       rel_type: i.rel_type,
-      address: i.post_city + i.post_area + i.post_address,
       post_type: i.post_type,
       tread_type: i.tread_type,
       order_create_time: orderCreate,
-      city: i.city,
-      area: i.area,
-      actInfoAddress: i.address,
-      actAddress: i.city + i.area + i.address,
+      actAddress: i.actInfoAddress,
+      postAddress: i.post_address,
+      postStore: i.post_store_name,
       prodCommentSid: i.product_comment_sid,
       shopStar: i.shopStar,
       shopContent: i.shopContent,
@@ -515,7 +513,13 @@ router.post("/actReviews", async (req, res) => {
     req.body.actContent,
   ]);
 
-  res.json(rowsAct);
+  const sqlUpdateOrderMain = `UPDATE order_main om
+  JOIN order_details od ON om.order_sid = od.order_sid 
+  SET post_status = 6 
+  WHERE od.order_detail_sid = ?`;
+  const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
+
+  res.json({ ...rowsAct, updateRes });
 });
 
 //新增商品評價
@@ -535,30 +539,36 @@ router.post("/prodReviews", async (req, res) => {
     req.body.shopContent,
   ]);
 
+  const sqlUpdateOrderMain = `UPDATE order_main om
+  JOIN order_details od ON om.order_sid = od.order_sid 
+  SET post_status = 6 
+  WHERE od.order_detail_sid = ?`;
+  const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
+
   res.json(rowsProd);
 });
 
 // 讀取評價
-router.get("/getReviews/:sid", async (req, res) => {
-  let { sid } = req.params;
+// router.get("/getReviews/:sid", async (req, res) => {
+//   let { sid } = req.params;
 
-  const [rows] = await db.query(
-    `SELECT *, od.order_detail_sid, od.order_sid
-    FROM order_details od
-    JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
-    WHERE od.order_sid='${sid}'
-  `
-  );
+//   const [rows] = await db.query(
+//     `SELECT *, od.order_detail_sid, od.order_sid
+//     FROM order_details od
+//     JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
+//     WHERE od.order_sid='${sid}'
+//   `
+//   );
 
-  const [rows2] = await db.query(
-    `SELECT *, od.order_detail_sid, od.order_sid
-    FROM order_details od
-    JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
-    WHERE od.order_sid='${sid}'
-  `
-  );
+//   const [rows2] = await db.query(
+//     `SELECT *, od.order_detail_sid, od.order_sid
+//     FROM order_details od
+//     JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
+//     WHERE od.order_sid='${sid}'
+//   `
+//   );
 
-  const datas = rows.concat(rows2);
+//   const datas = rows.concat(rows2);
 
-  res.json(datas);
-});
+//   res.json(datas);
+// });
