@@ -190,44 +190,56 @@ if (totalRows) {
   });
 
   //取得某一個會員的喜愛清單
-//   const sql_likeList =`SELECT 
-//   ai.activity_sid, 
-//   ai.name, 
-//   ai.city, 
-//   ai.area, 
-//   ai.activity_pic, 
-//   recent_date, 
-//   farthest_date, 
-//   ag.price_adult,
-//   MAX(al.activity_like_sid) AS activity_like_sid,
-//   al.member_sid, 
-//   al.date, 
-//   al.status
-// FROM
-//   activity_info ai
-// JOIN 
-//   activity_group ag ON ai.activity_sid = ag.activity_sid
-// JOIN 
-//   (
-//       SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-//       FROM activity_group 
-//       GROUP BY activity_sid
-//   ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-// JOIN 
-//   activity_like al ON ai.activity_sid = al.activity_sid
-// WHERE member_sid='mem00300'
-// GROUP BY 
-//   ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date, al.status
-// ORDER BY al.date DESC;`
+  const sql_likeList =`SELECT 
+  ai.activity_sid, 
+  ai.name, 
+  ai.city, 
+  ai.area, 
+  ai.activity_pic, 
+  recent_date, 
+  farthest_date, 
+  ag.price_adult,
+  MAX(al.activity_like_sid) AS activity_like_sid,
+  al.member_sid, 
+  al.date, 
+  al.status
+FROM
+  activity_info ai
+JOIN 
+  activity_group ag ON ai.activity_sid = ag.activity_sid
+JOIN 
+  (
+      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+      FROM activity_group 
+      GROUP BY activity_sid
+  ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+JOIN 
+  activity_like al ON ai.activity_sid = al.activity_sid
+WHERE member_sid='mem00300'
+GROUP BY 
+  ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date, al.status
+ORDER BY al.date DESC;`
 
-// const [likeDatas] = await db.query(sql_likeList);
+const [likeDatas] = await db.query(sql_likeList);
 
-// // 日期處理
-// likeDatas.forEach((v) => {
-//   v.recent_date = res.toDateString(v.recent_date);
-//   v.farthest_date = res.toDateString(v.farthest_date);
-//   v.date = res.toDateString(v.date);
-// });
+// 日期處理
+likeDatas.forEach((v) => {
+  v.recent_date = res.toDateString(v.recent_date);
+  v.farthest_date = res.toDateString(v.farthest_date);
+  v.date = res.toDateString(v.date);
+});
+
+// 圖片處理 (字串->陣列)
+likeDatas.map((pic) => {
+    const imgNames = pic.activity_pic;
+    const imgs = imgNames.split(',');
+    const trimmedImgs = imgs.map(img => img.trim());
+    pic.activity_pic = trimmedImgs;
+
+  });
+
+
+
 
 //   SELECT 
 //     ai.activity_sid, 
@@ -261,7 +273,7 @@ if (totalRows) {
     totalPages,
     page,
     rows,
-    // likeDatas,
+    likeDatas,
   };
 
   return res.json(output);
