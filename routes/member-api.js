@@ -489,6 +489,8 @@ router.get("/orderdetail/:sid", async (req, res) => {
       actCommentSid: i.activity_rating_sid,
       actStar: i.actStar,
       actContent: i.actContent,
+      pcSid: i.product_comment_sid,
+      acRaSid: i.activity_rating_sid,
     };
   });
 
