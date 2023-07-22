@@ -237,33 +237,6 @@ likeDatas.map((pic) => {
   });
 
 
-
-
-//   SELECT 
-//     ai.activity_sid, 
-//     ai.name, 
-//     ai.city, 
-//     ai.area, 
-//     ai.activity_pic, 
-//     recent_date, 
-//     farthest_date, 
-//     ag.price_adult
-// FROM 
-//     activity_info ai
-// JOIN 
-//     activity_group ag ON ai.activity_sid = ag.activity_sid
-// JOIN 
-//     (
-//         SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-//         FROM activity_group 
-//         GROUP BY activity_sid
-//     ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-// GROUP BY 
-//     ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult DESC;
-  
-
-
-
   output = {
     ...output,
     totalRows,
@@ -275,6 +248,27 @@ likeDatas.map((pic) => {
   };
 
   return res.json(output);
+});
+
+
+// 刪除收藏清單
+router.delete("/likelist/:aid/:mid", async (req, res) => {
+  // 網址在這裡看 http://localhost:3002/activity-api/likelist...
+  const { aid, mid } = req.params;
+  let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
+  if (aid === "all") {
+    sql_deleteLikeList += `member_sid = '${mid}'`;
+  } else {
+    sql_deleteLikeList += `member_sid = '${mid}' AND activity_sid='${aid}'`;
+  }
+
+  try {
+    const [result] = await db.query(sql_deleteLikeList);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
 });
 
 //  (old) list 拿取各分類資料
