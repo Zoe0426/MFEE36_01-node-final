@@ -114,7 +114,7 @@ const createOrder = async(data)=>{
     const store_name= (postInfo.length)?sendto.store_name:null;
     const post_amount = (postInfo.length)?(sendto.post_type ===1? 90 : 60 ): 0; 
     const post_address = (postInfo.length)? (sendto.city+sendto.area+sendto.address): null;
-
+    const post_status = checkoutType === 'shop'? 1: 5;
     const subtotal = checkoutItems.reduce((a, v) => {
       const sub = (v.prod_price * v.prod_qty)+ (v.adult_price * v.adult_qty)+ (v.child_price * v.child_qty);
       return a + sub;
@@ -126,9 +126,6 @@ const createOrder = async(data)=>{
 
     const updateCartData = checkoutItems.map(v=>({'cart_sid' :v.cart_sid,'order_status':'002'}));
     createOrderResult.orderSid = newOrderSid;
-    console.log('subtotal:',subtotal);
-    console.log('post_amount:',post_amount);
-    console.log('couponPrice:',couponPrice);
     createOrderResult.finalTotal= subtotal + post_amount - couponPrice;
     //TODO: 把body 裡的資料去資料庫拿正式的價錢再create order
     //新增到訂單-父表
@@ -152,7 +149,7 @@ const createOrder = async(data)=>{
         const [orderMainresult] = await db.query(orderMainSql,[
             newOrderSid,member_sid,coupon_send_sid,
             recipient,recipient_phone,post_type,
-            store_name, post_address , 1, 
+            store_name, post_address , post_status, 
             paymentType, subtotal, post_amount,
             couponPrice, 0])
         orderMainresult.affectedRows && (result.addtoOrdermain = true);
@@ -472,6 +469,29 @@ router.post('/get-orderDetail', async(req,res)=>{
     output.checkoutType = checkoutType;
     res.json(output);
 })
+router.post('/count-item', async(req,res)=>{
+    try { 
+        const member_sid = req.body.member_sid;
+        const getCartItemNumSql = `SELECT count(1) as itemInCart FROM order_cart WHERE member_sid = ? AND order_status = '001'` 
+        const [itemAmount]= await db.query(getCartItemNumSql,member_sid);
+        res.json(itemAmount[0]);
+    } catch(error) { 
+        console.log(error);
+        throw new Error('取購物車數量時出錯');
+    }
+})
+router.post('/get-mem-img', async(req,res)=>{
+    try{
+        const member_sid = req.body.member_sid;
+        const getMemImgSql = `SELECT mi.profile FROM member_info mi WHERE member_sid = ?`;
+        const [profileImg] = await db.query(getMemImgSql, member_sid);
+        res.json(profileImg[0]);
+
+    }catch(error){
+        console.log(error);
+        throw new Error('取會員照片時出錯')
+    }
+})
 router.get('/test',(req, res) => {
     console.log("test")
 
@@ -594,4 +614,5 @@ router.get('/linepayResult', async(req,res)=>{
     }
     res.status(200);
 })
+
 module.exports = router;
