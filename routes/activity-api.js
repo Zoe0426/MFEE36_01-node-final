@@ -253,7 +253,7 @@ likeDatas.map((pic) => {
 
 // 刪除收藏清單
 router.delete("/likelist/:aid/:mid", async (req, res) => {
-  // 網址在這裡看 http://localhost:3002/activity-api/likelist...
+  
   const { aid, mid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
   if (aid === "all") {
@@ -270,6 +270,29 @@ router.delete("/likelist/:aid/:mid", async (req, res) => {
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
+// 新增收藏清單
+router.post("/addlikelist/:aid/:mid", async (req, res) => {
+  const { aid, mid } = req.params;
+  const date = new Date(); // 取得當前時間
+
+  // 將日期時間值轉換為 'YYYY-MM-DD HH:mm:ss' 格式
+  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
+
+  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+
+  try {
+    // 執行 INSERT INTO 
+    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
+
+
+
 
 //  (old) list 拿取各分類資料
 // router.get("/activity", async (req, res) => {
