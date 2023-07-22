@@ -574,3 +574,17 @@ router.post("/prodReviews", async (req, res) => {
 
 //   res.json(datas);
 // });
+
+// 抓取餐廳預約資料
+router.get("/schedule/:sid", async (req, res) => {
+  let { sid } = req.params;
+  const [sqlRestaurant] = await db.query(
+    `
+    SELECT * FROM restaurant_booking rb
+    JOIN restaurant_information ri ON ri.rest_sid = rb.rest_sid
+    WHERE member_sid=?`,
+    [sid]
+  );
+
+  res.json(sqlRestaurant);
+});
