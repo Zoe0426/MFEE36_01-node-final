@@ -199,10 +199,8 @@ if (totalRows) {
   recent_date, 
   farthest_date, 
   ag.price_adult,
-  MAX(al.activity_like_sid) AS activity_like_sid,
   al.member_sid, 
-  al.date, 
-  al.status
+  al.date
 FROM
   activity_info ai
 JOIN 
@@ -217,8 +215,8 @@ JOIN
   activity_like al ON ai.activity_sid = al.activity_sid
 WHERE member_sid='mem00300'
 GROUP BY 
-  ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date, al.status
-ORDER BY al.date DESC;`
+  ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+ORDER BY al.date DESC`;
 
 const [likeDatas] = await db.query(sql_likeList);
 
