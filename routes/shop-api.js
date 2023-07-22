@@ -217,8 +217,10 @@ router.get("/products", async (req, res) => {
     const sql_like = `SELECT * FROM shop_like where member_sid="${res.locals.jwtData.id}" `;
     const [like_rows] = await db.query(sql_like);
     if (like_rows.length > 0) {
-      rows=rows.map((v1) => {
-        const foundLike = like_rows.find((v2) => v1.product_sid === v2.product_sid);
+      rows = rows.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
         return foundLike ? { ...v1, like: true } : { ...v1 };
       });
     }
@@ -480,8 +482,16 @@ router.get("/product/:product_sid", async (req, res) => {
 });
 
 //處理收藏清單的API
-router.post("")
-
+router.post("/handle-like-list", async (req, res) => {
+  console.log(123);
+  console.log(req.body);
+  let output = {
+    success: false,
+    brand: [],
+    keywords: [],
+  };
+  return;
+});
 
 //刪除收藏清單的API
 router.delete("/likelist/:pid/:mid", async (req, res) => {
