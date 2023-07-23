@@ -372,8 +372,8 @@ router.post('/forum/postLike', async(req, res)=>{
 
 // 刪除讚
 router.delete('/forum/likeDel',async(req, res)=>{
-  const member_sid = 'mem00330';
-  const post_sid = 1 ;
+  const member_sid = req.body.member_sid;
+  const post_sid = req.body.post_sid ;
   const delSql = `DELETE FROM post_like WHERE post_sid=? AND member_sid=?`;
   const [delResult] = await db.query(delSql,[post_sid, member_sid]);
   res.json(delResult);
