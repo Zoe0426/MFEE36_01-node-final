@@ -580,10 +580,54 @@ router.get("/schedule/:sid", async (req, res) => {
   let { sid } = req.params;
   const [sqlRestaurant] = await db.query(
     `
-    SELECT * FROM restaurant_booking rb
+    SELECT   
+    rb.date as date, 
+    rb.member_sid as memberSid, 
+    rb.people_num as peopleNum, 
+    rb.pet_num as petNum, 
+    ri.name as name,
+    ri.phone as phone,
+    ri.city as city,
+    ri.area as area,
+    ri.address as address,
+    ri.notice as notice,
+    0 as adultQty,
+    0 as childQty,
+    NULL as type,
+    rpt.time as sectionTime
+
+    FROM restaurant_booking rb
     JOIN restaurant_information ri ON ri.rest_sid = rb.rest_sid
-    WHERE member_sid=?`,
-    [sid]
+    JOIN restaurant_period_of_time rpt ON rpt.rest_sid = rb.rest_sid
+    WHERE member_sid="${sid}"
+
+    UNION ALL
+
+    SELECT 
+    od.rel_seq_name as date,
+    om.member_sid as memberSid,
+    0 as peopleNum,
+    0 as petNum,
+    od.rel_name as name,
+    NULL as phone,
+    ai.city as city,
+    ai.area as area,
+    ai.address as address,
+    ai.policy as notice,
+    od.adult_qty as adultQty,
+    od.child_qty as childQty,
+    od.rel_type as type,
+    ag.time as sectionTime
+
+    FROM order_details od
+    JOIN order_main om
+    ON om.order_sid=od.order_sid
+    JOIN activity_info ai
+    ON ai.activity_sid=od.rel_sid
+    JOIN activity_group ag
+    ON ag.activity_group_sid=od.rel_seq_sid
+    WHERE rel_type="activity" AND member_sid="${sid}"; 
+    `
   );
 
   res.json(sqlRestaurant);
