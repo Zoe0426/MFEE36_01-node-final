@@ -379,6 +379,39 @@ router.delete('/forum/likeDel',async(req, res)=>{
   res.json(delResult);
 })
 
+// 新增留言
+router.post('/forum/addcomment',async(req, res)=>{
+   const member_sid = req.body.member_sid;
+  //const member_sid = 'mem00200';
+  console.log(member_sid);
+   const post_sid = req.body.post_sid ;
+  //const post_sid = 1 ;
+  console.log(post_sid);
+   const comment_content = req.body.comment_content;
+  //const comment_content = '原po不要擔心！';
+  const sql = `INSERT INTO post_comment(post_sid, member_sid, parent_sid, comment_content, comment_date) 
+  VALUES (?,?,'0',?,NOW())`
+  const [result] = await db.query(sql,[post_sid, member_sid, comment_content]);
+  console.log(result);
+
+  if(result.affectedRows){
+    const [commentData] = await db.query(
+      `
+          SELECT pc.comment_content, pc.comment_date, pc.member_sid, mi.nickname, mi.member_sid, mi.profile FROM post_comment pc 
+          JOIN member_info mi ON mi.member_sid = pc.member_sid
+          JOIN post_list_member plm ON plm.post_sid = pc.post_sid
+          WHERE plm.post_sid = '${post_sid}';
+          `
+    );
+  
+  }
+  const newCommentData = commentData.map((v) => ({
+    ...v,
+    comment_date: res.toDatetimeString(v.comment_date),
+  }));
+  res.json({result, newCommentData});
+})
+
 
 
 
