@@ -224,24 +224,7 @@ router.get("/products", async (req, res) => {
         return foundLike ? { ...v1, like: true } : { ...v1 };
       });
     }
-    // console.log(res.locals.jwtData.id);
   }
-
-  // console.log(rows);
-
-  //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  // const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
-  //   FROM shop_like l
-  //   JOIN shop_product p ON p.product_sid=l.product_sid
-  //   LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-  //   WHERE member_sid='mem00002'
-  //   GROUP BY p.product_sid
-  //   ORDER BY date DESC`;
-  // const [likeDatas] = await db.query(sql_likeList);
-
-  // likeDatas.forEach((v) => {
-  //   v.date = res.toDateString(v.date);
-  // });
 
   output = {
     ...output,
@@ -250,7 +233,6 @@ router.get("/products", async (req, res) => {
     totalPages,
     page,
     rows,
-    // likeDatas,
   };
   return res.json(output);
 });
@@ -258,7 +240,6 @@ router.get("/products", async (req, res) => {
 //給列表頁供應商+商品名稱的選項API
 router.get("/search-brand-list", async (req, res) => {
   let output = {
-    success: false,
     brand: [],
     keywords: [],
   };
@@ -481,26 +462,112 @@ router.get("/product/:product_sid", async (req, res) => {
   });
 });
 
-//處理收藏清單的API
+//處理蒐藏愛心的API
 router.post("/handle-like-list", async (req, res) => {
-  console.log(123);
-  console.log(req.body);
   let output = {
-    success: false,
-    brand: [],
-    keywords: [],
+    success: true,
   };
-  return;
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+  const receiveData = req.body.data;
+
+  console.log(receiveData);
+
+  let deleteLike = [];
+  let addLike = [];
+  //確定該會員有經過jwt認證並且有傳資料過來，才去資料庫讀取資料
+  if (member && receiveData.length > 0) {
+    const sql_prelike = `SELECT product_sid FROM shop_like WHERE member_sid="${member}"`;
+    const [prelike_rows] = await db.query(sql_prelike);
+    const preLikeProducts = prelike_rows.map((v) => {
+      return v.product_sid;
+    });
+
+    //將收到前端的資料與原先該會員收藏列表比對，哪些是要被刪除，哪些是要被增加
+    deleteLike = receiveData
+      .filter((v) => preLikeProducts.includes(v.product_sid))
+      .map((v) => `"${v.product_sid}"`);
+    addLike = receiveData.filter(
+      (v) => !preLikeProducts.includes(v.product_sid)
+    );
+  }
+
+  if (deleteLike.length > 0) {
+    const deleteItems = deleteLike.join(", ");
+    const sql_delete_like = `DELETE FROM shop_like WHERE member_sid="${member}" AND product_sid IN (${deleteItems})`;
+    const [result] = await db.query(sql_delete_like);
+    output.success = !!result.affectedRows;
+  }
+
+  if (addLike.length > 0) {
+    const sql_add_like = ` INSERT INTO shop_like (member_sid, product_sid, date ) VALUES ?`;
+
+    const insertLike = addLike.map((v) => {
+      return [member, v.product_sid, res.toDatetimeString(v.time)];
+    });
+
+    const [result] = await db.query(sql_add_like, [insertLike]);
+    output.success = !!result.affectedRows;
+  }
+  res.json(output);
 });
 
-//刪除收藏清單的API
-router.delete("/likelist/:pid/:mid", async (req, res) => {
-  const { pid, mid } = req.params;
+//讀取蒐藏清單的API
+router.get("/show-like-list", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  let likeDatas = [];
+  //確定有會員編號在去取得他的喜愛清單
+  if (member) {
+    const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+    FROM shop_like l
+    JOIN shop_product p ON p.product_sid=l.product_sid
+    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+    WHERE member_sid='${member}'
+    GROUP BY p.product_sid
+    ORDER BY date DESC`;
+    [likeDatas] = await db.query(sql_likeList);
+    likeDatas.forEach((v) => {
+      v.date = res.toDateString(v.date);
+    });
+  }
+
+  output = {
+    ...output,
+    likeDatas,
+  };
+  return res.json(output);
+});
+
+//刪除蒐藏清單的API
+router.delete("/likelist/:pid", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { pid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `shop_like` WHERE ";
   if (pid === "all") {
-    sql_deleteLikeList += `member_sid = '${mid}'`;
+    sql_deleteLikeList += `member_sid = '${member}'`;
   } else {
-    sql_deleteLikeList += `member_sid = '${mid}' AND product_sid='${pid}'`;
+    sql_deleteLikeList += `member_sid = '${member}' AND product_sid='${pid}'`;
   }
 
   try {
