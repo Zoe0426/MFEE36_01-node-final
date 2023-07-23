@@ -99,12 +99,14 @@ router.post("/", async (req, res) => {
 
   // member-address
   const sql2 = `INSERT INTO member_address(
-    member_sid, category, address, 
-    default_status, city, area,
-    create_time, update_time) VALUES(
-    ?, ?, ?,
-    ?, ?, ?,
-    NOW(), NOW()
+    member_sid, recipient, recipient_phone, 
+    post_type, store_name, default_status, 
+    city, area, address, 
+    create_time, update_time) VALUES (
+      ?,?,?,
+      ?,?,?,
+      ?,?,?,
+      NOW(),NOW()
   )`;
 
   //自動生成會員編號
@@ -188,7 +190,17 @@ router.post("/", async (req, res) => {
     req.body.name,
   ]);
 
-  const [result2] = await db.query(sql2, [new_memSid, 1, req.body.address, 1, req.body.city, req.body.area]);
+  const [result2] = await db.query(sql2, [
+    new_memSid,
+    req.body.name,
+    req.body.mobile,
+    1,
+    null,
+    1,
+    req.body.city,
+    req.body.area,
+    req.body.address,
+  ]);
 
   res.json({
     result,
@@ -576,8 +588,23 @@ router.post("/prodReviews", async (req, res) => {
 // });
 
 // 抓取餐廳預約資料
-router.get("/schedule/:sid", async (req, res) => {
-  let { sid } = req.params;
+router.get("/schedule", async (req, res) => {
+  //let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
+
   const [sqlRestaurant] = await db.query(
     `
     SELECT   
