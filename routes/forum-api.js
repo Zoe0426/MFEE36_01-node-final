@@ -394,17 +394,16 @@ router.post('/forum/addcomment',async(req, res)=>{
   const [result] = await db.query(sql,[post_sid, member_sid, comment_content]);
   console.log(result);
 
-  if(result.affectedRows){
-    const [commentData] = await db.query(
+
+  const [commentData] = await db.query(
       `
           SELECT pc.comment_content, pc.comment_date, pc.member_sid, mi.nickname, mi.member_sid, mi.profile FROM post_comment pc 
           JOIN member_info mi ON mi.member_sid = pc.member_sid
           JOIN post_list_member plm ON plm.post_sid = pc.post_sid
-          WHERE plm.post_sid = '${post_sid}';
+          WHERE plm.post_sid = '${post_sid}' ORDER BY pc.comment_date DESC;
           `
     );
-  
-  }
+
   const newCommentData = commentData.map((v) => ({
     ...v,
     comment_date: res.toDatetimeString(v.comment_date),
