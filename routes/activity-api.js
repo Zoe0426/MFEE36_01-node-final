@@ -55,6 +55,16 @@ router.get("/activity", async (req, res) => {
     rows: [],
   };
 
+
+  let where_member=''
+  //判斷用戶有沒有登入，用token驗證
+  if(res.locals.jwtData){
+    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
+    console.log(res.locals.jwtData.id)
+  }
+
+
+
   // 關鍵字
   // 最新/ 最舊/ 熱門/ 地區/ 日期/ 類別/ 價格
   // 類別/ 熱門/ 最新/ 地區/ 投票區
@@ -149,6 +159,7 @@ if (totalRows) {
     page = totalPages;
   }
 
+
   const sqlQuery = `
     SELECT activity_sid, name, content, city, area, address, activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
@@ -190,33 +201,34 @@ if (totalRows) {
   });
 
   //取得某一個會員的喜愛清單
-  const sql_likeList =`SELECT 
-  ai.activity_sid, 
-  ai.name, 
-  ai.city, 
-  ai.area, 
-  ai.activity_pic, 
-  recent_date, 
-  farthest_date, 
-  ag.price_adult,
-  al.member_sid, 
-  al.date
-FROM
-  activity_info ai
-JOIN 
-  activity_group ag ON ai.activity_sid = ag.activity_sid
-JOIN 
-  (
-      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-      FROM activity_group 
-      GROUP BY activity_sid
-  ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-JOIN 
-  activity_like al ON ai.activity_sid = al.activity_sid
-WHERE member_sid='mem00300'
-GROUP BY 
-  ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
-ORDER BY al.date DESC`;
+  const sql_likeList = `
+    SELECT 
+      ai.activity_sid, 
+      ai.name, 
+      ai.city, 
+      ai.area, 
+      ai.activity_pic, 
+      recent_date, 
+      farthest_date, 
+      ag.price_adult,
+      al.member_sid, 
+      al.date
+    FROM
+      activity_info ai
+    JOIN 
+      activity_group ag ON ai.activity_sid = ag.activity_sid
+    JOIN 
+      (
+        SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+        FROM activity_group 
+        GROUP BY activity_sid
+      ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+    JOIN 
+      activity_like al ON ai.activity_sid = al.activity_sid
+      ${where_member}
+    GROUP BY 
+      ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+    ORDER BY al.date DESC`;
 
 const [likeDatas] = await db.query(sql_likeList);
 
@@ -248,6 +260,8 @@ likeDatas.map((pic) => {
   };
 
   return res.json(output);
+
+  
 });
 
 
