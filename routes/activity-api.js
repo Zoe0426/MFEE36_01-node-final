@@ -56,12 +56,7 @@ router.get("/activity", async (req, res) => {
   };
 
 
-  let where_member=''
-  //判斷用戶有沒有登入，用token驗證
-  if(res.locals.jwtData){
-    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
-    console.log(res.locals.jwtData.id)
-  }
+ 
 
 
 
@@ -200,55 +195,6 @@ if (totalRows) {
     i.post_date = res.toDateString(i.post_date);
   });
 
-  //取得某一個會員的喜愛清單
-  const sql_likeList = `
-    SELECT 
-      ai.activity_sid, 
-      ai.name, 
-      ai.city, 
-      ai.area, 
-      ai.activity_pic, 
-      recent_date, 
-      farthest_date, 
-      ag.price_adult,
-      al.member_sid, 
-      al.date
-    FROM
-      activity_info ai
-    JOIN 
-      activity_group ag ON ai.activity_sid = ag.activity_sid
-    JOIN 
-      (
-        SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-        FROM activity_group 
-        GROUP BY activity_sid
-      ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-    JOIN 
-      activity_like al ON ai.activity_sid = al.activity_sid
-      ${where_member}
-    GROUP BY 
-      ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
-    ORDER BY al.date DESC`;
-
-const [likeDatas] = await db.query(sql_likeList);
-
-// 日期處理
-likeDatas.forEach((v) => {
-  v.recent_date = res.toDateString(v.recent_date);
-  v.farthest_date = res.toDateString(v.farthest_date);
-  v.date = res.toDateString(v.date);
-});
-
-// 圖片處理 (字串->陣列)
-// output.likeDatas = activity_pic.map(p=>({...p, activity_pic : (p.activity_pic.split(',')[0])}))
-
-likeDatas.map((pic) => {
-    const imgNames = pic.activity_pic;
-    const imgs = imgNames.split(',');
-    const trimmedImgs = imgs.map(img => img.trim());
-    pic.activity_pic = trimmedImgs;
-
-  });
 
 
   output = {
@@ -258,7 +204,7 @@ likeDatas.map((pic) => {
     totalPages,
     page,
     rows,
-    likeDatas,
+    // likeDatas,
   };
 
   return res.json(output);
@@ -461,10 +407,10 @@ router.post("/addlikelist/:aid/:mid", async (req, res) => {
 //   res.json({cid_data, sqlQueryKeyword});
 // });
 
+
+
+
 // [aid] 動態路由
-
-
-// 
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
 
@@ -565,22 +511,75 @@ router.get("/activity/:activity_sid", async (req, res) => {
 module.exports = router;
 
 
-// 報名活動
-router.post("/sign/:aid/:mid", async (req, res) => {
-  const { aid, mid } = req.params;
-  const date = new Date(); // 取得當前時間
+// 讀取收藏清單
+router.get("/show-like-list", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
 
-  // 日期轉換
-  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
-
-  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
-
-  try {
-    // 執行 INSERT INTO 
-    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
-    res.json({ ...result });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "An error occurred" });
+  
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
   }
+
+  let likeDatas = [];
+
+  //用會員編號去取得某一個會員的喜愛清單
+  if (member) {
+    const sql_likeList = `SELECT 
+    ai.activity_sid, 
+    ai.name, 
+    ai.city, 
+    ai.area, 
+    ai.activity_pic, 
+    recent_date, 
+    farthest_date, 
+    ag.price_adult,
+    al.member_sid, 
+    al.date
+  FROM
+    activity_info ai
+  JOIN 
+    activity_group ag ON ai.activity_sid = ag.activity_sid
+  JOIN 
+    (
+      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+      FROM activity_group 
+      GROUP BY activity_sid
+    ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  JOIN 
+    activity_like al ON ai.activity_sid = al.activity_sid
+    WHERE member_sid='${member}'
+  GROUP BY 
+    ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+  ORDER BY al.date DESC`;
+    [likeDatas] = await db.query(sql_likeList);
+
+    // 日期處理
+  likeDatas.forEach((v) => {
+    v.recent_date = res.toDateString(v.recent_date);
+    v.farthest_date = res.toDateString(v.farthest_date);
+    v.date = res.toDateString(v.date);
+  });
+
+  // 圖片處理 (字串->陣列)
+
+  likeDatas.map((pic) => {
+      const imgNames = pic.activity_pic;
+      const imgs = imgNames.split(',');
+      const trimmedImgs = imgs.map(img => img.trim());
+      pic.activity_pic = trimmedImgs;
+
+    });
+  }
+
+
+  output = {
+    ...output,
+    likeDatas,
+  };
+  return res.json(output);
+
 });
