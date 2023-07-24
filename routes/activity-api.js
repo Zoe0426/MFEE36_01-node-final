@@ -287,7 +287,7 @@ router.delete("/likelist/:aid/:mid", async (req, res) => {
   }
 });
 
-// 新增收藏清單
+// faheart新增收藏清單
 router.post("/addlikelist/:aid/:mid", async (req, res) => {
   const { aid, mid } = req.params;
   const date = new Date(); // 取得當前時間
@@ -463,6 +463,8 @@ router.post("/addlikelist/:aid/:mid", async (req, res) => {
 
 // [aid] 動態路由
 
+
+// 
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
 
@@ -561,3 +563,24 @@ router.get("/activity/:activity_sid", async (req, res) => {
 });
 
 module.exports = router;
+
+
+// 報名活動
+router.post("/sign/:aid/:mid", async (req, res) => {
+  const { aid, mid } = req.params;
+  const date = new Date(); // 取得當前時間
+
+  // 日期轉換
+  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
+
+  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+
+  try {
+    // 執行 INSERT INTO 
+    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
