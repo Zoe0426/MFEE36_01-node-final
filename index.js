@@ -56,7 +56,7 @@ app.use((req, res, next) => {
     if (jwtData) {
       res.locals.jwtData = jwtData; // 標記有沒有使用 token
     }
-    console.log(jwtData);
+    // console.log(jwtData);
   }
    
   next();
