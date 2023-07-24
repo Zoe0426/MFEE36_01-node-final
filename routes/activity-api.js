@@ -55,6 +55,16 @@ router.get("/activity", async (req, res) => {
     rows: [],
   };
 
+
+  let where_member=''
+  //判斷用戶有沒有登入，用token驗證
+  if(res.locals.jwtData){
+    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
+    console.log(res.locals.jwtData.id)
+  }
+
+
+
   // 關鍵字
   // 最新/ 最舊/ 熱門/ 地區/ 日期/ 類別/ 價格
   // 類別/ 熱門/ 最新/ 地區/ 投票區
@@ -149,6 +159,7 @@ if (totalRows) {
     page = totalPages;
   }
 
+
   const sqlQuery = `
     SELECT activity_sid, name, content, city, area, address, activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
@@ -189,16 +200,115 @@ if (totalRows) {
     i.post_date = res.toDateString(i.post_date);
   });
 
+  //取得某一個會員的喜愛清單
+  const sql_likeList = `
+    SELECT 
+      ai.activity_sid, 
+      ai.name, 
+      ai.city, 
+      ai.area, 
+      ai.activity_pic, 
+      recent_date, 
+      farthest_date, 
+      ag.price_adult,
+      al.member_sid, 
+      al.date
+    FROM
+      activity_info ai
+    JOIN 
+      activity_group ag ON ai.activity_sid = ag.activity_sid
+    JOIN 
+      (
+        SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+        FROM activity_group 
+        GROUP BY activity_sid
+      ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+    JOIN 
+      activity_like al ON ai.activity_sid = al.activity_sid
+      ${where_member}
+    GROUP BY 
+      ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+    ORDER BY al.date DESC`;
+
+const [likeDatas] = await db.query(sql_likeList);
+
+// 日期處理
+likeDatas.forEach((v) => {
+  v.recent_date = res.toDateString(v.recent_date);
+  v.farthest_date = res.toDateString(v.farthest_date);
+  v.date = res.toDateString(v.date);
+});
+
+// 圖片處理 (字串->陣列)
+// output.likeDatas = activity_pic.map(p=>({...p, activity_pic : (p.activity_pic.split(',')[0])}))
+
+likeDatas.map((pic) => {
+    const imgNames = pic.activity_pic;
+    const imgs = imgNames.split(',');
+    const trimmedImgs = imgs.map(img => img.trim());
+    pic.activity_pic = trimmedImgs;
+
+  });
+
+
   output = {
+    ...output,
     totalRows,
     perPage,
     totalPages,
     page,
     rows,
+    likeDatas,
   };
 
   return res.json(output);
+
+  
 });
+
+
+// 刪除收藏清單
+router.delete("/likelist/:aid/:mid", async (req, res) => {
+  
+  const { aid, mid } = req.params;
+  let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
+  if (aid === "all") {
+    sql_deleteLikeList += `member_sid = '${mid}'`;
+  } else {
+    sql_deleteLikeList += `member_sid = '${mid}' AND activity_sid='${aid}'`;
+  }
+
+  try {
+    const [result] = await db.query(sql_deleteLikeList);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
+
+// 新增收藏清單
+router.post("/addlikelist/:aid/:mid", async (req, res) => {
+  const { aid, mid } = req.params;
+  const date = new Date(); // 取得當前時間
+
+  // 將日期時間值轉換為 'YYYY-MM-DD HH:mm:ss' 格式
+  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
+
+  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+
+  try {
+    // 執行 INSERT INTO 
+    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
+
+
+
 
 //  (old) list 拿取各分類資料
 // router.get("/activity", async (req, res) => {
