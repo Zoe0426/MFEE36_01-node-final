@@ -483,9 +483,17 @@ router.post('/count-item', async(req,res)=>{
 router.post('/get-mem-img', async(req,res)=>{
     try{
         const member_sid = req.body.member_sid;
+        console.log('membersid',req.body.member_sid)
         const getMemImgSql = `SELECT mi.profile FROM member_info mi WHERE member_sid = ?`;
         const [profileImg] = await db.query(getMemImgSql, member_sid);
-        res.json(profileImg[0]);
+        console.log('profileImg:',profileImg)
+        let result = profileImg[0];
+        console.log('result', result);
+        if(result.profile === null ){
+            result.profile = 0;
+        }
+        console.log(result);
+        res.json(result);
 
     }catch(error){
         console.log(error);
