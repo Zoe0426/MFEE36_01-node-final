@@ -392,7 +392,7 @@ WHERE rest_sid="${rest_sid}";`;
   const sql_menu = `SELECT rest_sid, menu_sid, menu_name FROM restaurant_menu WHERE rest_sid = ${rest_sid};`;
 
   let [menuRows] = await db.query(sql_menu);
-  
+
   //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
   const sql_likeList = `SELECT
   r.rest_sid,
@@ -442,7 +442,13 @@ ORDER BY
   return res.json(output);
 });
 //booking路由
-router.get("/bookiing", async (req, res) => {});
+router.get("/booking", async (req, res) => {
+  const book_sql =
+    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
+  const [book_info] = await db.query(book_sql);
+  return res.json(book_info);
+});
+
 //收藏路由
 
 //刪除收藏清單的API
