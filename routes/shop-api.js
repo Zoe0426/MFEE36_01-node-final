@@ -348,11 +348,18 @@ router.get("/product/:product_sid", async (req, res) => {
 
   const { product_sid } = req.params;
 
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+
   //取得商品主要資訊
-  const sql_productMainData = `SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating, COUNT(c.rating) comment_count
+  const sql_productMainData = `SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating, COUNT(c.rating) comment_count,SUM(product_qty) sales_qty
         FROM shop_product p
         JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
-        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
+        LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
+        LEFT JOIN order_details o ON o.rel_sid=p.product_sid 
         WHERE p.product_sid="${product_sid}"`;
 
   let [shopMainData] = await db.query(sql_productMainData);
@@ -386,7 +393,7 @@ router.get("/product/:product_sid", async (req, res) => {
   const minPrice = Math.min(...prices);
   let priceRange;
   if (maxPrice !== minPrice) {
-    priceRange = `${minPrice} ~ ${maxPrice}`;
+    priceRange = `${minPrice.toLocaleString('en-US')} ~ ${maxPrice.toLocaleString('en-US')}`;
   } else {
     priceRange = minPrice;
   }
@@ -407,7 +414,7 @@ router.get("/product/:product_sid", async (req, res) => {
   shopDetailData = [defaultObj, ...shopDetailData];
 
   //取得評價資訊，還需要修改，因為要join member的表格
-  const sql_commentDatas = `SELECT c.*, m.name, m.profile
+  const sql_commentDatas = `SELECT c.*, m.nickname, m.profile
     FROM shop_comment c
     LEFT JOIN member_info m ON m.member_sid=c.member_sid
     WHERE product_sid="${product_sid}" ORDER BY c.date DESC`;
@@ -438,19 +445,19 @@ router.get("/product/:product_sid", async (req, res) => {
     LIMIT 24`;
   const [reccomandData] = await db.query(sql_reccomandData);
 
-  //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
-    FROM shop_like l
-    JOIN shop_product p ON p.product_sid=l.product_sid
-    LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-    WHERE member_sid='mem00002'
-    GROUP BY p.product_sid
-    ORDER BY date DESC`;
-  const [likeDatas] = await db.query(sql_likeList);
+  // //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+  // const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
+  //   FROM shop_like l
+  //   JOIN shop_product p ON p.product_sid=l.product_sid
+  //   LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
+  //   WHERE member_sid='mem00002'
+  //   GROUP BY p.product_sid
+  //   ORDER BY date DESC`;
+  // const [likeDatas] = await db.query(sql_likeList);
 
-  likeDatas.forEach((v) => {
-    v.date = res.toDateString(v.date);
-  });
+  // likeDatas.forEach((v) => {
+  //   v.date = res.toDateString(v.date);
+  // });
 
   res.json({
     shopMainData,
@@ -458,7 +465,7 @@ router.get("/product/:product_sid", async (req, res) => {
     commentDatas,
     commentEachQty,
     reccomandData,
-    likeDatas,
+    // likeDatas,
   });
 });
 
