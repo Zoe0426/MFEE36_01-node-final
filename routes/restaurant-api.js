@@ -448,6 +448,32 @@ router.get("/booking", async (req, res) => {
   const [book_info] = await db.query(book_sql);
   return res.json(book_info);
 });
+//給列表頁餐廳名稱/地區的選項API
+router.get("/search-name", async (req, res) => {
+  let output = {
+    keywords: [],
+  };
+
+  let keywords = [];
+  let restName = [];
+  const sql_rest_names = `SELECT name FROM restaurant_information  WHERE 1;`;
+  const [rest_names] = await db.query(sql_rest_names);
+
+  if (rest_names.length > 0) {
+    restName = [...rest_names].map((v) => {
+      return v.name;
+      // return v.name.split("-")[1].split("(")[0];
+    });
+    restName = [...new Set(restName)];
+  }
+  keywords = [...restName];
+
+  output = {
+    ...output,
+    keywords,
+  };
+  return res.json(output);
+});
 
 //收藏路由
 
