@@ -98,9 +98,6 @@ router.get("/list", async (req, res) => {
     tableware: 4,
     clean: 9,
     have_seat: 4,
-    taipei: "台北市",
-    taichung: "台中市",
-    newtaipei: "新北市",
     hot_DESC: "booking_count DESC",
     new_DESC: "r.created_at DESC",
     cmt_DESC: "average_friendly DESC",
@@ -117,7 +114,15 @@ router.get("/list", async (req, res) => {
     italian_cuisine: 11,
     ice: 12,
   };
-
+  const locationDict = {
+    台北市: "台北市",
+    新北市: "新北市",
+    大安區: "大安區",
+    台中市: "台中市",
+    西區: "西區",
+    大同區: "大同區",
+    中正區: "中正區",
+  };
   //queryString條件判斷
   let where = " WHERE 1 ";
 
@@ -146,6 +151,7 @@ router.get("/list", async (req, res) => {
   let rule = req.query.rule || "";
   let service = req.query.service || "";
   let cityParam = req.query.city || "";
+  let area = req.query.area || "";
   let category = req.query.category || "";
 
   //取得多個用餐類別
@@ -163,8 +169,13 @@ router.get("/list", async (req, res) => {
   console.log(category);
 
   if (cityParam) {
-    const cityValue = dict[cityParam];
+    const cityValue = locationDict[cityParam];
     where += ` AND  r.city = '${cityValue}'  `;
+  }
+
+  if (area) {
+    const areaValue = locationDict[area];
+    where += ` AND  r.area = '${areaValue}'  `;
   }
 
   if (rule) {
@@ -319,6 +330,8 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     serviceRows: [],
     commentRows: [],
     activityRows: [],
+    likeDatas: [],
+    menuRows: [],
   };
   const { rest_sid } = req.params;
   console.log(rest_sid);
@@ -375,6 +388,46 @@ WHERE rest_sid="${rest_sid}";`;
 
   let [activityRows] = await db.query(sql_restActivity);
 
+  //取得餐廳的菜單
+  const sql_menu = `SELECT rest_sid, menu_sid, menu_name FROM restaurant_menu WHERE rest_sid = ${rest_sid};`;
+
+  let [menuRows] = await db.query(sql_menu);
+
+  //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+  const sql_likeList = `SELECT
+  r.rest_sid,
+  r.name,
+  r.city,
+  r.area,
+  (SELECT ru.rule_name FROM restaurant_associated_rule AS ar_sub
+   JOIN restaurant_rule AS ru ON ar_sub.rule_sid = ru.rule_sid
+   WHERE ar_sub.rest_sid = r.rest_sid
+   LIMIT 1) AS rule_name,
+  GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+  (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
+  MAX(rl.created_at) AS latest_like_date
+FROM
+  restaurant_information AS r
+  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+  JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
+WHERE rl.member_id = 'mem00001'
+GROUP BY
+  r.rest_sid,
+  r.name,
+  r.city,
+  r.area
+ORDER BY
+  latest_like_date DESC;
+`;
+  const [likeDatas] = await db.query(sql_likeList);
+
+  likeDatas.forEach((v) => {
+    v.date = res.toDateString(v.date);
+  });
+
   output = {
     ...output,
     restDetailRows,
@@ -383,10 +436,39 @@ WHERE rest_sid="${rest_sid}";`;
     serviceRows,
     commentRows,
     activityRows,
+    likeDatas,
+    menuRows,
   };
   return res.json(output);
 });
 //booking路由
-router.get("/bookiing", async (req, res) => {});
+router.get("/booking", async (req, res) => {
+  const book_sql =
+    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
+  const [book_info] = await db.query(book_sql);
+  return res.json(book_info);
+});
+
+//收藏路由
+
+//刪除收藏清單的API
+
+router.delete("/likelist/:rid/:mid", async (req, res) => {
+  const { rid, mid } = req.params;
+  let sql_deleteLikeList = "DELETE FROM `restaurant_like` WHERE ";
+  if (rid === "all") {
+    sql_deleteLikeList += `member_sid = '${mid}'`;
+  } else {
+    sql_deleteLikeList += `member_sid = '${mid}' AND rest_sid='${rid}'`;
+  }
+
+  try {
+    const [result] = await db.query(sql_deleteLikeList);
+    res.json({ ...result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
+});
 module.exports = router;
 // console.log(JSON.stringify(router, null, 4));
