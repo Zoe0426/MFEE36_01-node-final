@@ -214,44 +214,56 @@ if (totalRows) {
 
 
 // 刪除收藏清單
-router.delete("/likelist/:aid/:mid", async (req, res) => {
-  
-  const { aid, mid } = req.params;
+router.delete("/likelist/:aid", async (req, res) => {
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { aid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
   if (aid === "all") {
-    sql_deleteLikeList += `member_sid = '${mid}'`;
+    sql_deleteLikeList += `member_sid = ?`;
   } else {
-    sql_deleteLikeList += `member_sid = '${mid}' AND activity_sid='${aid}'`;
+    sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
   }
 
   try {
-    const [result] = await db.query(sql_deleteLikeList);
+    const [result] = await db.query(sql_deleteLikeList, aid === "all" ? [member] : [member, aid]);
     res.json({ ...result });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
 
 // faheart新增收藏清單
-router.post("/addlikelist/:aid/:mid", async (req, res) => {
-  const { aid, mid } = req.params;
-  const date = new Date(); // 取得當前時間
+router.post("/addlikelist/:aid", async (req, res) => {
 
-  // 將日期時間值轉換為 'YYYY-MM-DD HH:mm:ss' 格式
-  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
 
-  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { aid } = req.params;
+
+  // Use MySQL DATE_FORMAT function to format the date directly in the SQL query
+  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'))";
 
   try {
-    // 執行 INSERT INTO 
-    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    // Execute INSERT INTO query
+    const [result] = await db.query(sql_insertLikeList, [aid, member]);
     res.json({ ...result });
+    console.log('會員ID:', member);
+
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
 
 
 
