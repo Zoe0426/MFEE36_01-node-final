@@ -99,12 +99,14 @@ router.post("/", async (req, res) => {
 
   // member-address
   const sql2 = `INSERT INTO member_address(
-    member_sid, category, address, 
-    default_status, city, area,
-    create_time, update_time) VALUES(
-    ?, ?, ?,
-    ?, ?, ?,
-    NOW(), NOW()
+    member_sid, recipient, recipient_phone, 
+    post_type, store_name, default_status, 
+    city, area, address, 
+    create_time, update_time) VALUES (
+      ?,?,?,
+      ?,?,?,
+      ?,?,?,
+      NOW(),NOW()
   )`;
 
   //自動生成會員編號
@@ -188,7 +190,17 @@ router.post("/", async (req, res) => {
     req.body.name,
   ]);
 
-  const [result2] = await db.query(sql2, [new_memSid, 1, req.body.address, 1, req.body.city, req.body.area]);
+  const [result2] = await db.query(sql2, [
+    new_memSid,
+    req.body.name,
+    req.body.mobile,
+    1,
+    null,
+    1,
+    req.body.city,
+    req.body.area,
+    req.body.address,
+  ]);
 
   res.json({
     result,
@@ -365,10 +377,11 @@ ORDER BY o.create_dt DESC
   res.json(firstItems);
 });
 
-// 詳細訂單
+// 詳細訂單---------------------------------
 router.get("/orderdetail/:sid", async (req, res) => {
   let { sid } = req.params;
 
+  //商品訂單
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
   FROM order_main o 
@@ -381,8 +394,9 @@ router.get("/orderdetail/:sid", async (req, res) => {
   ORDER BY o.create_dt DESC;
   `);
 
+  //活動訂單
   const [rows2] = await db.query(`
-  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal, mi.name, mi.mobile, af.address actInfoAddress
   FROM order_main o 
   JOIN member_info mi ON o.member_sid = mi.member_sid 
   JOIN order_details od ON o.order_sid = od.order_sid 
@@ -394,11 +408,54 @@ router.get("/orderdetail/:sid", async (req, res) => {
   ORDER BY o.create_dt DESC;
   `);
 
+  //商品評價
+  const [rows3] = await db.query(
+    `SELECT od.order_detail_sid, od.order_sid, sc.rating shopStar, sc.product_comment_sid, sc.content shopContent
+    FROM order_details od
+    JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
+  //活動評價
+  const [rows4] = await db.query(
+    `SELECT od.order_detail_sid, od.order_sid, ar.activity_rating_sid, ar.star actStar, ar.content actContent
+    FROM order_details od
+    JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
+    WHERE od.order_sid='${sid}'
+  `
+  );
+
   //合併成一個datas
-  const datas = rows.concat(rows2);
+  const orderDatas = rows.concat(rows2);
+  const reviewData = rows3.concat(rows4);
+
+  let array1 = orderDatas;
+  let array2 = reviewData;
+
+  let result = array1.map((item1) => {
+    // find object in array1 which has the same order_detail_sid as in item2
+    let item2 = array2.find((item) => item.order_detail_sid === item1.order_detail_sid);
+
+    if (item2) {
+      // if it exists, then merge both items
+      return { ...item1, ...item2 };
+    } else {
+      return {
+        ...item1,
+        //order_sid: null,
+        product_comment_sid: null,
+        shopStar: null,
+        shopContent: null,
+        activity_rating_sid: null,
+        actStar: null,
+        actContent: null,
+      };
+    }
+  });
 
   //整理datas
-  const updatedDatas = datas.map((i) => {
+  const updatedDatas = result.map((i) => {
     let orderCreate = dayjs(i.create_dt);
     if (orderCreate.isValid()) {
       orderCreate = orderCreate.format("YYYY-MM-DD HH:ss");
@@ -432,14 +489,20 @@ router.get("/orderdetail/:sid", async (req, res) => {
       activity_pic: i.activity_pic ? i.activity_pic.split(",")[0] : "",
       order_product: i.order_product,
       rel_type: i.rel_type,
-      address: i.post_city + i.post_area + i.post_address,
       post_type: i.post_type,
       tread_type: i.tread_type,
       order_create_time: orderCreate,
-      city: i.city,
-      area: i.area,
-      address: i.address,
-      actAddress: i.city + i.area + i.address,
+      actAddress: i.actInfoAddress,
+      postAddress: i.post_address,
+      postStore: i.post_store_name,
+      prodCommentSid: i.product_comment_sid,
+      shopStar: i.shopStar,
+      shopContent: i.shopContent,
+      actCommentSid: i.activity_rating_sid,
+      actStar: i.actStar,
+      actContent: i.actContent,
+      pcSid: i.product_comment_sid,
+      acRaSid: i.activity_rating_sid,
     };
   });
 
@@ -460,11 +523,17 @@ router.post("/actReviews", async (req, res) => {
     req.body.memberSid,
     req.body.actSid,
     req.body.odSid,
-    req.body.starts,
-    req.body.content,
+    req.body.actStar,
+    req.body.actContent,
   ]);
 
-  res.json(rowsAct);
+  const sqlUpdateOrderMain = `UPDATE order_main om
+  JOIN order_details od ON om.order_sid = od.order_sid 
+  SET post_status = 6 
+  WHERE od.order_detail_sid = ?`;
+  const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
+
+  res.json({ ...rowsAct, updateRes });
 });
 
 //新增商品評價
@@ -480,14 +549,113 @@ router.post("/prodReviews", async (req, res) => {
     req.body.odSid,
     req.body.prodSid,
     req.body.memberSid,
-    req.body.starts,
-    req.body.content,
+    req.body.shopStar,
+    req.body.shopContent,
   ]);
+
+  const sqlUpdateOrderMain = `UPDATE order_main om
+  JOIN order_details od ON om.order_sid = od.order_sid 
+  SET post_status = 6 
+  WHERE od.order_detail_sid = ?`;
+  const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
 
   res.json(rowsProd);
 });
 
-// 讀取活動評價
-router.get("/getActReviews",async(req,res)=>{
-  const sqlGetActReviews=`S`
-})
+// 讀取評價
+// router.get("/getReviews/:sid", async (req, res) => {
+//   let { sid } = req.params;
+
+//   const [rows] = await db.query(
+//     `SELECT *, od.order_detail_sid, od.order_sid
+//     FROM order_details od
+//     JOIN shop_comment sc ON sc.order_detail_sid = od.order_detail_sid
+//     WHERE od.order_sid='${sid}'
+//   `
+//   );
+
+//   const [rows2] = await db.query(
+//     `SELECT *, od.order_detail_sid, od.order_sid
+//     FROM order_details od
+//     JOIN activity_rating ar ON ar.order_detail_sid = od.order_detail_sid
+//     WHERE od.order_sid='${sid}'
+//   `
+//   );
+
+//   const datas = rows.concat(rows2);
+
+//   res.json(datas);
+// });
+
+// 抓取餐廳預約資料
+router.get("/schedule", async (req, res) => {
+  //let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
+
+  const [sqlRestaurant] = await db.query(
+    `
+    SELECT   
+    rb.date as date, 
+    rb.member_sid as memberSid, 
+    rb.people_num as peopleNum, 
+    rb.pet_num as petNum, 
+    ri.name as name,
+    ri.phone as phone,
+    ri.city as city,
+    ri.area as area,
+    ri.address as address,
+    ri.notice as notice,
+    0 as adultQty,
+    0 as childQty,
+    NULL as type,
+    rpt.time as sectionTime
+
+    FROM restaurant_booking rb
+    JOIN restaurant_information ri ON ri.rest_sid = rb.rest_sid
+    JOIN restaurant_period_of_time rpt ON rpt.rest_sid = rb.rest_sid
+    WHERE member_sid="${sid}"
+
+    UNION ALL
+
+    SELECT 
+    od.rel_seq_name as date,
+    om.member_sid as memberSid,
+    0 as peopleNum,
+    0 as petNum,
+    od.rel_name as name,
+    NULL as phone,
+    ai.city as city,
+    ai.area as area,
+    ai.address as address,
+    ai.policy as notice,
+    od.adult_qty as adultQty,
+    od.child_qty as childQty,
+    od.rel_type as type,
+    ag.time as sectionTime
+
+    FROM order_details od
+    JOIN order_main om
+    ON om.order_sid=od.order_sid
+    JOIN activity_info ai
+    ON ai.activity_sid=od.rel_sid
+    JOIN activity_group ag
+    ON ag.activity_group_sid=od.rel_seq_sid
+    WHERE rel_type="activity" AND member_sid="${sid}"; 
+    `
+  );
+
+  res.json(sqlRestaurant);
+});
