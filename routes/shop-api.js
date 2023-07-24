@@ -212,7 +212,7 @@ router.get("/products", async (req, res) => {
     v.like = false;
   });
 
-  //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過蒐藏
+  //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過收藏
   if (res.locals.jwtData) {
     const sql_like = `SELECT * FROM shop_like where member_sid="${res.locals.jwtData.id}" `;
     const [like_rows] = await db.query(sql_like);
@@ -353,6 +353,7 @@ router.get("/product/:product_sid", async (req, res) => {
     member = res.locals.jwtData.id;
   }
 
+  let shopMainData = [];
 
   //取得商品主要資訊
   const sql_productMainData = `SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating, COUNT(c.rating) comment_count,SUM(product_qty) sales_qty
@@ -362,8 +363,18 @@ router.get("/product/:product_sid", async (req, res) => {
         LEFT JOIN order_details o ON o.rel_sid=p.product_sid 
         WHERE p.product_sid="${product_sid}"`;
 
-  let [shopMainData] = await db.query(sql_productMainData);
-  //return res.json(shopMainData)
+  [shopMainData] = await db.query(sql_productMainData);
+
+  //判斷用戶有沒有登入，用token驗證，並確認該產品有沒有收藏
+
+  if (member) {
+    const sql_like = `SELECT * FROM shop_like where member_sid="${res.locals.jwtData.id}" AND product_sid="${product_sid}" `;
+    const [like_rows] = await db.query(sql_like);
+    shopMainData =
+      like_rows.length > 0
+        ? [{ ...shopMainData[0], like: true }]
+        : [{ ...shopMainData[0], like: false }];
+  }
 
   //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
   const dict = {
@@ -381,10 +392,11 @@ router.get("/product/:product_sid", async (req, res) => {
   shopMainData[0].catergory_chinese_name = catergory_chinese_name;
   shopMainData[0].catergory_english_name = catergory_english_name;
 
+  let shopDetailData = [];
   //取得細項規格的資訊
   const sql_productDetailData = `SELECT * FROM shop_product_detail WHERE product_sid="${product_sid}"`;
 
-  let [shopDetailData] = await db.query(sql_productDetailData);
+  [shopDetailData] = await db.query(sql_productDetailData);
 
   //須將價格區間、主商品照片細項規格合併
   //1.取得價格區間
@@ -393,7 +405,9 @@ router.get("/product/:product_sid", async (req, res) => {
   const minPrice = Math.min(...prices);
   let priceRange;
   if (maxPrice !== minPrice) {
-    priceRange = `${minPrice.toLocaleString('en-US')} ~ ${maxPrice.toLocaleString('en-US')}`;
+    priceRange = `${minPrice.toLocaleString(
+      "en-US"
+    )} ~ ${maxPrice.toLocaleString("en-US")}`;
   } else {
     priceRange = minPrice;
   }
@@ -414,27 +428,32 @@ router.get("/product/:product_sid", async (req, res) => {
   shopDetailData = [defaultObj, ...shopDetailData];
 
   //取得評價資訊，還需要修改，因為要join member的表格
+  let commentDatas = [];
   const sql_commentDatas = `SELECT c.*, m.nickname, m.profile
     FROM shop_comment c
     LEFT JOIN member_info m ON m.member_sid=c.member_sid
     WHERE product_sid="${product_sid}" ORDER BY c.date DESC`;
 
-  const [commentDatas] = await db.query(sql_commentDatas);
+  [commentDatas] = await db.query(sql_commentDatas);
 
   //將卡片內的日期轉換為當地格式
-  commentDatas.forEach((v) => {
-    v.date = res.toDateString(v.shelf_date);
-  });
+  if (commentDatas.length > 0) {
+    commentDatas.forEach((v) => {
+      v.date = res.toDateString(v.shelf_date);
+    });
+  }
 
   //取得該商品各項評分的筆數
+  let commentEachQty = [];
   const sql_commentQtyForEach = `SELECT rating, COUNT(*) count
     FROM shop_comment
     WHERE product_sid = "${product_sid}"
     GROUP BY rating ORDER BY rating DESC`;
 
-  const [commentEachQty] = await db.query(sql_commentQtyForEach);
+  [commentEachQty] = await db.query(sql_commentQtyForEach);
 
   //依據客戶所查的商品，用寵物類別隨機推薦商品給客戶
+  let reccomandData = [];
   const customerLookforPet = shopMainData[0].for_pet_type;
   const sql_reccomandData = `SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price, ROUND(AVG(c.rating), 1) avg_rating
     FROM shop_product p
@@ -443,21 +462,21 @@ router.get("/product/:product_sid", async (req, res) => {
     GROUP BY p.product_sid
     ORDER BY RAND()
     LIMIT 24`;
-  const [reccomandData] = await db.query(sql_reccomandData);
+  [reccomandData] = await db.query(sql_reccomandData);
 
-  // //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  // const sql_likeList = `SELECT l.*, p.name, p.img, MAX(ps.price) max_price, MIN(ps.price) min_price
-  //   FROM shop_like l
-  //   JOIN shop_product p ON p.product_sid=l.product_sid
-  //   LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
-  //   WHERE member_sid='mem00002'
-  //   GROUP BY p.product_sid
-  //   ORDER BY date DESC`;
-  // const [likeDatas] = await db.query(sql_likeList);
-
-  // likeDatas.forEach((v) => {
-  //   v.date = res.toDateString(v.date);
-  // });
+  //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過收藏
+  if (member) {
+    const sql_like = `SELECT * FROM shop_like where member_sid="${member}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      reccomandData = reccomandData.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+    }
+  }
 
   res.json({
     shopMainData,
@@ -465,7 +484,6 @@ router.get("/product/:product_sid", async (req, res) => {
     commentDatas,
     commentEachQty,
     reccomandData,
-    // likeDatas,
   });
 });
 
@@ -480,8 +498,6 @@ router.post("/handle-like-list", async (req, res) => {
     member = res.locals.jwtData.id;
   }
   const receiveData = req.body.data;
-
-  console.log(receiveData);
 
   let deleteLike = [];
   let addLike = [];
@@ -519,6 +535,8 @@ router.post("/handle-like-list", async (req, res) => {
     const [result] = await db.query(sql_add_like, [insertLike]);
     output.success = !!result.affectedRows;
   }
+
+  console.log(receiveData);
   res.json(output);
 });
 
