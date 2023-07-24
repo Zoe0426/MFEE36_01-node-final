@@ -240,15 +240,15 @@ likeDatas.forEach((v) => {
 });
 
 // 圖片處理 (字串->陣列)
-output.likeDatas = activity_pic.map(p=>({...p, activity_pic : (p.activity_pic.split(',')[0])}))
+// output.likeDatas = activity_pic.map(p=>({...p, activity_pic : (p.activity_pic.split(',')[0])}))
 
-// likeDatas.map((pic) => {
-//     const imgNames = pic.activity_pic;
-//     const imgs = imgNames.split(',');
-//     const trimmedImgs = imgs.map(img => img.trim());
-//     pic.activity_pic = trimmedImgs;
+likeDatas.map((pic) => {
+    const imgNames = pic.activity_pic;
+    const imgs = imgNames.split(',');
+    const trimmedImgs = imgs.map(img => img.trim());
+    pic.activity_pic = trimmedImgs;
 
-//   });
+  });
 
 
   output = {
