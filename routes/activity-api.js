@@ -614,7 +614,7 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
   
 
   const sql_orderActivity = `
-  INSERT INTO order_cart(cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,?,'activity',?,?,null,?,?,'001')`;
+  INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
 
 
   try {
