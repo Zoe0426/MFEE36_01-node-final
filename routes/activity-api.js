@@ -213,6 +213,81 @@ if (totalRows) {
 });
 
 
+
+// 讀取收藏清單
+router.get("/show-like-list", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
+  
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  let likeDatas = [];
+
+  //用會員編號去取得某一個會員的喜愛清單
+  if (member) {
+    const sql_likeList = `SELECT 
+    ai.activity_sid, 
+    ai.name, 
+    ai.city, 
+    ai.area, 
+    ai.activity_pic, 
+    recent_date, 
+    farthest_date, 
+    ag.price_adult,
+    al.member_sid, 
+    al.date
+  FROM
+    activity_info ai
+  JOIN 
+    activity_group ag ON ai.activity_sid = ag.activity_sid
+  JOIN 
+    (
+      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+      FROM activity_group 
+      GROUP BY activity_sid
+    ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  JOIN 
+    activity_like al ON ai.activity_sid = al.activity_sid
+    WHERE member_sid='${member}'
+  GROUP BY 
+    ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+  ORDER BY al.date DESC`;
+    [likeDatas] = await db.query(sql_likeList);
+
+    // 日期處理
+  likeDatas.forEach((v) => {
+    v.recent_date = res.toDateString(v.recent_date);
+    v.farthest_date = res.toDateString(v.farthest_date);
+    v.date = res.toDateString(v.date);
+  });
+
+  // 圖片處理 (字串->陣列)
+
+  likeDatas.map((pic) => {
+      const imgNames = pic.activity_pic;
+      const imgs = imgNames.split(',');
+      const trimmedImgs = imgs.map(img => img.trim());
+      pic.activity_pic = trimmedImgs;
+
+    });
+  }
+
+
+  output = {
+    ...output,
+    likeDatas,
+  };
+  return res.json(output);
+
+});
+
+
 // 刪除收藏清單
 router.delete("/likelist/:aid", async (req, res) => {
   let member = "";
@@ -520,78 +595,47 @@ router.get("/activity/:activity_sid", async (req, res) => {
   return res.json(output);
 });
 
-module.exports = router;
 
+// [aid] 新增活動訂單
+router.post("/order-activity/:activity_sid", async (req, res) => {
+  console.log('Reached the order-activity route handler');
+  console.log('Request Params:', req.params);
+  console.log('Request Body:', req.body);
 
-// 讀取收藏清單
-router.get("/show-like-list", async (req, res) => {
-  let output = {
-    success: true,
-    likeDatas: [],
-  };
-
-  
   let member = "";
   if (res.locals.jwtData) {
     member = res.locals.jwtData.id;
   }
 
-  let likeDatas = [];
+  const { activity_sid } = req.params;
+  console.log(req.params);
+  const { rel_seq_sid, adult_qty, child_qty } = req.body;
 
-  //用會員編號去取得某一個會員的喜愛清單
-  if (member) {
-    const sql_likeList = `SELECT 
-    ai.activity_sid, 
-    ai.name, 
-    ai.city, 
-    ai.area, 
-    ai.activity_pic, 
-    recent_date, 
-    farthest_date, 
-    ag.price_adult,
-    al.member_sid, 
-    al.date
-  FROM
-    activity_info ai
-  JOIN 
-    activity_group ag ON ai.activity_sid = ag.activity_sid
-  JOIN 
-    (
-      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-      FROM activity_group 
-      GROUP BY activity_sid
-    ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-  JOIN 
-    activity_like al ON ai.activity_sid = al.activity_sid
-    WHERE member_sid='${member}'
-  GROUP BY 
-    ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
-  ORDER BY al.date DESC`;
-    [likeDatas] = await db.query(sql_likeList);
+  
 
-    // 日期處理
-  likeDatas.forEach((v) => {
-    v.recent_date = res.toDateString(v.recent_date);
-    v.farthest_date = res.toDateString(v.farthest_date);
-    v.date = res.toDateString(v.date);
-  });
+  const sql_orderActivity = `
+  INSERT INTO order_cart(cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,?,'activity',?,?,null,?,?,'001')`;
 
-  // 圖片處理 (字串->陣列)
 
-  likeDatas.map((pic) => {
-      const imgNames = pic.activity_pic;
-      const imgs = imgNames.split(',');
-      const trimmedImgs = imgs.map(img => img.trim());
-      pic.activity_pic = trimmedImgs;
+  try {
+    
+    const [result] = await db.query(sql_orderActivity, [
+      activity_sid,
+      member,
+      rel_seq_sid,
+      adult_qty,
+      child_qty,
+    ]);
 
-    });
+    res.json({ ...result });
+    console.log('會員ID:', member);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
   }
-
-
-  output = {
-    ...output,
-    likeDatas,
-  };
-  return res.json(output);
-
 });
+
+module.exports = router;
+
+
+
