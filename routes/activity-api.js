@@ -596,7 +596,9 @@ router.get("/activity/:activity_sid", async (req, res) => {
 });
 
 
-// [aid] 新增活動訂單
+
+
+// [aid] 新增活動訂單 + 判斷是否已存在相同activity_group_sid
 router.post("/order-activity/:activity_sid", async (req, res) => {
   console.log('Reached the order-activity route handler');
   console.log('Request Params:', req.params);
@@ -611,17 +613,25 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
   console.log(req.params);
   const { rel_seq_sid, adult_qty, child_qty } = req.body;
 
-  
+  // 抓資料 (判斷用)
+  const sql_checkExistingCartItem = `
+    SELECT cart_sid FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_seq_sid='${rel_seq_sid}'`;
 
+  // 新增
   const sql_orderActivity = `
-  INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
-
+    INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?, 'activity', ?, ?, null, ?, ?, '001')`;
 
   try {
+    // 去資料庫查詢 是否已存在相同activity_group_sid
+    const [existingCartItem] = await db.query(sql_checkExistingCartItem);
+    if (existingCartItem.length > 0) {
+      throw new Error('該項目已經在購物車中');
+    }
+
     
     const [result] = await db.query(sql_orderActivity, [
-      activity_sid,
       member,
+      activity_sid,
       rel_seq_sid,
       adult_qty,
       child_qty,
@@ -635,7 +645,81 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
   }
 });
 
+
+
+// [aid] 新增活動訂單
+// router.post("/order-activity/:activity_sid", async (req, res) => {
+//   console.log('Reached the order-activity route handler');
+//   console.log('Request Params:', req.params);
+//   console.log('Request Body:', req.body);
+
+//   let member = "";
+//   if (res.locals.jwtData) {
+//     member = res.locals.jwtData.id;
+//   }
+
+//   const { activity_sid } = req.params;
+//   console.log(req.params);
+//   const { rel_seq_sid, adult_qty, child_qty } = req.body;
+
+  
+
+//   const sql_orderActivity = `
+//   INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
+
+
+//   try {
+    
+//     const [result] = await db.query(sql_orderActivity, [
+//       member,
+//       activity_sid,
+//       rel_seq_sid,
+//       adult_qty,
+//       child_qty,
+//     ]);
+
+//     res.json({ ...result });
+//     console.log('會員ID:', member);
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ error: "An error occurred" });
+//   }
+// });
+
+
+//[aid] 取得活動訂單資料
+// router.get("check-order-activity/:activity_sid", async (req, res) => {
+  
+//   let member = "";
+//   if (res.locals.jwtData) {
+//     member = res.locals.jwtData.id;
+//   }
+
+//   const { activity_sid } = req.params;
+//   console.log(req.params);
+
+  
+
+//   try {
+//     let sql_checkOrderActivity;
+//     if (member && activity_sid) {
+//       sql_checkOrderActivity = `
+//       SELECT cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_sid='${activity_sid}'`;
+//     }
+//     const [result] = await db.query(sql_checkOrderActivity);
+  
+//     res.json({ ...result });
+//     console.log('會員ID:', member);
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ error: "An error occurred" });
+//   }
+  
+// });
+
+
 module.exports = router;
+
 
 
 
