@@ -297,53 +297,6 @@ router.get('/forum/blog/favlist', async (req, res) => {
 });
 
 
-//一篇文章有多少讚
-// router.get('/forum/postLike/:postlikeId', async (req, res) => {
-//   let { postlikeId } = req.params;
-//   const [postLike] = await db.query(
-//     `
-//     SELECT plm.post_sid, COUNT(pl.post_sid) AS postLikeCount 
-//     FROM post_list_member plm 
-//     LEFT JOIN post_like pl ON pl.post_sid = plm.post_sid 
-//     WHERE plm.post_sid = '${postlikeId}';
-//     `
-//   )
-//   res.json(postLike);
-// })
-
-
-// // 設定後端端點來處理按讚請求
-// router.post('/forum/postLike', async (req, res) => {
-//   try {
-//     const { postlikeId } = req.params;
-//     //const { isLiked } = req.query;
-
-//     // 執行插入或刪除按讚資料的動作
-//     let sql;
-//     if (isLiked === 'true') {
-//       // 如果按讚，執行插入按讚資料的 SQL 語句
-//       sql = 'INSERT INTO post_like (post_sid) VALUES (?)';
-//     } else {
-//       // 如果取消按讚，執行刪除按讚資料的 SQL 語句
-//       sql = 'DELETE FROM post_like WHERE post_sid = ? AND member_sid = ?';
-//     }
-
-//     db.query(sql, [postlikeId], (err, result) => {
-//       if (err) {
-//         console.error('Error handling like:', err);
-//         res.status(500).json({ error: 'Something went wrong while updating like data' });
-//         return;
-//       }
-//       console.log('Like updated');
-//       // 回傳按讚數給前端
-//       getCountOfLikes(postlikeId, res);
-//     });
-//   } catch (error) {
-//     console.error('Error handling like:', error);
-//     res.status(500).json({ error: 'Something went wrong' });
-//   }
-// });
-
 // 判斷會員有沒有按讚這篇文章
 router.get('/forum/likeStatus', async(req, res)=>{
   const member_sid = req.query.member_sid;
@@ -382,13 +335,8 @@ router.delete('/forum/likeDel',async(req, res)=>{
 // 新增留言
 router.post('/forum/addcomment',async(req, res)=>{
    const member_sid = req.body.member_sid;
-  //const member_sid = 'mem00200';
-  console.log(member_sid);
    const post_sid = req.body.post_sid ;
-  //const post_sid = 1 ;
-  console.log(post_sid);
    const comment_content = req.body.comment_content;
-  //const comment_content = '原po不要擔心！';
   const sql = `INSERT INTO post_comment(post_sid, member_sid, parent_sid, comment_content, comment_date) 
   VALUES (?,?,'0',?,NOW())`
   const [result] = await db.query(sql,[post_sid, member_sid, comment_content]);
@@ -410,6 +358,75 @@ router.post('/forum/addcomment',async(req, res)=>{
   }));
   res.json({result, newCommentData});
 })
+
+// 新增收藏
+// router.post('/forum/addFav',async(req, res)=>{
+//   const member_sid = req.body.member_sid;
+//   const post_sid = req.body.post_sid ;
+//   const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
+//   console.log(sql);
+//   const [favResult] = await db.query(sql,[post_sid, member_sid]);
+//   // const [favResult] = await db.query(sql);
+//   console.log(favResult);
+//   res.json(favResult);
+// })
+// 新增收藏
+router.post('/forum/addFav', async (req, res) => {
+  try {
+    const member_sid = req.body.member_sid;
+    const post_sid = req.body.post_sid;
+    const list_name = req.body.list_name;
+    const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
+    console.log(sql);
+    const [favResult] = await db.query(sql, [list_name, post_sid, member_sid]);
+    console.log(favResult);
+    res.json(favResult);
+  } catch (error) {
+    // 發生錯誤時執行這裡的程式碼
+    console.error('Error adding favorite:', error);
+    res.status(500).json({ error: 'Error adding favorite' });
+  }
+});
+
+
+// 取消收藏
+router.delete('/forum/delFav',async(req, res)=>{
+  const member_sid = req.body.member_sid;
+  const post_sid = req.body.post_sid ;
+  const sql = `DELETE FROM post_favlist WHERE post_sid=? AND member_sid=?`
+  const [delFavResult] = await db.query(sql,[post_sid, member_sid]);
+  // const [delFavResult] = await db.query(sql);
+  console.log(delFavResult);
+  res.json(delFavResult);
+})
+
+// 判斷會員有沒有收藏這篇文章
+router.get('/forum/favStatus', async(req, res)=>{
+  const member_sid = req.query.member_sid;
+  const post_sid = req.query.post_sid ;
+  console.log('member_sid',member_sid);
+  console.log('post_sid',post_sid);
+  const sql = `SELECT * FROM post_favlist WHERE member_sid=? AND post_sid=? `;
+  console.log(sql);
+  const [result] = await db.query(sql,[member_sid, post_sid])
+  console.log(result);
+  res.json(result);
+
+})
+
+
+// 選取看板出現對應話題
+router.get('/forum/blog/hashtag', async (req, res) => {
+  const hashtagData = `SELECT board_sid, hashtag_name FROM board_hashtag WHERE 1;`;
+  const result = await db.query(hashtagData);
+
+  // 解構最外層的陣列，並取得第一個陣列
+  const [firstArray] = result;
+
+  res.json(firstArray); // 回傳第一個陣列
+});
+
+
 
 
 
