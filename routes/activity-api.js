@@ -56,12 +56,7 @@ router.get("/activity", async (req, res) => {
   };
 
 
-  let where_member=''
-  //判斷用戶有沒有登入，用token驗證
-  if(res.locals.jwtData){
-    where_member=` WHERE member_sid="${res.locals.jwtData.id}" `
-    console.log(res.locals.jwtData.id)
-  }
+ 
 
 
 
@@ -200,55 +195,6 @@ if (totalRows) {
     i.post_date = res.toDateString(i.post_date);
   });
 
-  //取得某一個會員的喜愛清單
-  const sql_likeList = `
-    SELECT 
-      ai.activity_sid, 
-      ai.name, 
-      ai.city, 
-      ai.area, 
-      ai.activity_pic, 
-      recent_date, 
-      farthest_date, 
-      ag.price_adult,
-      al.member_sid, 
-      al.date
-    FROM
-      activity_info ai
-    JOIN 
-      activity_group ag ON ai.activity_sid = ag.activity_sid
-    JOIN 
-      (
-        SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
-        FROM activity_group 
-        GROUP BY activity_sid
-      ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-    JOIN 
-      activity_like al ON ai.activity_sid = al.activity_sid
-      ${where_member}
-    GROUP BY 
-      ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
-    ORDER BY al.date DESC`;
-
-const [likeDatas] = await db.query(sql_likeList);
-
-// 日期處理
-likeDatas.forEach((v) => {
-  v.recent_date = res.toDateString(v.recent_date);
-  v.farthest_date = res.toDateString(v.farthest_date);
-  v.date = res.toDateString(v.date);
-});
-
-// 圖片處理 (字串->陣列)
-// output.likeDatas = activity_pic.map(p=>({...p, activity_pic : (p.activity_pic.split(',')[0])}))
-
-likeDatas.map((pic) => {
-    const imgNames = pic.activity_pic;
-    const imgs = imgNames.split(',');
-    const trimmedImgs = imgs.map(img => img.trim());
-    pic.activity_pic = trimmedImgs;
-
-  });
 
 
   output = {
@@ -258,7 +204,7 @@ likeDatas.map((pic) => {
     totalPages,
     page,
     rows,
-    likeDatas,
+    // likeDatas,
   };
 
   return res.json(output);
@@ -267,45 +213,132 @@ likeDatas.map((pic) => {
 });
 
 
-// 刪除收藏清單
-router.delete("/likelist/:aid/:mid", async (req, res) => {
+
+// 讀取收藏清單
+router.get("/show-like-list", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
   
-  const { aid, mid } = req.params;
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  let likeDatas = [];
+
+  //用會員編號去取得某一個會員的喜愛清單
+  if (member) {
+    const sql_likeList = `SELECT 
+    ai.activity_sid, 
+    ai.name, 
+    ai.city, 
+    ai.area, 
+    ai.activity_pic, 
+    recent_date, 
+    farthest_date, 
+    ag.price_adult,
+    al.member_sid, 
+    al.date
+  FROM
+    activity_info ai
+  JOIN 
+    activity_group ag ON ai.activity_sid = ag.activity_sid
+  JOIN 
+    (
+      SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date 
+      FROM activity_group 
+      GROUP BY activity_sid
+    ) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  JOIN 
+    activity_like al ON ai.activity_sid = al.activity_sid
+    WHERE member_sid='${member}'
+  GROUP BY 
+    ai.activity_sid, ai.name, ai.city, ai.area, ai.activity_pic, recent_date, farthest_date, ag.price_adult, al.member_sid, al.date
+  ORDER BY al.date DESC`;
+    [likeDatas] = await db.query(sql_likeList);
+
+    // 日期處理
+  likeDatas.forEach((v) => {
+    v.recent_date = res.toDateString(v.recent_date);
+    v.farthest_date = res.toDateString(v.farthest_date);
+    v.date = res.toDateString(v.date);
+  });
+
+  // 圖片處理 (字串->陣列)
+
+  likeDatas.map((pic) => {
+      const imgNames = pic.activity_pic;
+      const imgs = imgNames.split(',');
+      const trimmedImgs = imgs.map(img => img.trim());
+      pic.activity_pic = trimmedImgs;
+
+    });
+  }
+
+
+  output = {
+    ...output,
+    likeDatas,
+  };
+  return res.json(output);
+
+});
+
+
+// 刪除收藏清單
+router.delete("/likelist/:aid", async (req, res) => {
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { aid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
   if (aid === "all") {
-    sql_deleteLikeList += `member_sid = '${mid}'`;
+    sql_deleteLikeList += `member_sid = ?`;
   } else {
-    sql_deleteLikeList += `member_sid = '${mid}' AND activity_sid='${aid}'`;
+    sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
   }
 
   try {
-    const [result] = await db.query(sql_deleteLikeList);
+    const [result] = await db.query(sql_deleteLikeList, aid === "all" ? [member] : [member, aid]);
     res.json({ ...result });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
 
 // faheart新增收藏清單
-router.post("/addlikelist/:aid/:mid", async (req, res) => {
-  const { aid, mid } = req.params;
-  const date = new Date(); // 取得當前時間
+router.post("/addlikelist/:aid", async (req, res) => {
 
-  // 將日期時間值轉換為 'YYYY-MM-DD HH:mm:ss' 格式
-  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
 
-  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { aid } = req.params;
+
+  // Use MySQL DATE_FORMAT function to format the date directly in the SQL query
+  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'))";
 
   try {
-    // 執行 INSERT INTO 
-    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    // Execute INSERT INTO query
+    const [result] = await db.query(sql_insertLikeList, [aid, member]);
     res.json({ ...result });
+    console.log('會員ID:', member);
+
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
 
 
 
@@ -461,10 +494,10 @@ router.post("/addlikelist/:aid/:mid", async (req, res) => {
 //   res.json({cid_data, sqlQueryKeyword});
 // });
 
+
+
+
 // [aid] 動態路由
-
-
-// 
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
 
@@ -562,25 +595,131 @@ router.get("/activity/:activity_sid", async (req, res) => {
   return res.json(output);
 });
 
-module.exports = router;
 
 
-// 報名活動
-router.post("/sign/:aid/:mid", async (req, res) => {
-  const { aid, mid } = req.params;
-  const date = new Date(); // 取得當前時間
 
-  // 日期轉換
-  const formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
+// [aid] 新增活動訂單 + 判斷是否已存在相同activity_group_sid
+router.post("/order-activity/:activity_sid", async (req, res) => {
+  console.log('Reached the order-activity route handler');
+  console.log('Request Params:', req.params);
+  console.log('Request Body:', req.body);
 
-  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, ?)";
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { activity_sid } = req.params;
+  console.log(req.params);
+  const { rel_seq_sid, adult_qty, child_qty } = req.body;
+
+  // 抓資料 (判斷用)
+  const sql_checkExistingCartItem = `
+    SELECT cart_sid FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_seq_sid='${rel_seq_sid}'`;
+
+  // 新增
+  const sql_orderActivity = `
+    INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?, 'activity', ?, ?, null, ?, ?, '001')`;
 
   try {
-    // 執行 INSERT INTO 
-    const [result] = await db.query(sql_insertLikeList, [aid, mid, formattedDate]);
+    // 去資料庫查詢 是否已存在相同activity_group_sid
+    const [existingCartItem] = await db.query(sql_checkExistingCartItem);
+    if (existingCartItem.length > 0) {
+      throw new Error('該項目已經在購物車中');
+    }
+
+    
+    const [result] = await db.query(sql_orderActivity, [
+      member,
+      activity_sid,
+      rel_seq_sid,
+      adult_qty,
+      child_qty,
+    ]);
+
     res.json({ ...result });
+    console.log('會員ID:', member);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
+
+
+// [aid] 新增活動訂單
+// router.post("/order-activity/:activity_sid", async (req, res) => {
+//   console.log('Reached the order-activity route handler');
+//   console.log('Request Params:', req.params);
+//   console.log('Request Body:', req.body);
+
+//   let member = "";
+//   if (res.locals.jwtData) {
+//     member = res.locals.jwtData.id;
+//   }
+
+//   const { activity_sid } = req.params;
+//   console.log(req.params);
+//   const { rel_seq_sid, adult_qty, child_qty } = req.body;
+
+  
+
+//   const sql_orderActivity = `
+//   INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
+
+
+//   try {
+    
+//     const [result] = await db.query(sql_orderActivity, [
+//       member,
+//       activity_sid,
+//       rel_seq_sid,
+//       adult_qty,
+//       child_qty,
+//     ]);
+
+//     res.json({ ...result });
+//     console.log('會員ID:', member);
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ error: "An error occurred" });
+//   }
+// });
+
+
+//[aid] 取得活動訂單資料
+// router.get("check-order-activity/:activity_sid", async (req, res) => {
+  
+//   let member = "";
+//   if (res.locals.jwtData) {
+//     member = res.locals.jwtData.id;
+//   }
+
+//   const { activity_sid } = req.params;
+//   console.log(req.params);
+
+  
+
+//   try {
+//     let sql_checkOrderActivity;
+//     if (member && activity_sid) {
+//       sql_checkOrderActivity = `
+//       SELECT cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_sid='${activity_sid}'`;
+//     }
+//     const [result] = await db.query(sql_checkOrderActivity);
+  
+//     res.json({ ...result });
+//     console.log('會員ID:', member);
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ error: "An error occurred" });
+//   }
+  
+// });
+
+
+module.exports = router;
+
+
+
+
