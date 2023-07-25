@@ -293,7 +293,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             oc.member_sid = ? 
             AND oc.order_status = '001'`;
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
-    console.log(cartData);
+    //console.log(cartData);
     output.shop = cartData.filter(p=>p.rel_type === "shop");
     const actData = cartData.filter(p=>p.rel_type === "activity")
     output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
@@ -486,13 +486,10 @@ router.post('/get-mem-img', async(req,res)=>{
         console.log('membersid',req.body.member_sid)
         const getMemImgSql = `SELECT mi.profile FROM member_info mi WHERE member_sid = ?`;
         const [profileImg] = await db.query(getMemImgSql, member_sid);
-        console.log('profileImg:',profileImg)
         let result = profileImg[0];
-        console.log('result', result);
         if(result.profile === null ){
             result.profile = 0;
         }
-        console.log(result);
         res.json(result);
 
     }catch(error){
