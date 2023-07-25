@@ -360,15 +360,34 @@ router.post('/forum/addcomment',async(req, res)=>{
 })
 
 // 新增收藏
-router.post('/forum/addFav',async(req, res)=>{
-  const member_sid = req.body.member_sid;
-  const post_sid = req.body.post_sid ;
-  const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`
-  const [favResult] = await db.query(sql,[post_sid, member_sid]);
-  // const [favResult] = await db.query(sql);
-  console.log(favResult);
-  res.json(favResult);
-})
+// router.post('/forum/addFav',async(req, res)=>{
+//   const member_sid = req.body.member_sid;
+//   const post_sid = req.body.post_sid ;
+//   const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
+//   console.log(sql);
+//   const [favResult] = await db.query(sql,[post_sid, member_sid]);
+//   // const [favResult] = await db.query(sql);
+//   console.log(favResult);
+//   res.json(favResult);
+// })
+// 新增收藏
+router.post('/forum/addFav', async (req, res) => {
+  try {
+    const member_sid = req.body.member_sid;
+    const post_sid = req.body.post_sid;
+    const list_name = req.body.list_name;
+    const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
+    console.log(sql);
+    const [favResult] = await db.query(sql, [list_name, post_sid, member_sid]);
+    console.log(favResult);
+    res.json(favResult);
+  } catch (error) {
+    // 發生錯誤時執行這裡的程式碼
+    console.error('Error adding favorite:', error);
+    res.status(500).json({ error: 'Error adding favorite' });
+  }
+});
+
 
 // 取消收藏
 router.delete('/forum/delFav',async(req, res)=>{
