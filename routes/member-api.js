@@ -559,9 +559,34 @@ router.post("/prodReviews", async (req, res) => {
   WHERE od.order_detail_sid = ?`;
   const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
 
-  res.json(rowsProd);
+  res.json({ ...rowsProd, updateRes });
 });
 
+//新增餐廳評價
+router.post("/restReviews", async (req, res) => {
+  const sqlProd = `INSERT INTO restaurant_rating(
+    rest_sid, booking_sid, member_sid, 
+    environment, food, friendly, 
+    content, created_at
+    ) 
+    VALUES (
+      ?,?,?,
+      ?,?,?,
+      ?,NOW()
+      )`;
+
+  const [rowsRest] = await db.query(sqlProd, [
+    req.body.restSid,
+    req.body.bkSid,
+    req.body.memberSid,
+    req.body.environment,
+    req.body.food,
+    req.body.friendly,
+    req.body.restContent,
+  ]);
+
+  res.json(rowsRest);
+});
 // 讀取評價
 // router.get("/getReviews/:sid", async (req, res) => {
 //   let { sid } = req.params;
@@ -612,21 +637,25 @@ router.get("/schedule", async (req, res) => {
     rb.member_sid as memberSid, 
     rb.people_num as peopleNum, 
     rb.pet_num as petNum, 
+    rb.rest_sid as restSid,
+    rb.booking_sid as bkSid,
     ri.name as name,
     ri.phone as phone,
     ri.city as city,
     ri.area as area,
     ri.address as address,
     ri.notice as notice,
+    NULL as actSid,
     0 as adultQty,
     0 as childQty,
     NULL as type,
-    rpt.time as sectionTime
+    rpt.time as sectionTime,
+    NULL as odSid
 
     FROM restaurant_booking rb
     JOIN restaurant_information ri ON ri.rest_sid = rb.rest_sid
     JOIN restaurant_period_of_time rpt ON rpt.rest_sid = rb.rest_sid
-    WHERE member_sid="${sid}"
+    WHERE rb.member_sid="${sid}"
 
     UNION ALL
 
@@ -635,16 +664,20 @@ router.get("/schedule", async (req, res) => {
     om.member_sid as memberSid,
     0 as peopleNum,
     0 as petNum,
+    NULL as restSid,
+    NULL as bkSid,
     od.rel_name as name,
     NULL as phone,
     ai.city as city,
     ai.area as area,
     ai.address as address,
     ai.policy as notice,
+    od.rel_sid as actSid,
     od.adult_qty as adultQty,
     od.child_qty as childQty,
     od.rel_type as type,
-    ag.time as sectionTime
+    ag.time as sectionTime,
+    od.order_detail_sid as odSid
 
     FROM order_details od
     JOIN order_main om
@@ -653,9 +686,33 @@ router.get("/schedule", async (req, res) => {
     ON ai.activity_sid=od.rel_sid
     JOIN activity_group ag
     ON ag.activity_group_sid=od.rel_seq_sid
-    WHERE rel_type="activity" AND member_sid="${sid}"; 
+    WHERE rel_type="activity" AND om.member_sid="${sid}"
     `
   );
 
   res.json(sqlRestaurant);
+});
+
+// 日曆查詢活動評價
+router.get("/getActReview/:sid", async (req, res) => {
+  let { sid } = req.params;
+  const [rows] = await db.query(
+    `
+    SELECT * FROM activity_rating WHERE order_detail_sid="${sid}"
+`
+  );
+
+  res.json(rows);
+});
+
+// 日曆查詢餐廳評價
+router.get("/getRestReview/:sid", async (req, res) => {
+  let { sid } = req.params;
+  const [rows] = await db.query(
+    `
+    SELECT * FROM restaurant_rating WHERE booking_sid="${sid}"
+`
+  );
+
+  res.json(rows);
 });
