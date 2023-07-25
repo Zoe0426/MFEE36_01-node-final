@@ -4,124 +4,6 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
-//製作評價假資料....
-router.get("/create-comment", async (req, res) => {
-  const getorder_sql =
-    'SELECT order_detail_sid, rel_sid FROM order_details WHERE rel_type="shop" ';
-  const [getorder] = await db.query(getorder_sql);
-
-  const selectIndex=Math.floor(Math.random()*10)
-
-  for (const v of getorder){
-    const doInsert = Math.random();
-    const selectIndex=Math.floor(Math.random()*10)
-    const category = v.rel_sid.slice(2, 4);
-    const FE_comment = [
-      "我的寵物喜歡這飼料的味道，每次都吃得乾乾淨淨，看得出來它很享受！",
-      "這款飼料營養豐富，讓我的寵物保持健康活力，毛皮也變得又亮又柔軟",
-      "這個飼料真是物超所值，不僅份量十足，而且成分天然，我放心讓寵物食用",
-      "我家的毛孩對這個飼料愛不釋手，每次拿出來就興奮不已，吃完還舔個乾淨",
-      "這款飼料的口味很多樣，我家貓狗都喜歡，給寵物多一點選擇真是太好了",
-      "我的毛寶貝對這個飼料情有獨鍾，每天都期待著吃它，我也放心因為它營養均衡",
-      "這個飼料真是太方便了，不僅好吃而且包裝得很好，保存起來也不用擔心變質",
-      "我買了這個飼料後，寵物的毛髮狀態明顯改善，變得更濃密順滑，真的很有效",
-      "這款飼料不含人工添加物，我對它的品質很滿意，而且看得出來寵物很喜歡",
-      "飼料中的成分很天然，對於我的寵物來說很容易消化吸收，我會一直回購的",
-    ];
-    const CA_comment = [
-      "我家毛孩最愛這款罐頭了，每次一拿出來牠就搖尾巴等著吃",
-      "我的毛孩超愛這罐頭食品，一吃就停不下來，每次都吃得乾乾淨淨",
-      "這款罐頭真是物美價廉，我的毛孩吃了之後舔得一乾二淨，好開心！",
-      "毛孩都愛的口味，我家的兩隻寶貝一人一罐，吃得津津有味",
-      "這個罐頭食品真的很天然，看得到真材實料，比起其他品牌好太多了",
-      "我家毛孩很挑食，但對這個罐頭卻讚不絕口，每次都吃個乾乾淨淨",
-      "我的寶貝對這個罐頭愛不釋手，吃完還舔舔嘴巴，好像在回味呢！",
-      "這款寵物罐頭份量十足，對於我家毛孩來說剛剛好，吃得飽飽的",
-      "我的毛孩嘗過很多品牌的罐頭，但這個是牠最愛的，現在我都固定買這個了",
-      "寶貝平時很挑食，但對這個罐頭完全沒有抵抗力，一口接一口",
-    ];
-
-    const SN_comment = [
-      "我的寵物很挑食，但對這款零食非常喜歡，每次一拿出來就搶著吃，滿分推薦！",
-      "這個寵物零食的成分很天然，讓我更安心地餵食我的寵物，而且牠也愛吃得津津有味",
-      "我家寵物對於這種零食完全上癮，吃完後還會舔舔嘴巴，顯然非常滿足",
-      "這款寵物零食有助於牙齒健康，我注意到寵物的口氣有所改善，真是太好了",
-      "我之前嘗試過很多不同品牌的寵物零食，但這個似乎是牠們的最愛，一吃就停不下來",
-      "這種寵物零食的包裝很好密封，能保持零食的新鮮和脆口，我買了好幾袋囤著",
-      "我家的寵物對於這個零食特別喜歡，每次拿出來都會搖尾巴表示興奮",
-      "這個寵物零食不僅外觀可愛，而且口味濃郁，是我目前為止買過最棒的零食",
-      "我發現這個寵物零食對於訓練寵物時非常有效，牠願意為了這個零食而配合我",
-      "這種寵物零食營養豐富，讓我的寵物保持健康的同時，也增添了牠的食慾",
-    ];
-
-    const HE_comment = [
-      "我家寵物的毛髮因為這款保健品變得更加亮麗柔軟，而且我也注意到牠的皮膚狀況有改善。強烈推薦！",
-      "這個寵物保健品含有豐富的維生素和葉酸，對於提升寵物的免疫力很有效果，我家的寵物已經不易生病了",
-      "我的寵物年紀漸長，關節經常不舒服，但自從使用這款保健品後，牠的活動度明顯增加，再也不見牠苦惱的樣子",
-      "這是我第一次給我的寵物吃保健品，幸好選對了品牌，牠吃得很開心，也看得出來更有精神了",
-      "這款寵物保健品是天然植物提煉，完全沒有添加人工成分，我對於給寵物吃這個感到很放心",
-      "我原本以為我的寵物不太喜歡吃保健品，但這個意外地讓牠愛上了，每天都迫不及待地想要吃",
-      "這個寵物保健品對於牙齒健康很有幫助，牙石明顯減少，我再也不用為了刷牙而苦惱了",
-      "這種寵物保健品對於改善寵物的消化問題非常有效，牠的胃不再那麼容易脹氣了",
-      "我之前試過很多種保健品，但這個似乎是我找到的最適合我家寵物的，看來我會長期使用它",
-      "這款寵物保健品是綜合營養的，各方面都照顧到了，讓我的寵物在吃了它後有了整體的改善",
-    ];
-
-    const TO_comment = [
-      "這個寵物玩具是我家寵物的最愛，它喜歡追逐和咬啃這個玩具，玩得非常開心！",
-      "我買了這個寵物玩具後，寵物咪整天都在拿著它玩耍，對於消磨寵物的精力很有幫助",
-      "這款寵物玩具的設計很巧妙，可以激發寵物的興趣，而且材質安全無害",
-      "我的兩隻毛孩都喜歡這個玩具，有時還會為了爭奪而產生一些有趣的互動",
-      "這個寵物玩具非常耐咬，我家的寶貝是個大力士，但它至今都沒有被咬壞",
-      "這款玩具設計簡單卻很吸引寵物，我看得出來牠在玩的時候非常開心",
-      "我買了好幾個不同類型的玩具，但這個似乎是我家寵物的最愛，經常抓著它睡覺",
-      "這個寵物玩具可以讓我和狗狗一起互動，增進了我們之間的感情",
-      "我家的寵物對這個玩具很感興趣，它會用爪子拍打和咬啃，是個不錯的選擇",
-      "玩具的尺寸適中，我可以輕鬆將它放進口袋，隨時帶著寵物外出遊玩",
-    ];
-
-    const OD_comment = [
-      "這個產品非常耐用而且舒適，讓我的寵物在戶外活動時能感到愉快",
-      "這款產品的設計非常貼心，讓我可以輕鬆地帶著寵物外出，牠也很喜歡",
-      "有了這個產品，我帶寵物去戶外活動更加便利，省去了不少麻煩",
-      "這個產品讓我更放心地帶著寵物在戶外玩耍，牠的安全總是得到保障",
-      "這個產品的防水功能真是太實用了，讓我的寵物可以在戶外盡情玩水",
-      "這款產品非常多功能，不僅在戶外有用，平常也能派上用場，真是物超所值",
-      "這個產品設計得很方便攜帶，無論是長途旅行還是日常外出，都很適合",
-      "我的寵物之前常常因為尺寸不合適而不舒服，但這個產品的尺寸可調整，很貼心",
-      "這個產品讓我和寵物更加親近，共同享受戶外的美好時光",
-      "這個產品適用於各種戶外情況，讓我和寵物都喜愛上了大自然",
-    ];
-
-    // if (doInsert > 0.5) {
-      const create_member = `mem00${Math.ceil(Math.random() * 500)
-        .toString()
-        .padStart(3, "0")}`;
-      const rating = Math.floor(Math.random() * 3)+3;
-      const startDate = new Date("2023-01-01").getTime();
-      const endDate = new Date("2023-07-25").getTime();
-      const randomDate = res.toDatetimeString(
-        Math.random() * (endDate - startDate) + startDate
-      );
-      const commentArray = eval(`${category}_comment`)
-      const sql = `INSERT INTO shop_comment 
-      (order_detail_sid, product_sid, member_sid, date, rating, content) VALUES 
-      (?,?,?,?,?,?)`;
-  
-      const [result] = await db.query(sql,[
-          v.order_detail_sid,
-          v.rel_sid,
-          create_member,
-          randomDate,
-          rating,
-          commentArray[selectIndex]
-      ])
-    }
-  // }
-
-  res.json(selectIndex);
-});
-
 router.get("/hompage-cards", async (req, res) => {
   //給首頁新品卡片的路由
 
@@ -461,6 +343,7 @@ router.get("/search-brand-list", async (req, res) => {
   return res.json(output);
 });
 
+//給細節頁面使用的API
 router.get("/product/:product_sid", async (req, res) => {
   //給細節頁(商品資訊)的路由
 
@@ -595,6 +478,44 @@ router.get("/product/:product_sid", async (req, res) => {
   });
 });
 
+//處理購物車的API
+router.post("/sent-to-cart", async (req, res) => {
+  let output = {
+    success: true,
+  };
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+  const receiveData = req.body;
+
+  let result = [];
+
+  if (receiveData.qty && member) {
+    const sql_cart = `INSERT INTO order_cart 
+    (member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES 
+    (?,?,?,?,?,?,?,?)
+    `;
+
+    [result] = await db.query(sql_cart, [
+      member,
+      "shop",
+      receiveData.pid,
+      receiveData.spec,
+      receiveData.qty,
+      null,
+      null,
+      "001",
+    ]);
+    output.success = !!result.affectedRows;
+  }
+
+  console.log(output);
+
+  res.json(output);
+});
+
 //處理蒐藏愛心的API
 router.post("/handle-like-list", async (req, res) => {
   let output = {
@@ -644,7 +565,6 @@ router.post("/handle-like-list", async (req, res) => {
     output.success = !!result.affectedRows;
   }
 
-  console.log(receiveData);
   res.json(output);
 });
 
@@ -722,6 +642,124 @@ router.delete("/likelist/:pid", async (req, res) => {
     "sid": "7"
 }
     */
+});
+
+//製作評價假資料....
+router.get("/create-comment", async (req, res) => {
+  const getorder_sql =
+    'SELECT order_detail_sid, rel_sid FROM order_details WHERE rel_type="shop" ';
+  const [getorder] = await db.query(getorder_sql);
+
+  const selectIndex = Math.floor(Math.random() * 10);
+
+  for (const v of getorder) {
+    const doInsert = Math.random();
+    const selectIndex = Math.floor(Math.random() * 10);
+    const category = v.rel_sid.slice(2, 4);
+    const FE_comment = [
+      "我的寵物喜歡這飼料的味道，每次都吃得乾乾淨淨，看得出來它很享受！",
+      "這款飼料營養豐富，讓我的寵物保持健康活力，毛皮也變得又亮又柔軟",
+      "這個飼料真是物超所值，不僅份量十足，而且成分天然，我放心讓寵物食用",
+      "我家的毛孩對這個飼料愛不釋手，每次拿出來就興奮不已，吃完還舔個乾淨",
+      "這款飼料的口味很多樣，我家貓狗都喜歡，給寵物多一點選擇真是太好了",
+      "我的毛寶貝對這個飼料情有獨鍾，每天都期待著吃它，我也放心因為它營養均衡",
+      "這個飼料真是太方便了，不僅好吃而且包裝得很好，保存起來也不用擔心變質",
+      "我買了這個飼料後，寵物的毛髮狀態明顯改善，變得更濃密順滑，真的很有效",
+      "這款飼料不含人工添加物，我對它的品質很滿意，而且看得出來寵物很喜歡",
+      "飼料中的成分很天然，對於我的寵物來說很容易消化吸收，我會一直回購的",
+    ];
+    const CA_comment = [
+      "我家毛孩最愛這款罐頭了，每次一拿出來牠就搖尾巴等著吃",
+      "我的毛孩超愛這罐頭食品，一吃就停不下來，每次都吃得乾乾淨淨",
+      "這款罐頭真是物美價廉，我的毛孩吃了之後舔得一乾二淨，好開心！",
+      "毛孩都愛的口味，我家的兩隻寶貝一人一罐，吃得津津有味",
+      "這個罐頭食品真的很天然，看得到真材實料，比起其他品牌好太多了",
+      "我家毛孩很挑食，但對這個罐頭卻讚不絕口，每次都吃個乾乾淨淨",
+      "我的寶貝對這個罐頭愛不釋手，吃完還舔舔嘴巴，好像在回味呢！",
+      "這款寵物罐頭份量十足，對於我家毛孩來說剛剛好，吃得飽飽的",
+      "我的毛孩嘗過很多品牌的罐頭，但這個是牠最愛的，現在我都固定買這個了",
+      "寶貝平時很挑食，但對這個罐頭完全沒有抵抗力，一口接一口",
+    ];
+
+    const SN_comment = [
+      "我的寵物很挑食，但對這款零食非常喜歡，每次一拿出來就搶著吃，滿分推薦！",
+      "這個寵物零食的成分很天然，讓我更安心地餵食我的寵物，而且牠也愛吃得津津有味",
+      "我家寵物對於這種零食完全上癮，吃完後還會舔舔嘴巴，顯然非常滿足",
+      "這款寵物零食有助於牙齒健康，我注意到寵物的口氣有所改善，真是太好了",
+      "我之前嘗試過很多不同品牌的寵物零食，但這個似乎是牠們的最愛，一吃就停不下來",
+      "這種寵物零食的包裝很好密封，能保持零食的新鮮和脆口，我買了好幾袋囤著",
+      "我家的寵物對於這個零食特別喜歡，每次拿出來都會搖尾巴表示興奮",
+      "這個寵物零食不僅外觀可愛，而且口味濃郁，是我目前為止買過最棒的零食",
+      "我發現這個寵物零食對於訓練寵物時非常有效，牠願意為了這個零食而配合我",
+      "這種寵物零食營養豐富，讓我的寵物保持健康的同時，也增添了牠的食慾",
+    ];
+
+    const HE_comment = [
+      "我家寵物的毛髮因為這款保健品變得更加亮麗柔軟，而且我也注意到牠的皮膚狀況有改善。強烈推薦！",
+      "這個寵物保健品含有豐富的維生素和葉酸，對於提升寵物的免疫力很有效果，我家的寵物已經不易生病了",
+      "我的寵物年紀漸長，關節經常不舒服，但自從使用這款保健品後，牠的活動度明顯增加，再也不見牠苦惱的樣子",
+      "這是我第一次給我的寵物吃保健品，幸好選對了品牌，牠吃得很開心，也看得出來更有精神了",
+      "這款寵物保健品是天然植物提煉，完全沒有添加人工成分，我對於給寵物吃這個感到很放心",
+      "我原本以為我的寵物不太喜歡吃保健品，但這個意外地讓牠愛上了，每天都迫不及待地想要吃",
+      "這個寵物保健品對於牙齒健康很有幫助，牙石明顯減少，我再也不用為了刷牙而苦惱了",
+      "這種寵物保健品對於改善寵物的消化問題非常有效，牠的胃不再那麼容易脹氣了",
+      "我之前試過很多種保健品，但這個似乎是我找到的最適合我家寵物的，看來我會長期使用它",
+      "這款寵物保健品是綜合營養的，各方面都照顧到了，讓我的寵物在吃了它後有了整體的改善",
+    ];
+
+    const TO_comment = [
+      "這個寵物玩具是我家寵物的最愛，它喜歡追逐和咬啃這個玩具，玩得非常開心！",
+      "我買了這個寵物玩具後，寵物咪整天都在拿著它玩耍，對於消磨寵物的精力很有幫助",
+      "這款寵物玩具的設計很巧妙，可以激發寵物的興趣，而且材質安全無害",
+      "我的兩隻毛孩都喜歡這個玩具，有時還會為了爭奪而產生一些有趣的互動",
+      "這個寵物玩具非常耐咬，我家的寶貝是個大力士，但它至今都沒有被咬壞",
+      "這款玩具設計簡單卻很吸引寵物，我看得出來牠在玩的時候非常開心",
+      "我買了好幾個不同類型的玩具，但這個似乎是我家寵物的最愛，經常抓著它睡覺",
+      "這個寵物玩具可以讓我和狗狗一起互動，增進了我們之間的感情",
+      "我家的寵物對這個玩具很感興趣，它會用爪子拍打和咬啃，是個不錯的選擇",
+      "玩具的尺寸適中，我可以輕鬆將它放進口袋，隨時帶著寵物外出遊玩",
+    ];
+
+    const OD_comment = [
+      "這個產品非常耐用而且舒適，讓我的寵物在戶外活動時能感到愉快",
+      "這款產品的設計非常貼心，讓我可以輕鬆地帶著寵物外出，牠也很喜歡",
+      "有了這個產品，我帶寵物去戶外活動更加便利，省去了不少麻煩",
+      "這個產品讓我更放心地帶著寵物在戶外玩耍，牠的安全總是得到保障",
+      "這個產品的防水功能真是太實用了，讓我的寵物可以在戶外盡情玩水",
+      "這款產品非常多功能，不僅在戶外有用，平常也能派上用場，真是物超所值",
+      "這個產品設計得很方便攜帶，無論是長途旅行還是日常外出，都很適合",
+      "我的寵物之前常常因為尺寸不合適而不舒服，但這個產品的尺寸可調整，很貼心",
+      "這個產品讓我和寵物更加親近，共同享受戶外的美好時光",
+      "這個產品適用於各種戶外情況，讓我和寵物都喜愛上了大自然",
+    ];
+
+    // if (doInsert > 0.5) {
+    const create_member = `mem00${Math.ceil(Math.random() * 500)
+      .toString()
+      .padStart(3, "0")}`;
+    const rating = Math.floor(Math.random() * 3) + 3;
+    const startDate = new Date("2023-01-01").getTime();
+    const endDate = new Date("2023-07-25").getTime();
+    const randomDate = res.toDatetimeString(
+      Math.random() * (endDate - startDate) + startDate
+    );
+    const commentArray = eval(`${category}_comment`);
+    const sql = `INSERT INTO shop_comment 
+      (order_detail_sid, product_sid, member_sid, date, rating, content) VALUES 
+      (?,?,?,?,?,?)`;
+
+    const [result] = await db.query(sql, [
+      v.order_detail_sid,
+      v.rel_sid,
+      create_member,
+      randomDate,
+      rating,
+      commentArray[selectIndex],
+    ]);
+  }
+  // }
+
+  res.json(selectIndex);
 });
 
 module.exports = router;
