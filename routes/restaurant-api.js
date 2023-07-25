@@ -234,34 +234,6 @@ router.get("/list", async (req, res) => {
     }
 
     //確定要查詢的頁碼資料比總頁數小，才去拉資料
-    // const sql = `SELECT
-    // r.rest_sid,
-    // r.name,
-    // r.city,
-    // r.area,
-    // GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
-    // GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-    // GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-    // ROUND(AVG(rr.friendly), 1) AS average_friendly,
-    // COUNT(b.booking_sid) AS booking_count
-    // FROM
-    // restaurant_information AS r
-    // JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-    // JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-    // JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-    // JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-    // JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-    // LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-    // LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
-    // ${where}
-    // GROUP BY
-    // r.rest_sid,
-    // r.name,
-    // r.city,
-    // r.area
-    // ${order}
-    // LIMIT ${perPage * (page - 1)}, ${perPage}
-    // `;
     const sql = `SELECT
     r.rest_sid,
     r.name,
@@ -290,10 +262,23 @@ router.get("/list", async (req, res) => {
           r.area
       ${order}
       LIMIT ${perPage * (page - 1)}, ${perPage};`;
-
     //要插入${order}在group by下面
     [rows] = await db.query(sql);
   }
+
+  if (res.locals.jwtData) {
+    const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      rows = rows.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+    }
+  }
+
   output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
   return res.json(output);
 });
@@ -329,6 +314,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     ruleRows: [],
     serviceRows: [],
     commentRows: [],
+    commentAvgRows: [],
     activityRows: [],
     likeDatas: [],
     menuRows: [],
@@ -380,9 +366,31 @@ WHERE rest_sid="${rest_sid}";`;
   let [serviceRows] = await db.query(sql_restService);
 
   //取得餐廳評分
-  const sql_comment = `SELECT ROUND(AVG(friendly), 1) AS avg_friendly FROM restaurant_rating WHERE rest_sid =  ${rest_sid};`;
+  const sql_comment = `SELECT 
+  m.name,
+  m.profile,
+  rr.content,
+  rr.created_at,
+  rr.rest_commtent_id,
+  ROUND((rr.environment + rr.food + rr.friendly) / 3) AS avg_rating
+  FROM member_info AS m
+  JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
+  WHERE rr.rest_sid = ${rest_sid};`;
   let [commentRows] = await db.query(sql_comment);
 
+  commentRows.forEach((v) => {
+    v.created_at = res.toDateString(v.date);
+  });
+
+  //取得餐廳評分各項平均
+  const sql_avg_comment = `SELECT 
+  ROUND(AVG(environment), 1) AS avg_environment,
+  ROUND(AVG(food), 1) AS avg_food,
+  ROUND(AVG(friendly), 1) AS avg_friendly
+  FROM restaurant_rating
+  WHERE rest_sid = ${rest_sid};`;
+
+  let [commentAvgRows] = await db.query(sql_avg_comment);
   //取得餐廳活動
   const sql_restActivity = `SELECT rest_sid, act_sid, title, content, img, date FROM restaurant_activity WHERE rest_sid = ${rest_sid};`;
 
@@ -405,7 +413,7 @@ WHERE rest_sid="${rest_sid}";`;
    LIMIT 1) AS rule_name,
   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
   (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
-  MAX(rl.created_at) AS latest_like_date
+  MAX(rl.date) AS latest_like_date
 FROM
   restaurant_information AS r
   JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
@@ -413,7 +421,7 @@ FROM
   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
   JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
-WHERE rl.member_id = 'mem00001'
+WHERE rl.member_sid = 'mem00001'
 GROUP BY
   r.rest_sid,
   r.name,
@@ -435,6 +443,7 @@ ORDER BY
     ruleRows,
     serviceRows,
     commentRows,
+    commentAvgRows,
     activityRows,
     likeDatas,
     menuRows,
@@ -448,7 +457,7 @@ router.get("/booking", async (req, res) => {
   const [book_info] = await db.query(book_sql);
   return res.json(book_info);
 });
-//給列表頁餐廳名稱/地區的選項API
+//給列表頁餐廳名稱的選項API
 router.get("/search-name", async (req, res) => {
   let output = {
     keywords: [],
@@ -475,17 +484,132 @@ router.get("/search-name", async (req, res) => {
   return res.json(output);
 });
 
-//收藏路由
+//處理蒐藏愛心的API
+router.post("/handle-like-list", async (req, res) => {
+  let output = {
+    success: true,
+  };
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+  const receiveData = req.body.data;
 
-//刪除收藏清單的API
+  console.log(receiveData);
 
-router.delete("/likelist/:rid/:mid", async (req, res) => {
-  const { rid, mid } = req.params;
+  let deleteLike = [];
+  let addLike = [];
+  //確定該會員有經過jwt認證並且有傳資料過來，才去資料庫讀取資料
+  if (member && receiveData.length > 0) {
+    const sql_prelike = `SELECT rest_sid FROM restaurant_like WHERE member_sid="${member}"`;
+    const [prelike_rows] = await db.query(sql_prelike);
+    const preLikeRestaurants = prelike_rows.map((v) => {
+      return v.rest_sid;
+    });
+
+    //將收到前端的資料與原先該會員收藏列表比對，哪些是要被刪除，哪些是要被增加
+    deleteLike = receiveData
+      .filter((v) => preLikeRestaurants.includes(v.rest_sid))
+      .map((v) => `"${v.rest_sid}"`);
+    addLike = receiveData.filter(
+      (v) => !preLikeRestaurants.includes(v.rest_sid)
+    );
+  }
+
+  if (deleteLike.length > 0) {
+    const deleteItems = deleteLike.join(", ");
+    const sql_delete_like = `DELETE FROM restaurant_like WHERE member_sid="${member}" AND rest_sid IN (${deleteItems})`;
+    const [result] = await db.query(sql_delete_like);
+    output.success = !!result.affectedRows;
+  }
+
+  if (addLike.length > 0) {
+    const sql_add_like = ` INSERT INTO restaurant_like(member_sid, rest_sid, date ) VALUES ?`;
+
+    const insertLike = addLike.map((v) => {
+      return [member, v.rest_sid, res.toDatetimeString(v.time)];
+    });
+
+    const [result] = await db.query(sql_add_like, [insertLike]);
+    output.success = !!result.affectedRows;
+  }
+  res.json(output);
+});
+
+//讀取收藏清單API
+router.get("/show-like", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  let likeDatas = [];
+
+  if (member) {
+    const sql_likeList = `SELECT
+    r.rest_sid,
+    r.name,
+    r.city,
+    r.area,
+    (SELECT ru.rule_name FROM restaurant_associated_rule AS ar_sub
+     JOIN restaurant_rule AS ru ON ar_sub.rule_sid = ru.rule_sid
+     WHERE ar_sub.rest_sid = r.rest_sid
+     LIMIT 1) AS rule_name,
+    GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+    (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
+    MAX(rl.date) AS date
+  FROM
+    restaurant_information AS r
+    JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+    JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+    JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+    JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+    JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
+  WHERE rl.member_sid = '${member}'
+  GROUP BY
+    r.rest_sid,
+    r.name,
+    r.city,
+    r.area
+  ORDER BY
+    date DESC`;
+
+    [likeDatas] = await db.query(sql_likeList);
+    likeDatas.forEach((v) => {
+      v.data = res.toDateString(v.date);
+    });
+  }
+  output = {
+    ...output,
+    likeDatas,
+  };
+  return res.json(output);
+});
+
+//刪除收藏清單的APIjwtData
+
+router.delete("/likelist/:rid", async (req, res) => {
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+  const { rid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `restaurant_like` WHERE ";
+
   if (rid === "all") {
-    sql_deleteLikeList += `member_sid = '${mid}'`;
+    sql_deleteLikeList += `member_sid = '${member}'`;
   } else {
-    sql_deleteLikeList += `member_sid = '${mid}' AND rest_sid='${rid}'`;
+    sql_deleteLikeList += `member_sid = '${member}' AND rest_sid='${rid}'`;
   }
 
   try {
