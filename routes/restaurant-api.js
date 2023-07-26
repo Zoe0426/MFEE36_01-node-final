@@ -76,6 +76,17 @@ router.get("/", async (req, res) => {
     average_friendly DESC
     LIMIT 9;`;
 
+  //判斷用戶有沒有登入，token驗證，並拉回該會員的收藏
+  if (res.locals.jwtData) {
+    const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      rows = rows.map((v1) => {
+        const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+    }
+  }
   // ORDER BY hot_DESC
   [rows2] = await db.query(sql2);
 
@@ -448,13 +459,22 @@ ORDER BY
   };
   return res.json(output);
 });
+
 //booking路由
 router.get("/booking", async (req, res) => {
   const book_sql =
     "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
   const [book_info] = await db.query(book_sql);
+
   return res.json(book_info);
 });
+
+//booking insert
+router.post("/booking_modal", async (req, res) => {
+  const book_action =
+    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES ('[value-1]','[value-2]','[value-3]','[value-4]','[value-5]','[value-6]','[value-7]',NOW())";
+});
+
 //給列表頁餐廳名稱的選項API
 router.get("/search-name", async (req, res) => {
   let output = {
