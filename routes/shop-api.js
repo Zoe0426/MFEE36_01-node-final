@@ -14,7 +14,7 @@ router.get("/hompage-cards", async (req, res) => {
     LEFT JOIN shop_comment c ON p.product_sid=c.product_sid 
     GROUP BY p.product_sid
     ORDER BY update_date DESC
-    LIMIT 0, 23`;
+    LIMIT 0, 30`;
   const [newData] = await db.query(sql_newData);
 
   //取首頁供應商卡片資訊
@@ -27,7 +27,7 @@ router.get("/hompage-cards", async (req, res) => {
     LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
     LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE for_pet_type='D'
     GROUP BY p.product_sid
-    LIMIT 0, 29`;
+    LIMIT 0, 30`;
   const [dogDatas] = await db.query(sql_dogData);
 
   //取首頁喵星人卡片資訊
@@ -36,7 +36,7 @@ router.get("/hompage-cards", async (req, res) => {
     LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
     LEFT JOIN shop_comment c ON p.product_sid=c.product_sid WHERE for_pet_type='C'
     GROUP BY p.product_sid
-    LIMIT 0, 23`;
+    LIMIT 0, 30`;
   const [catDatas] = await db.query(sql_catData);
 
   //拿關鍵字資料
