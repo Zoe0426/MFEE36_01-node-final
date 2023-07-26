@@ -265,15 +265,13 @@ router.get("/list", async (req, res) => {
     //要插入${order}在group by下面
     [rows] = await db.query(sql);
   }
-
+  //判斷用戶有沒有登入，token驗證，並拉回該會員的收藏
   if (res.locals.jwtData) {
     const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
     const [like_rows] = await db.query(sql_like);
     if (like_rows.length > 0) {
       rows = rows.map((v1) => {
-        const foundLike = like_rows.find(
-          (v2) => v1.product_sid === v2.product_sid
-        );
+        const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
         return foundLike ? { ...v1, like: true } : { ...v1 };
       });
     }
@@ -584,6 +582,7 @@ router.get("/show-like", async (req, res) => {
       v.data = res.toDateString(v.date);
     });
   }
+  console.log(likeDatas);
   output = {
     ...output,
     likeDatas,
