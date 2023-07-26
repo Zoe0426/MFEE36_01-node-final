@@ -654,7 +654,7 @@ router.get("/schedule", async (req, res) => {
 
     FROM restaurant_booking rb
     JOIN restaurant_information ri ON ri.rest_sid = rb.rest_sid
-    JOIN restaurant_period_of_time rpt ON rpt.rest_sid = rb.rest_sid
+    JOIN restaurant_period_of_time rpt ON rpt.section_sid = rb.section_sid
     WHERE rb.member_sid="${sid}"
 
     UNION ALL
