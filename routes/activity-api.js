@@ -60,12 +60,12 @@ router.get("/activity", async (req, res) => {
   // 類別/ 熱門/ 最新/ 地區/ 投票區
   // 設篩選條件
   const dict = {
-    taipei: "台北市",
-    newtaipei: "新北市",
-    taoyuan: "桃園市",
-    taichung: "台中市",
-    kaohsiung: "高雄市",
-    tainan: "台南市",
+    台北市: "台北市",
+    新北市: "新北市",
+    桃園市: "桃園市",
+    台中市: "台中市",
+    高雄市: "高雄市",
+    台南市: "台南市",
 
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
