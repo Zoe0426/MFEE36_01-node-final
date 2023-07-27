@@ -287,7 +287,7 @@ router.get("/list", async (req, res) => {
       });
     }
   }
-
+console.log(rows)
   output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
   return res.json(output);
 });
@@ -462,12 +462,11 @@ ORDER BY
 
 //booking路由
 router.get("/booking", async (req, res) => {
-  let output = { 
+  let output = {
     bookingRows: [],
     memberRows: [],
   };
-  const book_sql =
-    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
+  const book_sql = "SELECT t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max` - IFNULL(SUM(rb.`people_num`), 0) AS `remaining_slots` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` LEFT JOIN `restaurant_booking` rb ON t1.`rest_sid` = rb.`rest_sid` AND t1.`section_code` = rb.`section_code` WHERE t1.`rest_sid` = 4 GROUP BY t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max`;";
 
   [bookingRows] = await db.query(book_sql);
   bookingRows.forEach((v) => {
@@ -475,14 +474,16 @@ router.get("/booking", async (req, res) => {
     // Set the year to a fixed value (e.g., 2000)
     date.setFullYear(2000);
     // Format the date as "MM/dd (Day, Weekday)"
-    v.date = `${date.getMonth() + 1}/${date.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][date.getDay()]})`;
+    v.date = `${date.getMonth() + 1}/${date.getDate()} (${
+      ["日", "一", "二", "三", "四", "五", "六"][date.getDay()]
+    })`;
   });
 
-  const member_aql = "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
+  const member_aql =
+    "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
   [memberRows] = await db.query(member_aql);
 
-
-  output = { 
+  output = {
     ...output,
     bookingRows,
     memberRows,
@@ -490,26 +491,18 @@ router.get("/booking", async (req, res) => {
   return res.json(output);
 });
 
-
 //booking insert
 router.post("/booking_modal", async (req, res) => {
   let output = {
     success: true,
   };
-  
-  const {
-    rest_sid,
-    section_sid,
-    date,
-    member_sid,
-    people_num,
-    pet_num,
-    note
-  } = req.body;
-  
+
+  const { rest_sid, section_sid, date, member_sid, people_num, pet_num, note } =
+    req.body;
+
   const book_action =
     "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
-  
+
   try {
     await db.query(book_action, [
       rest_sid,
@@ -518,9 +511,9 @@ router.post("/booking_modal", async (req, res) => {
       member_sid,
       people_num,
       pet_num,
-      note
+      note,
     ]);
-    
+
     return res.json(output);
   } catch (error) {
     console.error(error);
@@ -528,7 +521,6 @@ router.post("/booking_modal", async (req, res) => {
     return res.json(output);
   }
 });
-
 
 //給列表頁餐廳名稱的選項API
 router.get("/search-name", async (req, res) => {
