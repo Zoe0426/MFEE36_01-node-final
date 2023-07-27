@@ -76,6 +76,17 @@ router.get("/", async (req, res) => {
     average_friendly DESC
     LIMIT 9;`;
 
+  //判斷用戶有沒有登入，token驗證，並拉回該會員的收藏
+  if (res.locals.jwtData) {
+    const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      rows = rows.map((v1) => {
+        const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+    }
+  }
   // ORDER BY hot_DESC
   [rows2] = await db.query(sql2);
 
@@ -265,15 +276,13 @@ router.get("/list", async (req, res) => {
     //要插入${order}在group by下面
     [rows] = await db.query(sql);
   }
-
+  //判斷用戶有沒有登入，token驗證，並拉回該會員的收藏
   if (res.locals.jwtData) {
     const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
     const [like_rows] = await db.query(sql_like);
     if (like_rows.length > 0) {
       rows = rows.map((v1) => {
-        const foundLike = like_rows.find(
-          (v2) => v1.product_sid === v2.product_sid
-        );
+        const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
         return foundLike ? { ...v1, like: true } : { ...v1 };
       });
     }
@@ -450,13 +459,77 @@ ORDER BY
   };
   return res.json(output);
 });
+
 //booking路由
 router.get("/booking", async (req, res) => {
+  let output = { 
+    bookingRows: [],
+    memberRows: [],
+  };
   const book_sql =
-    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
-  const [book_info] = await db.query(book_sql);
-  return res.json(book_info);
+    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
+
+  [bookingRows] = await db.query(book_sql);
+  bookingRows.forEach((v) => {
+    const date = new Date(v.date);
+    // Set the year to a fixed value (e.g., 2000)
+    date.setFullYear(2000);
+    // Format the date as "MM/dd (Day, Weekday)"
+    v.date = `${date.getMonth() + 1}/${date.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][date.getDay()]})`;
+  });
+
+  const member_aql = "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
+  [memberRows] = await db.query(member_aql);
+
+
+  output = { 
+    ...output,
+    bookingRows,
+    memberRows,
+  };
+  return res.json(output);
 });
+
+
+//booking insert
+router.post("/booking_modal", async (req, res) => {
+  let output = {
+    success: true,
+  };
+  
+  const {
+    rest_sid,
+    section_sid,
+    date,
+    member_sid,
+    people_num,
+    pet_num,
+    note
+  } = req.body;
+  
+  const book_action =
+    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+  
+  try {
+    await db.query(book_action, [
+      rest_sid,
+      section_sid,
+      date,
+      member_sid,
+      people_num,
+      pet_num,
+      note
+    ]);
+    
+    return res.json(output);
+  } catch (error) {
+    console.error(error);
+    output.success = false;
+    return res.json(output);
+  }
+});
+
+
 //給列表頁餐廳名稱的選項API
 router.get("/search-name", async (req, res) => {
   let output = {
@@ -581,9 +654,10 @@ router.get("/show-like", async (req, res) => {
 
     [likeDatas] = await db.query(sql_likeList);
     likeDatas.forEach((v) => {
-      v.data = res.toDateString(v.date);
+      v.date = res.toDateString(v.date);
     });
   }
+  console.log(likeDatas);
   output = {
     ...output,
     likeDatas,
