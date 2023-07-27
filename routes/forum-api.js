@@ -8,6 +8,27 @@ const multipartParser = upload.none();
 router.get("/", async (req, res) => {
   // 論壇文章列表
   // 熱門文章(按讚數)
+  const output = {
+    success:false,
+    error:"",
+    data:null,
+    totalRows: 0,
+    perPage: 15,
+    totalPages: 0,
+    page: 1,
+    rows: [],
+  };
+
+  const page = parseInt(req.query.page) || 1;
+  const perPage = output.perPage;
+  const offset = (page - 1) * perPage;
+
+  const [totalRowsData] = await db.query(
+    `SELECT COUNT(1) AS totalRows FROM post_list_member WHERE 1;`
+    );
+    const totalRows = totalRowsData[0].totalRows;
+    const totalPages = Math.ceil(totalRows / perPage);
+
   const [data] = await db.query(
     `
         SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, 
@@ -19,12 +40,76 @@ router.get("/", async (req, res) => {
         (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
         JOIN member_info mi ON mi.member_sid = plm.member_sid 
         JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        ORDER BY postLike DESC;
+        ORDER BY postLike DESC
+        LIMIT ${offset}, ${perPage};
       `
   );
+  output.success = true;
+  output.totalRows = totalRows;
+  output.totalPages = totalPages;
+  output.page = page;
+  output.rows = data;
+  console.log("data",data);
+  res.json(output);
 
-  res.json(data);
+  // res.json(data);
 });
+
+// 看板做分頁
+router.get("/board/:boardid", async (req, res) => {
+  let { boardid } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const perPage = 15;
+  const offset = (page - 1) * perPage;
+
+  const [boardData] = await db.query(
+    `
+    SELECT plm.*, pc.*, pb.* 
+    FROM post_list_member plm 
+    JOIN post_comment pc ON plm.post_sid = pc.post_sid
+    JOIN post_board pb ON plm.board_sid = pb.board_sid 
+    WHERE pb.board_sid = '${boardid}'
+    ORDER BY plm.post_sid DESC
+    LIMIT ${offset}, ${perPage};
+  `
+  );
+
+  const [totalRowsData] = await db.query(
+    `SELECT COUNT(1) AS totalRows FROM post_list_member WHERE board_sid = '${boardid}';`
+  );
+  const totalRows = totalRowsData[0].totalRows;
+  const totalPages = Math.ceil(totalRows / perPage);
+
+  res.json({
+    success: true,
+    totalRows,
+    totalPages,
+    page,
+    rows: boardData,
+  });
+});
+
+
+
+// // 看板
+// router.get("/board/:boardid", async (req, res) => {
+//   let { boardid } = req.params;
+//   const [boardData] = await db.query(
+//     `SELECT plm.*, pc.*, pb.* 
+//             FROM post_list_member plm 
+//             JOIN post_comment pc
+//             ON plm.post_sid = pc.post_sid
+//             JOIN post_board pb
+//             ON plm.board_sid = pb.board_sid 
+//             WHERE pb.board_sid = '${boardid}'`
+//   );
+//   res.json(boardData);
+// });
+
+
+
+
+
 
 // 論壇首頁try try 看
 router.get("/index_try", async (req, res) => {
@@ -90,6 +175,7 @@ router.get("/recommend", async (req, res) => {
   );
   res.json(data);
 });
+
 
 // 文章點進去的頁面(postid)
 // 1. 上半部：作者、文章標題
@@ -163,20 +249,7 @@ WHERE plm.post_sid='${postid}'`);
   res.json({ newData, tagData, newCommentData, imgData });
 });
 
-// 看板
-router.get("/board/:boardid", async (req, res) => {
-  let { boardid } = req.params;
-  const [boardData] = await db.query(
-    `SELECT plm.*, pc.*, pb.* 
-            FROM post_list_member plm 
-            JOIN post_comment pc
-            ON plm.post_sid = pc.post_sid
-            JOIN post_board pb
-            ON plm.board_sid = pb.board_sid 
-            WHERE pb.board_sid = '${boardid}'`
-  );
-  res.json(boardData);
-});
+
 
 // 個人頁面：我的文章
 router.get("/forum/blog", async (req, res) => {
@@ -337,12 +410,13 @@ router.post('/forum/addcomment',async(req, res)=>{
    const member_sid = req.body.member_sid;
    const post_sid = req.body.post_sid ;
    const comment_content = req.body.comment_content;
+  // 新增留言sql
   const sql = `INSERT INTO post_comment(post_sid, member_sid, parent_sid, comment_content, comment_date) 
   VALUES (?,?,'0',?,NOW())`
   const [result] = await db.query(sql,[post_sid, member_sid, comment_content]);
   console.log(result);
 
-
+  // 抓最新留言資料放到前端頁面
   const [commentData] = await db.query(
       `
           SELECT pc.comment_content, pc.comment_date, pc.member_sid, mi.nickname, mi.member_sid, mi.profile FROM post_comment pc 
@@ -359,17 +433,6 @@ router.post('/forum/addcomment',async(req, res)=>{
   res.json({result, newCommentData});
 })
 
-// 新增收藏
-// router.post('/forum/addFav',async(req, res)=>{
-//   const member_sid = req.body.member_sid;
-//   const post_sid = req.body.post_sid ;
-//   const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
-//   console.log(sql);
-//   const [favResult] = await db.query(sql,[post_sid, member_sid]);
-//   // const [favResult] = await db.query(sql);
-//   console.log(favResult);
-//   res.json(favResult);
-// })
 // 新增收藏
 router.post('/forum/addFav', async (req, res) => {
   try {
@@ -425,6 +488,57 @@ router.get('/forum/blog/hashtag', async (req, res) => {
 
   res.json(firstArray); // 回傳第一個陣列
 });
+
+// 新增文章
+router.post('/forum/blog/post' ,async(req, res)=>{
+  const member_sid = req.body.member_sid;
+  // const post_sid = req.body.post_sid ;
+  const board_sid = req.body.board_sid;
+  const post_title = req.body.post_title;
+  const post_content = req.body.post_content;
+  // const hashtag_name = req.query.hashtag_name;
+
+  // 新增文章標題 // 新增文章內容
+  const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
+  VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,0)`;
+  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content]);
+  console.log(result); 
+  // 選取話題 (選看板資料表的話題(不知對不對))
+  const tagSql = `SELECT board_sid, hashtag_name FROM board_hashtag WHERE 1`;
+
+  // 抓全部的文章資料到前端 (應該可以不用？)
+  // res.json({boardSql,result,tagSql,post_sid,hashtag_name});
+  res.json(result)
+
+})
+
+// 新增文章
+// router.post('/forum/blog/post', async (req, res) => {
+//   try {
+//     const { member_sid, board_sid, post_title, post_content } = req.body;
+//     const hashtag_name = req.query.hashtag_name; // 獲取GET參數
+
+//     // 將新文章插入資料庫
+//     const postSql =
+//       'INSERT INTO post_list_member (member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) VALUES (?, ?, ?, ?, NOW(), "P01", NULL, NULL, 0)';
+//     const [result] = await db.query(postSql, [
+//       member_sid,
+//       board_sid,
+//       post_title,
+//       post_content,
+//     ]);
+
+//     if (result.affectedRows === 1) {
+//       res.json({ success: true, message: '成功建立文章！' });
+//     } else {
+//       res.status(500).json({ success: false, message: '建立文章失敗' });
+//     }
+//   } catch (error) {
+//     console.error('建立文章時發生錯誤:', error);
+//     res.status(500).json({ success: false, message: '發生錯誤，請稍後再試' });
+//   }
+// });
+
 
 
 
