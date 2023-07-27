@@ -462,18 +462,73 @@ ORDER BY
 
 //booking路由
 router.get("/booking", async (req, res) => {
+  let output = { 
+    bookingRows: [],
+    memberRows: [],
+  };
   const book_sql =
-    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
-  const [book_info] = await db.query(book_sql);
+    "SELECT t1.`rest_sid`, t1.`section_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max` FROM `restaurant_period of time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` WHERE t1.`rest_sid` = 4;";
 
-  return res.json(book_info);
+  [bookingRows] = await db.query(book_sql);
+  bookingRows.forEach((v) => {
+    const date = new Date(v.date);
+    // Set the year to a fixed value (e.g., 2000)
+    date.setFullYear(2000);
+    // Format the date as "MM/dd (Day, Weekday)"
+    v.date = `${date.getMonth() + 1}/${date.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][date.getDay()]})`;
+  });
+
+  const member_aql = "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
+  [memberRows] = await db.query(member_aql);
+
+
+  output = { 
+    ...output,
+    bookingRows,
+    memberRows,
+  };
+  return res.json(output);
 });
+
 
 //booking insert
 router.post("/booking_modal", async (req, res) => {
+  let output = {
+    success: true,
+  };
+  
+  const {
+    rest_sid,
+    section_sid,
+    date,
+    member_sid,
+    people_num,
+    pet_num,
+    note
+  } = req.body;
+  
   const book_action =
-    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES ('[value-1]','[value-2]','[value-3]','[value-4]','[value-5]','[value-6]','[value-7]',NOW())";
+    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+  
+  try {
+    await db.query(book_action, [
+      rest_sid,
+      section_sid,
+      date,
+      member_sid,
+      people_num,
+      pet_num,
+      note
+    ]);
+    
+    return res.json(output);
+  } catch (error) {
+    console.error(error);
+    output.success = false;
+    return res.json(output);
+  }
 });
+
 
 //給列表頁餐廳名稱的選項API
 router.get("/search-name", async (req, res) => {
@@ -599,7 +654,7 @@ router.get("/show-like", async (req, res) => {
 
     [likeDatas] = await db.query(sql_likeList);
     likeDatas.forEach((v) => {
-      v.data = res.toDateString(v.date);
+      v.date = res.toDateString(v.date);
     });
   }
   console.log(likeDatas);
