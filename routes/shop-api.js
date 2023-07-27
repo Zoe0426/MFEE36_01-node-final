@@ -26,17 +26,19 @@ const dict = {
   sales_DESC: "sales_qty DESC",
 };
 
-
 //給首頁用的API
 router.get("/hompage-cards", async (req, res) => {
   //給首頁新品卡片的路由
+  let newData = [];
+  let dogDatas = [];
+  let catDatas = [];
   const sql_newData = `SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price 
     FROM shop_product p
     LEFT JOIN shop_product_detail ps ON p.product_sid=ps.product_sid
     GROUP BY p.product_sid
     ORDER BY update_date DESC
     LIMIT 0, 30`;
-  const [newData] = await db.query(sql_newData);
+  [newData] = await db.query(sql_newData);
 
   //取首頁供應商卡片資訊
   const sql_brandData = `SELECT * FROM shop_supplier LIMIT 0, 15`;
@@ -50,7 +52,7 @@ router.get("/hompage-cards", async (req, res) => {
     GROUP BY p.product_sid
     ORDER BY sales_qty DESC
     LIMIT 0, 30`;
-  const [dogDatas] = await db.query(sql_dogData);
+  [dogDatas] = await db.query(sql_dogData);
 
   //取首頁喵星人卡片資訊
   const sql_catData = `SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price 
@@ -60,7 +62,36 @@ router.get("/hompage-cards", async (req, res) => {
     GROUP BY p.product_sid
     ORDER BY sales_qty DESC
     LIMIT 0, 30`;
-  const [catDatas] = await db.query(sql_catData);
+  [catDatas] = await db.query(sql_catData);
+
+  //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過收藏
+
+  if (res.locals.jwtData) {
+    const sql_like = `SELECT * FROM shop_like where member_sid="${res.locals.jwtData.id}" `;
+    const [like_rows] = await db.query(sql_like);
+    if (like_rows.length > 0) {
+      newData = newData.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
+        return foundLike ? { ...v1, like: true } : { ...v1, like: false };
+      });
+      // console.log(newData);
+      dogDatas = dogDatas.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
+        return foundLike ? { ...v1, like: true } : { ...v1, like: false };
+      });
+
+      catDatas = catDatas.map((v1) => {
+        const foundLike = like_rows.find(
+          (v2) => v1.product_sid === v2.product_sid
+        );
+        return foundLike ? { ...v1, like: true } : { ...v1, like: false };
+      });
+    }
+  }
 
   //拿關鍵字資料
   let keywords = [];
@@ -89,7 +120,8 @@ router.get("/hompage-cards", async (req, res) => {
   });
 
   keywords = [...productsName, ...tags, ...brandsName];
-
+  // console.log("-----------------------");
+  // console.log(dogDatas);
   res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
@@ -224,11 +256,11 @@ router.get("/products", async (req, res) => {
 
   let where_price = "";
 
-  if(maxPrice  && minPrice){
-    if(minPrice>maxPrice){
-      const newMaxPrice=minPrice;
-      minPrice=maxPrice;
-      maxPrice=newMaxPrice
+  if (maxPrice && minPrice) {
+    if (minPrice > maxPrice) {
+      const newMaxPrice = minPrice;
+      minPrice = maxPrice;
+      maxPrice = newMaxPrice;
     }
   }
 
@@ -390,8 +422,10 @@ router.get("/product/:product_sid", async (req, res) => {
     TO: ["玩具", "toy"],
     OT: ["其他", "other"],
   };
-  const catergory_chinese_name = dictRouter[shopMainData[0].category_detail_sid][0];
-  const catergory_english_name = dictRouter[shopMainData[0].category_detail_sid][1];
+  const catergory_chinese_name =
+    dictRouter[shopMainData[0].category_detail_sid][0];
+  const catergory_english_name =
+    dictRouter[shopMainData[0].category_detail_sid][1];
   shopMainData[0].catergory_chinese_name = catergory_chinese_name;
   shopMainData[0].catergory_english_name = catergory_english_name;
 
@@ -662,9 +696,6 @@ router.delete("/likelist/:pid", async (req, res) => {
 }
     */
 });
-
-
-
 
 //製作評價假資料....
 router.get("/create-comment", async (req, res) => {
