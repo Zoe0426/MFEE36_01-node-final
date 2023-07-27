@@ -545,9 +545,11 @@ router.post("/prodReviews", async (req, res) => {
       ?,?,?,
       NOW(),?,?)`;
 
+  const prodSid = req.body.prodSid;
+
   const [rowsProd] = await db.query(sqlProd, [
     req.body.odSid,
-    req.body.prodSid,
+    prodSid,
     req.body.memberSid,
     req.body.shopStar,
     req.body.shopContent,
@@ -559,7 +561,30 @@ router.post("/prodReviews", async (req, res) => {
   WHERE od.order_detail_sid = ?`;
   const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
 
-  res.json({ ...rowsProd, updateRes });
+  const [sqlProdComment] = await db.query(
+    `
+    SELECT product_sid,
+    ROUND(AVG(rating), 1) avg_rating
+    FROM shop_comment 
+    WHERE product_sid = "${prodSid}"
+    GROUP BY product_sid
+    `
+  );
+
+  const avgRating = sqlProdComment[0].avg_rating;
+
+  const [affectedRows] = await db.query(
+    `
+    UPDATE shop_product sp
+    JOIN shop_comment sc ON sc.product_sid = sp.product_sid
+    SET avg_rating = ${avgRating}
+    WHERE sp.product_sid = "${prodSid}"
+    `
+  );
+
+  //const [updateProductRes] = await db.query(sqlUpdateShopProduct, [prodSid]);
+
+  res.json({ ...rowsProd, updateRes, affectedRows });
 });
 
 //新增餐廳評價
