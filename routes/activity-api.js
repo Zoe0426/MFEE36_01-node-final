@@ -55,38 +55,38 @@ router.get("/activity", async (req, res) => {
     rows: [],
   };
 
-
- 
-
-
-
   // 關鍵字
   // 最新/ 最舊/ 熱門/ 地區/ 日期/ 類別/ 價格
   // 類別/ 熱門/ 最新/ 地區/ 投票區
   // 設篩選條件
   const dict = {
-    taipei: "台北市",
-    newtaipei: "新北市",
-    taoyuan: "桃園市",
-    taichung: "台中市",
-    kaohsiung: "高雄市",
-    tainan: "台南市",
+    台北市: "台北市",
+    新北市: "新北市",
+    桃園市: "桃園市",
+    台中市: "台中市",
+    高雄市: "高雄市",
+    台南市: "台南市",
 
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
 
-    // new_DESC: "ag.post_date DESC",
-    new_DESC: "recent_date DESC",
+   
+    date_DESC: "recent_date DESC",
+    date_ASC: "recent_date ASC",
     hot_DESC: "sales_qty DESC", // TODO: 需再確認cart那邊怎麼抓熱門活動
   };
 
-  
+  // 給query string的
   let perPage = req.query.perPage || 16;
-  let keyword = req.query.keyword || "";
-  let recent_date = req.query.recent_date || "";
-  let farthest_date = req.query.farthest_date || "";
   let activity_type_sid = req.query.activity_type_sid || "";
-  let orderBy = req.query.orderBy || "new_DESC";
+  let keyword = req.query.keyword || "";
+  let startDate = req.query.startDate || "";
+  let endDate = req.query.endDate || "";
+  let maxPrice = parseInt(req.query.maxPrice || 0);
+  let minPrice = parseInt(req.query.minPrice || 0);
+  let city = req.query.city || "";
+  let area = req.query.area || "";
+  let orderBy = req.query.orderBy || "date_ASC";
 
 
   let page = req.query.page ? parseInt(req.query.page) : 1;
@@ -99,6 +99,14 @@ router.get("/activity", async (req, res) => {
   //queryString條件判斷
   let where = " WHERE 1";
 
+  // 價格
+  let where_price = "";
+
+  if (minPrice && maxPrice) {
+      where_price += ` AND price_adult BETWEEN ${minPrice} AND ${maxPrice}`;
+  }
+
+  
   // 類別
   if (activity_type_sid) {
     where += ` AND ai.activity_type_sid = ${activity_type_sid}`;
@@ -110,15 +118,27 @@ router.get("/activity", async (req, res) => {
     where += ` AND ai.name LIKE ${kw_escaped}`;
   }
 
-  // 日期區間 (一個活動會出現很多筆 TODO: 改成一個活動一筆)
-  if (recent_date && farthest_date) {
-    where += ` AND ag.date BETWEEN ${db.escape(recent_date)} AND ${db.escape(
-      farthest_date
+  // 日期區間 
+  if (startDate && endDate) {
+    where += ` AND ag.date BETWEEN ${db.escape(startDate)} AND ${db.escape(
+      endDate
     )}`;
-  } else if (recent_date) {
-    where += ` AND ag.date >= ${db.escape(recent_date)}`;
-  } else if (farthest_date) {
-    where += ` AND ag.date <= ${db.escape(farthest_date)}`;
+  } else if (startDate) {
+    where += ` AND ag.date >= ${db.escape(startDate)}`;
+  } else if (endDate) {
+    where += ` AND ag.date <= ${db.escape(endDate)}`;
+  }
+
+  // 縣市
+  if (city) {
+    const cityValue = dict[city];
+    where += ` AND  ai.city = '${cityValue}'  `;
+  }
+
+  // 地區
+  if (area) {
+    const areaValue = dict[area];
+    where += ` AND  ai.area = '${areaValue}'  `;
   }
 
   // 排序
@@ -138,7 +158,7 @@ router.get("/activity", async (req, res) => {
     FROM activity_rating
     GROUP BY activity_sid
   ) ar ON ai.activity_sid = ar.activity_sid
-  ${where}`;
+  ${where} ${where_price}`;
 
   const [[{ totalRows }]] = await db.query(sqlTotalRows);
   let totalPages = 0;
@@ -177,10 +197,10 @@ if (totalRows) {
         FROM activity_rating
         GROUP BY activity_sid
       ) ar ON ai.activity_sid = ar.activity_sid
-      ${where}
+      ${where} ${where_price}
     ) AS subquery
     GROUP BY activity_sid, name, content, city, area, address, activity_pic, type_name, time, price_adult, avg_star
-    ORDER BY post_date DESC
+    ${order}
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
 
