@@ -498,22 +498,22 @@ router.post("/booking_modal", async (req, res) => {
     success: true,
   };
 
-  const { rest_sid, section_sid, date, member_sid, people_num, pet_num, note } =
+  const { rest_sid, section_code, date, member_sid, people_num, pet_num, note } =
     req.body;
 
   const book_action =
-    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_sid`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
 
   try {
-    await db.query(book_action, [
+    await db.query(book_action, {
       rest_sid,
-      section_sid,
+      section_code,
       date,
       member_sid,
       people_num,
       pet_num,
       note,
-    ]);
+    });
 
     return res.json(output);
   } catch (error) {
