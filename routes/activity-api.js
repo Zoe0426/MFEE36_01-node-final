@@ -208,6 +208,7 @@ if (totalRows) {
    [rows] = await db.query(sqlQuery);
 }
 
+
   // 日期處理
   rows.forEach((i) => {
     i.recent_date = res.toDateString(i.recent_date);
