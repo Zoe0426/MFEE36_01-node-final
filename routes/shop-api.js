@@ -245,6 +245,9 @@ router.get("/products", async (req, res) => {
   let typeForAge = req.query.typeForAge ? req.query.typeForAge.split(",") : [];
   let filterbrand = req.query.brand ? req.query.brand.split(",") : [];
 
+console.log(filterbrand)
+
+
   let page = req.query.page ? parseInt(req.query.page) : 1;
 
   if (!page || page < 1) {
@@ -298,7 +301,7 @@ router.get("/products", async (req, res) => {
 
   if (filterbrand.length > 0) {
     let newFilterbrand = filterbrand.map((v) => db.escape(v)).join(", ");
-    where += ` AND p.name IN (${newFilterbrand}) `;
+    where += ` AND s.name IN (${newFilterbrand}) `;
   }
 
   //排序
