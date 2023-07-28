@@ -65,6 +65,25 @@ try{
         throw new Error('更新優惠券狀態時出錯');
     }
 }
+const updateShopQty = async(shopItems)=>{
+    try{
+        const result = [];
+        for(let item of shopItems){
+            const {rel_sid, prod_qty} = item;
+            const updateShopQtySql =`UPDATE shop_product
+                    SET sales_qty = IFNULL(sales_qty, 0) + ?
+                    WHERE product_sid = ?`;
+        const [updateShopQtyResult] = await db.query(updateShopQtySql,[prod_qty, rel_sid]);
+        result.push(updateShopQtyResult.affectedRows);
+        //console.log("updateShopQtyResult:" ,result);
+        }
+        return result.includes(0)?'failed': 'success';
+
+    }catch(error){
+        console.error(error);
+        throw new Error('更商品購買數量時出錯');
+    }
+}
 const updateCart = async(cartItems)=>{
     //cartItems: [{cart_sid:xxx, order_status:xxx}]
     //status: 001=>cart, 002=>order, 003=>delete
@@ -103,6 +122,7 @@ const createOrder = async(data)=>{
     //準備sql所需資料
     const newOrderSid = await getNewOrderSid();
     const {checkoutType, paymentType, checkoutItems, couponInfo,postInfo, member_sid} = data;
+   // console.log('createorder Data', data);
     //coupon
     const coupon_send_sid = (couponInfo.length)? couponInfo[0].coupon_send_sid: '';
     const couponPrice = (couponInfo.length)? couponInfo[0].price: 0;
@@ -174,7 +194,7 @@ const createOrder = async(data)=>{
                         ?,?,?,
                         ?,?,?,
                         ?)`
-            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,child_qty,rel_subtotal}=item;  
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,    child_qty,rel_subtotal}=item;  
 
             const [orderDetailresult] = await db.query(orderDetailSql,[
                     newOrderSid,checkoutType,rel_sid, 
@@ -196,6 +216,9 @@ const createOrder = async(data)=>{
     }
     if(checkoutType==='shop'){
         //TODO:更新預設地址
+        //UPDATE SHOP QTY
+        const updateShopQtyResult = await updateShopQty(checkoutItems);
+        updateShopQtyResult === 'success'? (result.prodQtyUpdated = true): (result.prodQtyUpdated = false);
     }
     const updateCartResult = await updateCart(updateCartData);
     updateCartResult === 'success'? (result.cartUpdated = true):(result.cartUpdated = false);
@@ -497,10 +520,9 @@ router.post('/get-mem-img', async(req,res)=>{
         throw new Error('取會員照片時出錯')
     }
 })
-router.get('/test',(req, res) => {
-    console.log("test")
-
-    res.send("test");
+router.post('/test',(req, res) => {
+    console.log(req.body);
+    res.send(req.body);
 } )
 router.get('/ecpay', (req, res) => {
     const orderSid = req.query.orderSid;

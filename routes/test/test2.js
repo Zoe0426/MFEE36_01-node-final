@@ -13,11 +13,25 @@
   VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,0)`;
   const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content]);
   console.log(result); 
-    //get post sid
 
+    //從資料庫拿最新文章的post sid
     const [maxSid] = await db.query(`SELECT MAX(post_sid) as maxSid FROM post_list_member`)
+    const mySid = maxSid[0].maxSid;
 
+    //拿到的hts資料
     const hashtags = req.body.choseHashtag;
+
+
+    for (let ht of hashtags){
+            const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid,)
+                            VALUES (?,?)`
+
+    const [addHTresult] = await db.query(addHashTagsql,[ht,mySid ]);
+    res.json({result, addHTresult})
+
+    }
+
+
 
 
 
