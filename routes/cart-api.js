@@ -174,7 +174,7 @@ const createOrder = async(data)=>{
                         ?,?,?,
                         ?,?,?,
                         ?)`
-            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,    child_qty,rel_subtotal}=item;  
+            const {rel_sid, rel_seq_sid,rel_name,rel_seq_name,prod_price,prod_qty,adult_price,adult_qty,child_price,child_qty,rel_subtotal}=item;  
 
             const [orderDetailresult] = await db.query(orderDetailSql,[
                     newOrderSid,checkoutType,rel_sid, 
