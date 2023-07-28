@@ -120,8 +120,6 @@ router.get("/hompage-cards", async (req, res) => {
   });
 
   keywords = [...productsName, ...tags, ...brandsName];
-  // console.log("-----------------------");
-  // console.log(dogDatas);
   res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
@@ -258,6 +256,7 @@ console.log(filterbrand)
   let where = ` WHERE 1`;
 
   let where_price = "";
+  let where_supplier=""
 
   if (maxPrice && minPrice) {
     if (minPrice > maxPrice) {
@@ -301,7 +300,7 @@ console.log(filterbrand)
 
   if (filterbrand.length > 0) {
     let newFilterbrand = filterbrand.map((v) => db.escape(v)).join(", ");
-    where += ` AND s.name IN (${newFilterbrand}) `;
+    where_supplier = ` WHERE name IN (${newFilterbrand}) `;
   }
 
   //排序
@@ -316,6 +315,7 @@ console.log(filterbrand)
   SELECT p.product_sid
   FROM shop_product p
   INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
+  INNER JOIN (SELECT * FROM shop_supplier ${where_supplier}) s ON s.supplier_sid=p.supplier_sid
   ${where}
   GROUP BY p.product_sid) AS subquery`;
 
@@ -336,6 +336,7 @@ console.log(filterbrand)
     const sql = `SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price  
         FROM shop_product p
         INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
+        INNER JOIN (SELECT * FROM shop_supplier ${where_supplier}) s ON s.supplier_sid=p.supplier_sid
         ${where}
         GROUP BY p.product_sid
         ${order}
