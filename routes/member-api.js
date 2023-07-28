@@ -250,11 +250,8 @@ router.put("/updateInfo/:sid", upload.single("avatar"), async (req, res) => {
   birthday=?,
   gender=?,
   pet=?
-  WHERE member_sid='${sid}'`;
 
-  // const saltRounds = 10;
-  // let saltPwd = await bcrypt.hash(req.body.member_password, saltRounds);
-  // console.log(saltPwd);
+  WHERE member_sid='${sid}'`;
 
   // 處理生日格式
   let birthday = dayjs(req.body.birthday);
@@ -264,6 +261,7 @@ router.put("/updateInfo/:sid", upload.single("avatar"), async (req, res) => {
     birthday = null;
   }
 
+  console.log("file", req.file.filename);
   const [result] = await db.query(sql, [
     req.body.name,
     req.body.mobile,
