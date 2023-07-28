@@ -57,7 +57,20 @@ router.post("/login", async (req, res) => {
 // 讀取單筆會員資料
 router.get("/edit/:sid", async (req, res) => {
   let { sid } = req.params;
-  const [rows] = await db.query(`SELECT * FROM member_info WHERE member_sid='${sid}' `);
+  const [rows] = await db.query(`
+  SELECT 
+  mo.member_sid as memberSid,
+  mo.name as name, 
+  mo.email as email, 
+  mo.mobile as mobile, 
+  mo.gender as gender, 
+  mo.birthday as birthday, 
+  mo.pet as pet, 
+  mo.profile as profile 
+
+  FROM member_info mo 
+  WHERE mo.member_sid='${sid}'
+  `);
   res.json(rows);
 });
 
@@ -212,40 +225,56 @@ module.exports = router;
 
 // -----------------------------------
 // 修改會員資料
-router.put("/:sid", multipartParser, async (req, res) => {
+router.put("/updateInfo/:sid", upload.single("avatar"), async (req, res) => {
   let { sid } = req.params;
 
-  const sql = `UPDATE member_info SET 
+  // const output = {
+  //   success: false,
+  //   error: "",
+  //   data: null,
+  // };
+
+  // if (!res.locals.jwtData) {
+  //   output.error = "沒有驗證";
+  //   return res.json(output);
+  // }
+  // // console.log(jwtData);
+
+  // const sid = res.locals.jwtData.id;
+
+  const sql = `UPDATE member_info SET
   name=?,
-  email=?,
   mobile=?,
-  gender=?,
+  profile=?,
+  email=?,
   birthday=?,
-  pet=?,
-  member_ID=?,
-  profile=?
+  gender=?,
+  pet=?
+
   WHERE member_sid='${sid}'`;
 
-  const saltRounds = 10;
-  let saltPwd = await bcrypt.hash(req.body.member_password, saltRounds);
-  console.log(saltPwd);
+  // 處理生日格式
+  let birthday = dayjs(req.body.birthday);
+  if (birthday.isValid()) {
+    birthday = birthday.format("YYYY-MM-DD");
+  } else {
+    birthday = null;
+  }
 
+  console.log("file", req.file.filename);
   const [result] = await db.query(sql, [
-    req.body.member_name,
-    req.body.member_email,
-    saltPwd,
-    req.body.member_mobile,
-    req.body.member_gender,
-    req.body.member_birth,
-    req.body.member_pet,
-    req.body.member_level,
-    req.body.member_ID,
-    req.body.member_profile,
-    req.body.member_profile,
+    req.body.name,
+    req.body.mobile,
+    req.file.filename,
+    req.body.email,
+    birthday,
+    req.body.gender,
+    req.body.pet,
   ]);
 
   res.json({
-    success: !!result.changedRows,
+    // success: !!result.changedRows,
+    // result,
     result,
   });
 });
