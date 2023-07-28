@@ -489,55 +489,38 @@ router.get('/forum/blog/hashtag', async (req, res) => {
   res.json(firstArray); // 回傳第一個陣列
 });
 
+
 // 新增文章
-router.post('/forum/blog/post' ,async(req, res)=>{
-  const member_sid = req.body.member_sid;
-  // const post_sid = req.body.post_sid ;
-  const board_sid = req.body.board_sid;
-  const post_title = req.body.post_title;
-  const post_content = req.body.post_content;
-  // const hashtag_name = req.query.hashtag_name;
+//router.post('/forum/blog/post' , upload.array([]), async(req, res)=>{
+  router.post('/forum/blog/post' , async(req, res)=>{
+  const member_sid = req.body.memberSid;
+  const board_sid = req.body.boardSid;
+  const post_title = req.body.title;
+  const post_content = req.body.content;
 
   // 新增文章標題 // 新增文章內容
   const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
   VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,0)`;
   const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content]);
   console.log(result); 
-  // 選取話題 (選看板資料表的話題(不知對不對))
-  const tagSql = `SELECT board_sid, hashtag_name FROM board_hashtag WHERE 1`;
+  // res.json(result)
 
-  // 抓全部的文章資料到前端 (應該可以不用？)
-  // res.json({boardSql,result,tagSql,post_sid,hashtag_name});
-  res.json(result)
+  // 從資料庫拿最新文章的post sid
+  const [maxSid] = await db.query(`SELECT MAX(post_sid) as maxSid FROM post_list_member`)
+  const mySid = maxSid[0].maxSid;
 
+  // 拿到的hashtags資料
+  const hashtags = req.body.choseHashtag;
+  const addhsResult = []
+  for(let ht of hashtags){
+    const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid) VALUES (?,?)`
+    const [addHTresult] = await db.query(addHashTagsql, [ht,mySid]);
+    addhsResult.push(addHTresult);
+  }
+  res.json({result, addhsResult})
 })
 
-// 新增文章
-// router.post('/forum/blog/post', async (req, res) => {
-//   try {
-//     const { member_sid, board_sid, post_title, post_content } = req.body;
-//     const hashtag_name = req.query.hashtag_name; // 獲取GET參數
 
-//     // 將新文章插入資料庫
-//     const postSql =
-//       'INSERT INTO post_list_member (member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) VALUES (?, ?, ?, ?, NOW(), "P01", NULL, NULL, 0)';
-//     const [result] = await db.query(postSql, [
-//       member_sid,
-//       board_sid,
-//       post_title,
-//       post_content,
-//     ]);
-
-//     if (result.affectedRows === 1) {
-//       res.json({ success: true, message: '成功建立文章！' });
-//     } else {
-//       res.status(500).json({ success: false, message: '建立文章失敗' });
-//     }
-//   } catch (error) {
-//     console.error('建立文章時發生錯誤:', error);
-//     res.status(500).json({ success: false, message: '發生錯誤，請稍後再試' });
-//   }
-// });
 
 
 
