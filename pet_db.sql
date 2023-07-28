@@ -20915,10 +20915,10 @@ INSERT INTO `restaurant_menu` (`rest_sid`, `menu_sid`, `menu_name`) VALUES
 -- --------------------------------------------------------
 
 --
--- Table structure for table `restaurant_period of time`
+-- Table structure for table `restaurant_period_of_time`
 --
 
-CREATE TABLE `restaurant_period of time` (
+CREATE TABLE `restaurant_period_of_time` (
   `rest_sid` int(11) NOT NULL COMMENT '餐廳編號',
   `section_sid` int(11) NOT NULL COMMENT '時段編號',
   `section_code` varchar(255) NOT NULL COMMENT '時段代號',
