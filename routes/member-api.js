@@ -228,6 +228,8 @@ module.exports = router;
 router.put("/updateInfo/:sid", upload.single("avatar"), async (req, res) => {
   let { sid } = req.params;
 
+  console.log(req.body);
+  console.log(req.file);
   // const output = {
   //   success: false,
   //   error: "",
