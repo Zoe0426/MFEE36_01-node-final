@@ -6,20 +6,20 @@ const multipartParser = upload.none();
 
 // 首頁
 router.get("/", async (req, res) => {
-  // 熱門活動-> 依訂單數排序
+  // 熱門活動-> 依 order_details排序 排名前4
+  const [popularCount] = await db.query(
+    "SELECT subquery.activity_sid, subquery.name, subquery.content, subquery.city, subquery.area, subquery.address, subquery.activity_pic, subquery.recent_date, subquery.farthest_date, subquery.feature_names, subquery.type_name, subquery.time, subquery.price_adult, subquery.avg_star, subquery.post_date, popular_counts.popular_count FROM (SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, CAST(AVG(ar.star) AS UNSIGNED) AS avg_star, MAX(ag.post_date) AS post_date FROM activity_info ai INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid LEFT JOIN (SELECT activity_sid, AVG(star) AS star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult) AS subquery LEFT JOIN (SELECT rel_sid AS activity_sid, COUNT(*) AS popular_count FROM order_details WHERE rel_type = 'activity' GROUP BY rel_sid) AS popular_counts ON subquery.activity_sid = popular_counts.activity_sid ORDER BY popular_counts.popular_count DESC LIMIT 4"
+  );
+
 
   // 最新上架-> 依 post_date 排序
   const [data] = await db.query(
     "SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, ag.post_date, CAST(ar.avg_star AS UNSIGNED) AS avg_star FROM activity_info ai JOIN activity_group ag ON ai.activity_sid = ag.activity_sid JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid JOIN ( SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid ) ag_temp ON ai.activity_sid = ag_temp.activity_sid JOIN ( SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid ) ar ON ai.activity_sid = ar.activity_sid WHERE ag.time IS NOT NULL AND ag.price_adult IS NOT NULL GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ag.post_date ORDER BY ag.post_date DESC LIMIT 4"
   );
 
-  // const [data] = await db.query(
-  //   "SELECT ai.`activity_sid`, ai.`name`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.`name`) AS feature_names, aty.`name` AS type_name, ag.`time`, ag.`price_adult`, CAST(ar.`avg_star` AS UNSIGNED) AS avg_star, ag.`post_date`FROM `activity_info` ai JOIN `activity_group` ag ON ai.`activity_sid` = ag.`activity_sid` JOIN`activity_feature_with_info` afwi ON ai.`activity_sid` = afwi.`activity_sid`JOIN`activity_feature` af ON afwi.`activity_feature_sid` = af.`activity_feature_sid`JOIN`activity_type` aty ON ai.`activity_type_sid` = aty.`activity_type_sid`JOIN( SELECT `activity_sid`, MIN(`date`) AS recent_date, MAX(`date`) AS farthest_date FROM `activity_group` GROUP BY `activity_sid` ) ag_temp ON ai.`activity_sid` = ag_temp.`activity_sid`JOIN ( SELECT `activity_sid`, AVG(`star`) AS avg_star FROM `activity_rating` GROUP BY `activity_sid` ) ar ON ai.`activity_sid` = ar.`activity_sid` WHERE ag.`time` IS NOT NULL AND ag.`price_adult` IS NOT NULL GROUP BY ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, aty.`name`, ag.`time`, ag.`price_adult`, ar.`avg_star`, ag.`post_date` ORDER BY ag.`post_date` DESC LIMIT 4"
-  // );
-
-  // 熱門縣市-> 依訂單排序 排名前6
+  // 熱門縣市-> 依order_details排序 排名前6
   const [topCityData] = await db.query(
-    "SELECT DISTINCT ai.`city`, COUNT(*) AS `city_count` FROM `order_cart` oc JOIN `activity_info` ai ON oc.`rel_sid` = ai.`activity_sid` WHERE oc.`rel_type` = 'activity' GROUP BY ai.`city` ORDER BY `city_count` DESC LIMIT 6"
+    "SELECT DISTINCT ai.`city`, COUNT(*) AS `city_count` FROM `order_details` oc JOIN `activity_info` ai ON oc.`rel_sid` = ai.`activity_sid` WHERE oc.`rel_type` = 'activity' GROUP BY ai.`city` ORDER BY `city_count` DESC LIMIT 6"
   );
 
   // 會員願望投票區
@@ -33,6 +33,11 @@ router.get("/", async (req, res) => {
     i.farthest_date = res.toDateString(i.farthest_date);
   });
 
+  popularCount.forEach((v) => {
+    v.recent_date = res.toDateString(v.recent_date);
+    v.farthest_date = res.toDateString(v.farthest_date);
+  });
+
   // 全部欄位都取得的 終極sql
   // SELECT ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date,
   // GROUP_CONCAT(DISTINCT af.`name`) AS feature_names, aty.`name` AS type_name, ag.`time`, ag.`price_adult`, CAST(ar.`avg_star` AS UNSIGNED) AS avg_star FROM `activity_info` ai LEFT JOIN `activity_group` ag ON ai.`activity_sid` = ag.`activity_sid` LEFT JOIN  `activity_feature_with_info` afwi ON ai.`activity_sid` = afwi.`activity_sid` LEFT JOIN `activity_feature` af ON afwi.`activity_feature_sid` = af.`activity_feature_sid` LEFT JOIN `activity_type` aty ON ai.`activity_type_sid` = aty.`activity_type_sid`
@@ -40,7 +45,7 @@ router.get("/", async (req, res) => {
   // LEFT JOIN ( SELECT `activity_sid`,  AVG(`star`) AS avg_star FROM `activity_rating` GROUP BY `activity_sid`) ar ON ai.`activity_sid` = ar.`activity_sid` WHERE ag.`time` IS NOT NULL AND ag.`price_adult` IS NOT NULL GROUP BY ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, aty.`name`, ag.`time`, ag.`price_adult`, ar.`avg_star`
 
   // 取上面全部資料
-  res.json({ data, topCityData, wish });
+  res.json({ data, topCityData, wish, popularCount });
 });
 
 
