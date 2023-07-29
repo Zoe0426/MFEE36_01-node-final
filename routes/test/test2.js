@@ -31,15 +31,6 @@
 
     }
 
-
-
-
-
-
-
-
-
-
   // 選取話題 (選看板資料表的話題(不知對不對))
   // const tagSql = `SELECT board_sid, hashtag_name FROM board_hashtag WHERE 1`;
 

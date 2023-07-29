@@ -187,3 +187,134 @@ FROM
     JOIN activity_info ai ON od.rel_sid = ai.activity_sid
 WHERE
     om.order_sid = ?;
+
+--取各商品類別最熱銷
+SELECT
+    p.product_sid,
+    p.name,
+    p.img,
+    p.sales_qty,
+    (
+        SELECT
+            MIN(price)
+        FROM
+            shop_product_detail
+        WHERE
+            product_sid = p.product_sid
+    ) AS min_price,
+    (
+        SELECT
+            MAX(price)
+        FROM
+            shop_product_detail
+        WHERE
+            product_sid = p.product_sid
+    ) AS max_price,
+    c.detail_name
+FROM
+    shop_category AS c
+    JOIN (
+        SELECT
+            *
+        FROM
+            shop_product
+        WHERE
+            (category_detail_sid, sales_qty) IN (
+                SELECT
+                    category_detail_sid,
+                    MAX(sales_qty)
+                FROM
+                    shop_product
+                GROUP BY
+                    category_detail_sid
+            )
+    ) AS p ON c.category_detail_sid = p.category_detail_sid
+ORDER BY
+    p.sales_qty DESC;
+
+------------------------------
+熱門活動 （ order - detail熱門活動 ）
+SELECT
+    top5act.*,
+    ai.name,
+    ai.content,
+    ai.city,
+    ai.area,
+    ai.activity_pic
+FROM
+    (
+        SELECT
+            rel_sid,
+            SUM(adult_qty) + SUM(child_qty) AS total_qty
+        FROM
+            order_details
+        WHERE
+            rel_type = 'activity'
+        GROUP BY
+            rel_sid
+        ORDER BY
+            total_qty DESC
+        LIMIT
+            5
+    ) top5act
+    JOIN activity_info ai ON top5act.rel_sid = ai.activity_sid
+    JOIN activity_group ag ON ai.activity_sid = ag.activity_sid -------------------
+    --取得各看板最熱門文章
+SELECT
+    ac.*,
+    pm.post_title,
+    post_content,
+    pb.board_name
+FROM
+    (
+        SELECT
+            ab.*,
+            (
+                SELECT
+                    `file`
+                FROM
+                    post_file pf
+                WHERE
+                    pf.post_sid = ab.post_sid
+                Limit
+                    1
+            ) AS img
+        FROM
+            (
+                SELECT
+                    board_sid,
+                    SUBSTRING_INDEX(
+                        GROUP_CONCAT(
+                            post_sid
+                            ORDER BY
+                                like_count DESC
+                        ),
+                        ',',
+                        1
+                    ) AS post_sid,
+                    MAX(like_count) AS max_like_count
+                FROM
+                    (
+                        SELECT
+                            plm.board_sid,
+                            plm.post_sid,
+                            (
+                                SELECT
+                                    COUNT(*)
+                                FROM
+                                    post_like pl
+                                WHERE
+                                    pl.post_sid = plm.post_sid
+                            ) AS like_count
+                        FROM
+                            post_list_member plm
+                        GROUP BY
+                            plm.board_sid,
+                            plm.post_sid
+                    ) aa
+                GROUP BY
+                    board_sid
+            ) ab
+    ) ac
+    JOIN post_list_member pm ON ac.post_sid = pm.post_sid
+    JOIN post_board pb ON pm.board_sid = pb.board_sid
