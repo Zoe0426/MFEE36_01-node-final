@@ -380,12 +380,10 @@ router.get('/get-home-data', async(req,res)=>{
                 )
             ) AS p ON c.category_detail_sid = p.category_detail_sid
         ORDER BY p.sales_qty DESC;`;
-        console.log('start', new Date());
         const [shopRows] = await db.query(getShopDataSql);
         const useRows = shopRows.slice(0,6);
         const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty)}))
         output.shop = sortedUseRows;
-        console.log('end', new Date());
     }catch(error){
         console.error(error);
         throw new Error('取商品資料時出錯');
