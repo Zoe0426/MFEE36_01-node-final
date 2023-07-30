@@ -427,7 +427,7 @@ router.get('/get-home-data', async(req,res)=>{
         let activityImgs = ['31.jpg'];
         const sendRows = activityRows.map(v=>{
             const dayInfo = `${res.toDateDayString(v.eventStart)}~${res.toDateDayString(v.eventEnd)}`
-            activityImgs.push(v.activity_pic.split(',')[0])
+            activityImgs.push(v.activity_pic.split(',')[1])
             return {...v, dayInfo: dayInfo,rules: (v.rules).split(',')}
         })
         output.activity = sendRows;
