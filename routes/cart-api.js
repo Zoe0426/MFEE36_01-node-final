@@ -382,7 +382,9 @@ router.get('/get-home-data', async(req,res)=>{
         ORDER BY p.sales_qty DESC;`;
         console.log('start', new Date());
         const [shopRows] = await db.query(getShopDataSql);
-        output.shop = shopRows;
+        const useRows = shopRows.slice(0,6);
+        const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty)}))
+        output.shop = sortedUseRows;
         console.log('end', new Date());
     }catch(error){
         console.error(error);
@@ -402,6 +404,7 @@ router.get('/get-home-data', async(req,res)=>{
             r.name,
             r.city,
             r.area,
+            r.info,
             GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
             GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
             GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
@@ -426,7 +429,10 @@ router.get('/get-home-data', async(req,res)=>{
                 booking_count DESC
                 LIMIT 2;`;
         const [restaurantRows] = await db.query(getrestaurantDataSql);
-        output.restaurant = restaurantRows;
+        const useRows = restaurantRows.map(v=>{
+            const hts = (v.service_names.split(',')).concat((v.rule_names.split(',')))
+        return{...v,img_names: (v.img_names).split(',')[0], hashTags: hts }})
+        output.restaurant = useRows;
     }catch(error){
         console.error(error);
         throw new Error('取餐廳資料時出錯');
@@ -434,6 +440,7 @@ router.get('/get-home-data', async(req,res)=>{
     try{
         const getPostDataSql = "SELECT ac.*, pm.post_title, post_content,pb.board_name FROM (SELECT ab.*, (SELECT `file` FROM post_file pf WHERE pf.post_sid = ab.post_sid Limit 1 ) AS img FROM (SELECT board_sid, SUBSTRING_INDEX( GROUP_CONCAT( post_sid ORDER BY like_count DESC ), ',', 1 ) AS post_sid, MAX(like_count) AS max_like_count FROM (SELECT plm.board_sid, plm.post_sid, (SELECT COUNT(*) FROM post_like pl WHERE pl.post_sid = plm.post_sid ) AS like_count FROM post_list_member plm GROUP BY plm.board_sid, plm.post_sid) aa GROUP BY board_sid ) ab) ac JOIN post_list_member pm ON ac.post_sid = pm.post_sid JOIN post_board pb ON pm.board_sid = pb.board_sid";
         const [postRows] = await db.query(getPostDataSql);
+        const useRows = postRows.slice(0,11);
         output.forum = postRows;
     }catch(error){
         console.error(error);
