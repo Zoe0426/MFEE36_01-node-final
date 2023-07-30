@@ -363,6 +363,7 @@ router.get('/get-home-data', async(req,res)=>{
         let output ={
         shop : [],
         activity : [],
+        activityImgs:[],
         restaurant:[],
         forum:[],
     }
@@ -382,20 +383,59 @@ router.get('/get-home-data', async(req,res)=>{
         ORDER BY p.sales_qty DESC;`;
         const [shopRows] = await db.query(getShopDataSql);
         const useRows = shopRows.slice(0,6);
-        const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty)}))
+        const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty) }))
         output.shop = sortedUseRows;
     }catch(error){
         console.error(error);
         throw new Error('取商品資料時出錯');
     }
-    // try{
-    //     const getActivityDataSql = ``;
-    //     const [activityRows] = await db.query(getActivityDataSql);
-    //     output.activity = activityRows;
-    // }catch(error){
-    //     console.error(error);
-    //     throw new Error('取活動資料時出錯');
-    // }
+    try{
+        const getActivityDataSql = `SELECT
+            top4act.rel_sid AS activity_sid,
+            top4act.total_qty AS total_quantity,
+            ai.name,
+            ai.content,
+            ai.city,
+            ai.area,
+            ai.activity_pic,
+            MAX(ag.date) AS eventEnd,
+            MIN(ag.date) AS eventStart,
+            GROUP_CONCAT(DISTINCT af.name) AS rules
+        FROM
+            (
+                SELECT rel_sid, SUM(adult_qty) + SUM(child_qty) AS total_qty
+                FROM order_details
+                WHERE rel_type = 'activity'
+                GROUP BY rel_sid
+                ORDER BY total_qty DESC
+                LIMIT 4
+            ) top4act
+        JOIN activity_info ai ON top4act.rel_sid = ai.activity_sid
+        JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+        JOIN activity_feature_with_info afw ON ai.activity_sid = afw.activity_sid
+        JOIN activity_feature af ON afw.activity_feature_sid = af.activity_feature_sid
+        GROUP BY
+            top4act.rel_sid,
+            top4act.total_qty,
+            ai.name,
+            ai.content,
+            ai.city,
+            ai.area,
+            ai.activity_pic;
+`;
+        const [activityRows] = await db.query(getActivityDataSql);
+        let activityImgs = ['31.jpg'];
+        const sendRows = activityRows.map(v=>{
+            const dayInfo = `${res.toDateDayString(v.eventStart)}~${res.toDateDayString(v.eventEnd)}`
+            activityImgs.push(v.activity_pic.split(',')[0])
+            return {...v, dayInfo: dayInfo,rules: (v.rules).split(',')}
+        })
+        output.activity = sendRows;
+        output.activityImgs = activityImgs;
+    }catch(error){
+        console.error(error);
+        throw new Error('取活動資料時出錯');
+    }
     try{
         const getrestaurantDataSql =  `SELECT
             r.rest_sid,

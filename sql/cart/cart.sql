@@ -235,12 +235,15 @@ ORDER BY
 ------------------------------
 熱門活動 （ order - detail熱門活動 ）
 SELECT
-    top5act.*,
+    top4act.rel_sid,
+    top4act.total_qty,
     ai.name,
     ai.content,
     ai.city,
     ai.area,
-    ai.activity_pic
+    ai.activity_pic,
+    MAX(ag.date) as eventEnd,
+    MIN(ag.date) as eventStart
 FROM
     (
         SELECT
@@ -255,11 +258,61 @@ FROM
         ORDER BY
             total_qty DESC
         LIMIT
-            5
-    ) top5act
-    JOIN activity_info ai ON top5act.rel_sid = ai.activity_sid
-    JOIN activity_group ag ON ai.activity_sid = ag.activity_sid -------------------
-    --取得各看板最熱門文章
+            4
+    ) top4act
+    JOIN activity_info ai ON top4act.rel_sid = ai.activity_sid
+    JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+GROUP BY
+    top4act.rel_sid,
+    top4act.total_qty,
+    ai.name,
+    ai.content,
+    ai.city,
+    ai.area,
+    ai.activity_pic;
+
+SELECT
+    top4act.rel_sid AS activity_sid,
+    top4act.total_qty AS total_quantity,
+    ai.name,
+    ai.content,
+    ai.city,
+    ai.area,
+    ai.activity_pic,
+    MAX(ag.date) AS eventEnd,
+    MIN(ag.date) AS eventStart,
+    GROUP_CONCAT(DISTINCT af.name) AS rules
+FROM
+    (
+        SELECT
+            rel_sid,
+            SUM(adult_qty) + SUM(child_qty) AS total_qty
+        FROM
+            order_details
+        WHERE
+            rel_type = 'activity'
+        GROUP BY
+            rel_sid
+        ORDER BY
+            total_qty DESC
+        LIMIT
+            4
+    ) top4act
+    JOIN activity_info ai ON top4act.rel_sid = ai.activity_sid
+    JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+    JOIN activity_feature_with_info afw ON ai.activity_sid = afw.activity_sid
+    JOIN activity_feature af ON afw.activity_feature_sid = af.activity_feature_sid
+GROUP BY
+    top4act.rel_sid,
+    top4act.total_qty,
+    ai.name,
+    ai.content,
+    ai.city,
+    ai.area,
+    ai.activity_pic;
+
+-------------------
+--取得各看板最熱門文章
 SELECT
     ac.*,
     pm.post_title,
