@@ -81,6 +81,7 @@ router.get("/edit", async (req, res) => {
   mo.gender as gender, 
   mo.birthday as birthday, 
   mo.pet as pet, 
+  mo.level as level,
   mo.profile as profile 
 
   FROM member_info mo 
