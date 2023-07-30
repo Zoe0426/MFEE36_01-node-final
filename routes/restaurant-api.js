@@ -526,8 +526,18 @@ router.post("/booking_modal", async (req, res) => {
   } = req.body;
 
   const book_action =
-    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
-
+    "INSERT INTO `restaurant_booking`(`rest_sid`,`section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+  console.log(
+    db.format(book_action, [
+      rest_sid,
+      section_code,
+      date,
+      member_sid,
+      people_num,
+      pet_num,
+      note,
+    ])
+  );
   try {
     await db.query(book_action, {
       rest_sid,
