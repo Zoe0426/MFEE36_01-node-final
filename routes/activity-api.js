@@ -568,7 +568,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
       GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult
     ) AS subquery
     ORDER BY subquery.post_date DESC
-    LIMIT 24`;
+    LIMIT 2`;
 
   let [actRecommend] = await db.query(sql_actRecommend);
 
