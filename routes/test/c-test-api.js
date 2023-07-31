@@ -29,6 +29,18 @@ router.post('/img-uploads', upload.array('photos', 10),(req,res)=>{
     res.json(req.files);
 })
 
+
+router.get ('/test', async(req,res)=>{
+    const sql = ''
+    const [data] = await db.query(sql);
+    
+    console.log(data);
+    res.json(data)
+})
+
+
+
+
 module.exports = router;
 
 //--常用code--

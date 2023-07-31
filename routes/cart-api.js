@@ -35,7 +35,6 @@ const getNewOrderSid = async () => {
     try {
         const sqlHead = "SELECT MAX(order_sid) as maxSid FROM `order_main`";
         const [maxSid] = await db.query(sqlHead);
-        console.log('maxSid:',maxSid);
         if (maxSid[0].maxSid === null) { 
         return 'ORD00001';
         } else { 
@@ -360,6 +359,140 @@ router.post ('/get-cart-items', async(req,res)=>{
 
     res.json(output);
 })
+router.get('/get-home-data', async(req,res)=>{
+        let output ={
+        shop : [],
+        activity : [],
+        activityImgs:[],
+        restaurant:[],
+        forum:[],
+    }
+
+    try{
+        const getShopDataSql = `SELECT p.product_sid, p.name, p.img, p.sales_qty, p.avg_rating,
+            (SELECT MIN(price) FROM shop_product_detail WHERE product_sid = p.product_sid) AS min_price,
+            (SELECT MAX(price) FROM shop_product_detail WHERE product_sid = p.product_sid ) AS max_price, c.detail_name
+        FROM shop_category AS c
+        JOIN (SELECT * FROM shop_product
+        WHERE (category_detail_sid, sales_qty) IN (
+                SELECT category_detail_sid, MAX(sales_qty)
+                FROM shop_product
+                GROUP BY category_detail_sid
+                )
+            ) AS p ON c.category_detail_sid = p.category_detail_sid
+        ORDER BY p.sales_qty DESC;`;
+        const [shopRows] = await db.query(getShopDataSql);
+        const uniqueData = shopRows.reduce((acc, curr) => {
+        const existingDetailName = acc.find(item => item.detail_name === curr.detail_name);
+        if (!existingDetailName) {
+             acc.push(curr);
+        }
+        return acc;
+        }, []);
+        const useRows = uniqueData.slice(0,6);
+        const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty) }))
+        output.shop = sortedUseRows;
+    }catch(error){
+        console.error(error);
+        throw new Error('取商品資料時出錯');
+    }
+    try{
+        const getActivityDataSql = `SELECT
+            top4act.rel_sid AS activity_sid,
+            top4act.total_qty AS total_quantity,
+            ai.name,
+            ai.content,
+            ai.city,
+            ai.area,
+            ai.activity_pic,
+            MAX(ag.date) AS eventEnd,
+            MIN(ag.date) AS eventStart,
+            GROUP_CONCAT(DISTINCT af.name) AS rules
+        FROM
+            (
+                SELECT rel_sid, SUM(adult_qty) + SUM(child_qty) AS total_qty
+                FROM order_details
+                WHERE rel_type = 'activity'
+                GROUP BY rel_sid
+                ORDER BY total_qty DESC
+                LIMIT 4
+            ) top4act
+        JOIN activity_info ai ON top4act.rel_sid = ai.activity_sid
+        JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+        JOIN activity_feature_with_info afw ON ai.activity_sid = afw.activity_sid
+        JOIN activity_feature af ON afw.activity_feature_sid = af.activity_feature_sid
+        GROUP BY
+            top4act.rel_sid,
+            top4act.total_qty,
+            ai.name,
+            ai.content,
+            ai.city,
+            ai.area,
+            ai.activity_pic;
+`;
+        const [activityRows] = await db.query(getActivityDataSql);
+        let activityImgs = ['31.jpg'];
+        const sendRows = activityRows.map(v=>{
+            const dayInfo = `${res.toDateDayString(v.eventStart)}~${res.toDateDayString(v.eventEnd)}`
+            activityImgs.push(v.activity_pic.split(',')[1])
+            return {...v, dayInfo: dayInfo,rules: (v.rules).split(',')}
+        })
+        output.activity = sendRows;
+        output.activityImgs = activityImgs;
+    }catch(error){
+        console.error(error);
+        throw new Error('取活動資料時出錯');
+    }
+    try{
+        const getrestaurantDataSql =  `SELECT
+            r.rest_sid,
+            r.name,
+            r.city,
+            r.area,
+            r.info,
+            GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
+            GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+            GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
+            ROUND(AVG(rr.friendly), 1) AS average_friendly,
+            COUNT(b.booking_sid) AS booking_count
+            FROM
+            restaurant_information AS r
+            JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+            JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+            JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+            JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+            JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+            LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+            LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
+            WHERE 1
+            GROUP BY
+            r.rest_sid,
+            r.name,
+            r.city,
+            r.area
+            ORDER BY
+                booking_count DESC
+                LIMIT 2;`;
+        const [restaurantRows] = await db.query(getrestaurantDataSql);
+        const useRows = restaurantRows.map(v=>{
+            const hts = (v.service_names.split(',')).concat((v.rule_names.split(',')))
+        return{...v,img_names: (v.img_names).split(',')[0], hashTags: hts }})
+        output.restaurant = useRows;
+    }catch(error){
+        console.error(error);
+        throw new Error('取餐廳資料時出錯');
+    }
+    try{
+        const getPostDataSql = "SELECT ac.*, pm.post_title, post_content,pb.board_name FROM (SELECT ab.*, (SELECT `file` FROM post_file pf WHERE pf.post_sid = ab.post_sid Limit 1 ) AS img FROM (SELECT board_sid, SUBSTRING_INDEX( GROUP_CONCAT( post_sid ORDER BY like_count DESC ), ',', 1 ) AS post_sid, MAX(like_count) AS max_like_count FROM (SELECT plm.board_sid, plm.post_sid, (SELECT COUNT(*) FROM post_like pl WHERE pl.post_sid = plm.post_sid ) AS like_count FROM post_list_member plm GROUP BY plm.board_sid, plm.post_sid) aa GROUP BY board_sid ) ab) ac JOIN post_list_member pm ON ac.post_sid = pm.post_sid JOIN post_board pb ON pm.board_sid = pb.board_sid";
+        const [postRows] = await db.query(getPostDataSql);
+        const useRows = postRows.slice(0,11);
+        output.forum = postRows;
+    }catch(error){
+        console.error(error);
+        throw new Error('取貼文資料時出錯');
+    }
+    res.json(output);
+})
 router.post('/remove-cart-item', async (req,res)=>{
     const cartItems = [{cart_sid:req.body.cart_sid, order_status:'003'}]
     const removeResult = await updateCart(cartItems);
@@ -640,6 +773,14 @@ router.get('/linepayResult', async(req,res)=>{
         throw new Error('付款結果出錯');
     }
     res.status(200);
+})
+router.get ('/test1', async(req,res)=>{
+
+    const sql = "SELECT ac.*, pm.post_title, post_content,pb.board_name FROM (SELECT ab.*, (SELECT `file` FROM post_file pf WHERE pf.post_sid = ab.post_sid Limit 1 ) AS img FROM (SELECT board_sid, SUBSTRING_INDEX( GROUP_CONCAT( post_sid ORDER BY like_count DESC ), ',', 1 ) AS post_sid, MAX(like_count) AS max_like_count FROM (SELECT plm.board_sid, plm.post_sid, (SELECT COUNT(*) FROM post_like pl WHERE pl.post_sid = plm.post_sid ) AS like_count FROM post_list_member plm GROUP BY plm.board_sid, plm.post_sid) aa GROUP BY board_sid ) ab) ac JOIN post_list_member pm ON ac.post_sid = pm.post_sid JOIN post_board pb ON pm.board_sid = pb.board_sid"; 
+
+    const [data] = await db.query(sql);
+    console.log(data);
+    res.json(data)
 })
 
 module.exports = router;
