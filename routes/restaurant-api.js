@@ -75,21 +75,25 @@ router.get("/", async (req, res) => {
   ORDER BY
     average_friendly DESC
     LIMIT 9;`;
+  // ORDER BY hot_DESC
+  [rows2] = await db.query(sql2);
 
   //判斷用戶有沒有登入，token驗證，並拉回該會員的收藏
   if (res.locals.jwtData) {
     const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" `;
     const [like_rows] = await db.query(sql_like);
     if (like_rows.length > 0) {
-      rows = rows.map((v1) => {
+      rows1 = rows1.map((v1) => {
+        const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
+        return foundLike ? { ...v1, like: true } : { ...v1 };
+      });
+      rows2 = rows2.map((v1) => {
         const foundLike = like_rows.find((v2) => v1.rest_sid === v2.rest_sid);
         return foundLike ? { ...v1, like: true } : { ...v1 };
       });
     }
   }
-  // ORDER BY hot_DESC
-  [rows2] = await db.query(sql2);
-
+  console.log(rows1);
   output = { ...output, rows1, rows2 };
   return res.json(output);
 });
@@ -325,7 +329,6 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     commentRows: [],
     commentAvgRows: [],
     activityRows: [],
-    likeDatas: [],
     menuRows: [],
   };
   const { rest_sid } = req.params;
@@ -410,40 +413,55 @@ WHERE rest_sid="${rest_sid}";`;
 
   let [menuRows] = await db.query(sql_menu);
 
-  //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  const sql_likeList = `SELECT
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area,
-  (SELECT ru.rule_name FROM restaurant_associated_rule AS ar_sub
-   JOIN restaurant_rule AS ru ON ar_sub.rule_sid = ru.rule_sid
-   WHERE ar_sub.rest_sid = r.rest_sid
-   LIMIT 1) AS rule_name,
-  GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-  (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
-  MAX(rl.date) AS latest_like_date
-FROM
-  restaurant_information AS r
-  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-  JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
-WHERE rl.member_sid = 'mem00001'
-GROUP BY
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area
-ORDER BY
-  latest_like_date DESC;
-`;
-  const [likeDatas] = await db.query(sql_likeList);
+  //   //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
+  //   const sql_likeList = `SELECT
+  //   r.rest_sid,
+  //   r.name,
+  //   r.city,
+  //   r.area,
+  //   (SELECT ru.rule_name FROM restaurant_associated_rule AS ar_sub
+  //    JOIN restaurant_rule AS ru ON ar_sub.rule_sid = ru.rule_sid
+  //    WHERE ar_sub.rest_sid = r.rest_sid
+  //    LIMIT 1) AS rule_name,
+  //   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+  //   (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
+  //   MAX(rl.date) AS latest_like_date
+  // FROM
+  //   restaurant_information AS r
+  //   JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+  //   JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+  //   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+  //   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+  //   JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
+  // WHERE rl.member_sid = 'mem00001'
+  // GROUP BY
+  //   r.rest_sid,
+  //   r.name,
+  //   r.city,
+  //   r.area
+  // ORDER BY
+  //   latest_like_date DESC;
+  // `;
+  //   const [likeDatas] = await db.query(sql_likeList);
 
-  likeDatas.forEach((v) => {
-    v.date = res.toDateString(v.date);
-  });
+  //   likeDatas.forEach((v) => {
+  //     v.date = res.toDateString(v.date);
+  //   });
+
+  //判斷用戶有沒有登入，用token驗證，並確認該產品有沒有收藏
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  if (member) {
+    const sql_like = `SELECT * FROM restaurant_like where member_sid="${res.locals.jwtData.id}" AND rest_sid="${rest_sid}" `;
+    const [like_rows] = await db.query(sql_like);
+    restDetailRows =
+      like_rows.length > 0
+        ? [{ ...restDetailRows[0], like: true }]
+        : [{ ...restDetailRows[0], like: false }];
+  }
 
   output = {
     ...output,
@@ -454,7 +472,6 @@ ORDER BY
     commentRows,
     commentAvgRows,
     activityRows,
-    likeDatas,
     menuRows,
   };
   return res.json(output);
@@ -480,6 +497,26 @@ router.get("/booking", async (req, res) => {
     })`;
   });
 
+  // bookingRows.forEach((v) => {
+  //   const dateStr = v.date;
+
+  //   // 分割日期字串
+  //   const [monthDay, weekday] = dateStr.split(" (");
+
+  //   // 獲取月份、日期和星期幾
+  //   const [month, day] = monthDay.split("/");
+  //   const [, weekdayStr] = weekday.split(")");
+
+  //   // 獲取星期幾對應的數字
+  //   const weekdayNum = ["日", "一", "二", "三", "四", "五", "六"].indexOf(weekdayStr);
+
+  //   // 構建新的日期字串，格式為 "yyyy-MM-dd"
+  //   const year = 2023; // 這裡可以根據需要指定年份
+  //   const formattedDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+  //   v.date = formattedDate;
+  // });
+
   const member_aql =
     "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
   [memberRows] = await db.query(member_aql);
@@ -493,19 +530,25 @@ router.get("/booking", async (req, res) => {
 });
 
 //booking insert
-router.post("/booking_modal", async (req, res) => {
+router.post("/booking_modal", multipartParser, async (req, res) => {
   let output = {
     success: true,
   };
 
-  const { rest_sid, section_code, date, member_sid, people_num, pet_num, note } =
-    req.body;
+  const {
+    rest_sid,
+    section_code,
+    date,
+    member_sid,
+    people_num,
+    pet_num,
+    note,
+  } = req.body;
 
-  const book_action =
-    "INSERT INTO `restaurant_booking`(`rest_sid`, `section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+  const book_action = `INSERT INTO restaurant_booking(rest_sid,section_code, date, member_sid, people_num, pet_num, note, created_at) VALUES (?,?,?,?,?,?,?,NOW())`;
 
-  try {
-    await db.query(book_action, {
+  console.log(
+    db.format(book_action, [
       rest_sid,
       section_code,
       date,
@@ -513,7 +556,19 @@ router.post("/booking_modal", async (req, res) => {
       people_num,
       pet_num,
       note,
-    });
+    ])
+  );
+
+  try {
+    await db.query(book_action, [
+      rest_sid,
+      section_code,
+      date,
+      member_sid,
+      people_num,
+      pet_num,
+      note,
+    ]);
 
     return res.json(output);
   } catch (error) {
