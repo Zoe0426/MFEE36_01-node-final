@@ -55,8 +55,23 @@ router.post("/login", async (req, res) => {
 });
 
 // 讀取單筆會員資料
-router.get("/edit/:sid", async (req, res) => {
-  let { sid } = req.params;
+router.get("/edit", async (req, res) => {
+  //let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
+
   const [rows] = await db.query(`
   SELECT 
   mo.member_sid as memberSid,
@@ -66,6 +81,7 @@ router.get("/edit/:sid", async (req, res) => {
   mo.gender as gender, 
   mo.birthday as birthday, 
   mo.pet as pet, 
+  mo.level as level,
   mo.profile as profile 
 
   FROM member_info mo 
@@ -225,22 +241,24 @@ module.exports = router;
 
 // -----------------------------------
 // 修改會員資料
-router.put("/updateInfo/:sid", upload.single("avatar"), async (req, res) => {
-  let { sid } = req.params;
+router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
+  //let { sid } = req.params;
 
-  // const output = {
-  //   success: false,
-  //   error: "",
-  //   data: null,
-  // };
+  console.log(req.body);
+  console.log(req.file);
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
 
-  // if (!res.locals.jwtData) {
-  //   output.error = "沒有驗證";
-  //   return res.json(output);
-  // }
-  // // console.log(jwtData);
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
 
-  // const sid = res.locals.jwtData.id;
+  const sid = res.locals.jwtData.id;
 
   const sql = `UPDATE member_info SET
   name=?,
