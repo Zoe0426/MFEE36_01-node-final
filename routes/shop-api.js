@@ -120,8 +120,6 @@ router.get("/hompage-cards", async (req, res) => {
   });
 
   keywords = [...productsName, ...tags, ...brandsName];
-  // console.log("-----------------------");
-  // console.log(dogDatas);
   res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
@@ -245,8 +243,7 @@ router.get("/products", async (req, res) => {
   let typeForAge = req.query.typeForAge ? req.query.typeForAge.split(",") : [];
   let filterbrand = req.query.brand ? req.query.brand.split(",") : [];
 
-console.log(filterbrand)
-
+  console.log(filterbrand);
 
   let page = req.query.page ? parseInt(req.query.page) : 1;
 
@@ -258,6 +255,7 @@ console.log(filterbrand)
   let where = ` WHERE 1`;
 
   let where_price = "";
+  let where_supplier = "";
 
   if (maxPrice && minPrice) {
     if (minPrice > maxPrice) {
@@ -301,7 +299,7 @@ console.log(filterbrand)
 
   if (filterbrand.length > 0) {
     let newFilterbrand = filterbrand.map((v) => db.escape(v)).join(", ");
-    where += ` AND s.name IN (${newFilterbrand}) `;
+    where_supplier = ` WHERE name IN (${newFilterbrand}) `;
   }
 
   //排序
@@ -316,6 +314,7 @@ console.log(filterbrand)
   SELECT p.product_sid
   FROM shop_product p
   INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
+  INNER JOIN (SELECT * FROM shop_supplier ${where_supplier}) s ON s.supplier_sid=p.supplier_sid
   ${where}
   GROUP BY p.product_sid) AS subquery`;
 
@@ -336,6 +335,7 @@ console.log(filterbrand)
     const sql = `SELECT p.*, MAX(ps.price) max_price, MIN(ps.price) min_price  
         FROM shop_product p
         INNER JOIN (SELECT * FROM shop_product_detail ${where_price}) ps ON p.product_sid = ps.product_sid
+        INNER JOIN (SELECT * FROM shop_supplier ${where_supplier}) s ON s.supplier_sid=p.supplier_sid
         ${where}
         GROUP BY p.product_sid
         ${order}
@@ -476,10 +476,12 @@ router.get("/product/:product_sid", async (req, res) => {
 
   [commentDatas] = await db.query(sql_commentDatas);
 
+  // return res.json({ commentDatas });
+
   //將卡片內的日期轉換為當地格式
   if (commentDatas.length > 0) {
     commentDatas.forEach((v) => {
-      v.date = res.toDateString(v.shelf_date);
+      v.date = res.toDateString(v.date);
     });
   }
 
@@ -494,6 +496,7 @@ router.get("/product/:product_sid", async (req, res) => {
     ORDER BY RAND()
     LIMIT 24`;
   [reccomandData] = await db.query(sql_reccomandData);
+  console.log(reccomandData.length);
 
   //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過收藏
   if (member) {
