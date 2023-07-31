@@ -497,26 +497,6 @@ router.get("/booking", async (req, res) => {
     })`;
   });
 
-  // bookingRows.forEach((v) => {
-  //   const dateStr = v.date;
-
-  //   // 分割日期字串
-  //   const [monthDay, weekday] = dateStr.split(" (");
-
-  //   // 獲取月份、日期和星期幾
-  //   const [month, day] = monthDay.split("/");
-  //   const [, weekdayStr] = weekday.split(")");
-
-  //   // 獲取星期幾對應的數字
-  //   const weekdayNum = ["日", "一", "二", "三", "四", "五", "六"].indexOf(weekdayStr);
-
-  //   // 構建新的日期字串，格式為 "yyyy-MM-dd"
-  //   const year = 2023; // 這裡可以根據需要指定年份
-  //   const formattedDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-
-  //   v.date = formattedDate;
-  // });
-
   const member_aql =
     "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
   [memberRows] = await db.query(member_aql);
