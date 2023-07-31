@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
   r.area
   ORDER BY
     booking_count DESC
-    LIMIT 9;`;
+    LIMIT 12;`;
 
   // ORDER BY hot_DESC
   [rows1] = await db.query(sql1);
@@ -74,7 +74,7 @@ router.get("/", async (req, res) => {
   r.area
   ORDER BY
     average_friendly DESC
-    LIMIT 9;`;
+    LIMIT 12;`;
   // ORDER BY hot_DESC
   [rows2] = await db.query(sql2);
 
