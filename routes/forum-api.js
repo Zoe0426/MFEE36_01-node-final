@@ -357,6 +357,7 @@ router.get('/forum/blog/favlist', async (req, res) => {
     totalPages: 0,
     page: 1,
     rows: [],
+    items:[],
   };
   if (!res.locals.jwtData) {
     output.error = "沒有驗證";
@@ -382,7 +383,7 @@ router.get('/forum/blog/favlist', async (req, res) => {
   //關鍵字
   if (keyword) {
     let keyword_escaped = db.escape("%" + keyword + "%");
-    where += ` AND (plm.post_content LIKE ${keyword_escaped}) OR (plm.post_title LIKE ${keyword_escaped})`;
+    where += ` AND (plm.post_content LIKE ${keyword_escaped} OR plm.post_title LIKE ${keyword_escaped})`;
   }
 
   //收藏列表名稱
@@ -390,50 +391,84 @@ router.get('/forum/blog/favlist', async (req, res) => {
     where += ` AND pf.list_name='${listName}'`
   }
 
+  // 拿listName資料 (把抓到的listName資料塞到下拉選單的items裡面，再去前端setItems塞items狀態)
+  const [listItems] = await db.query(
+    `SELECT list_name as label, list_name as 'key' 
+    FROM post_favlist 
+    WHERE member_sid = '${sid}' 
+    GROUP BY list_name;`
+  );
+  console.log(listItems);
+  output.items = listItems;
+
 
 
   // 使用子查詢來獲取 totalRows 和 favData
   const [result] = await db.query(
+
+
     `
     SELECT 
-      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = '${sid}') AS totalRows,
-      plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
-      CASE 
-        WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
-        ELSE plm.post_content 
-      END AS post_content, pb.board_name, 
-      (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
-      (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
-      (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
-      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
-    FROM post_favlist pf
-    JOIN post_list_member plm ON plm.post_sid = pf.post_sid
-    JOIN post_board pb ON pb.board_sid = plm.board_sid
-    JOIN member_info mi ON mi.member_sid = plm.member_sid
-    JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
+  (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
+  plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+  CASE 
+    WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+    ELSE plm.post_content 
+  END AS post_content, pb.board_name, 
+  (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
+  (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+  (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+  (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
+FROM post_favlist pf
+JOIN post_list_member plm ON plm.post_sid = pf.post_sid
+JOIN post_board pb ON pb.board_sid = plm.board_sid
+JOIN member_info mi ON mi.member_sid = plm.member_sid
+JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
     ${where}
     ORDER BY post_date DESC
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `
   );
+  console.log(    `
+  SELECT 
+(SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
+plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+CASE 
+  WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+  ELSE plm.post_content 
+END AS post_content, pb.board_name, 
+(SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
+(SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+(SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+(SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
+FROM post_favlist pf
+JOIN post_list_member plm ON plm.post_sid = pf.post_sid
+JOIN post_board pb ON pb.board_sid = plm.board_sid
+JOIN member_info mi ON mi.member_sid = plm.member_sid
+JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
+  ${where}
+  ORDER BY post_date DESC
+  LIMIT ${perPage * (page - 1)}, ${perPage}
+`);
+
   const [totalRowsData] = await db.query(
     `
     SELECT 
-      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = '${sid}') AS totalRows,
-      plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
-      CASE 
-        WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
-        ELSE plm.post_content 
-      END AS post_content, pb.board_name, 
-      (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
-      (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
-      (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
-      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
-    FROM post_favlist pf
-    JOIN post_list_member plm ON plm.post_sid = pf.post_sid
-    JOIN post_board pb ON pb.board_sid = plm.board_sid
-    JOIN member_info mi ON mi.member_sid = plm.member_sid
-    JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
+  (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
+  plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+  CASE 
+    WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+    ELSE plm.post_content 
+  END AS post_content, pb.board_name, 
+  (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
+  (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+  (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+  (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
+FROM post_favlist pf
+JOIN post_list_member plm ON plm.post_sid = pf.post_sid
+JOIN post_board pb ON pb.board_sid = plm.board_sid
+JOIN member_info mi ON mi.member_sid = plm.member_sid
+JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
     ${where}
     ORDER BY post_date DESC`
   );
