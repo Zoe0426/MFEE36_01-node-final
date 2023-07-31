@@ -391,7 +391,7 @@ WHERE rest_sid="${rest_sid}";`;
   let [commentRows] = await db.query(sql_comment);
 
   commentRows.forEach((v) => {
-    v.created_at = res.toDateString(v.date);
+    v.created_at = res.toDateString(v.created_at);
   });
 
   //取得餐廳評分各項平均
