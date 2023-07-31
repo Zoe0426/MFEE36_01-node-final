@@ -6,20 +6,19 @@ const multipartParser = upload.none();
 
 // 首頁
 router.get("/", async (req, res) => {
-  // 熱門活動-> 依訂單數排序
+  // 熱門活動-> 依 order_details排序 排名前4
+  const [popularCount] = await db.query(
+    "SELECT subquery.activity_sid, subquery.name, subquery.content, subquery.city, subquery.area, subquery.address, subquery.activity_pic, subquery.recent_date, subquery.farthest_date, subquery.feature_names, subquery.type_name, subquery.time, subquery.price_adult, subquery.avg_star, subquery.post_date, popular_counts.popular_count FROM (SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, CAST(AVG(ar.star) AS UNSIGNED) AS avg_star, MAX(ag.post_date) AS post_date FROM activity_info ai INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid LEFT JOIN (SELECT activity_sid, AVG(star) AS star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult) AS subquery LEFT JOIN (SELECT rel_sid AS activity_sid, COUNT(*) AS popular_count FROM order_details WHERE rel_type = 'activity' GROUP BY rel_sid) AS popular_counts ON subquery.activity_sid = popular_counts.activity_sid ORDER BY popular_counts.popular_count DESC LIMIT 4"
+  );
 
   // 最新上架-> 依 post_date 排序
   const [data] = await db.query(
     "SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, ag.post_date, CAST(ar.avg_star AS UNSIGNED) AS avg_star FROM activity_info ai JOIN activity_group ag ON ai.activity_sid = ag.activity_sid JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid JOIN ( SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid ) ag_temp ON ai.activity_sid = ag_temp.activity_sid JOIN ( SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid ) ar ON ai.activity_sid = ar.activity_sid WHERE ag.time IS NOT NULL AND ag.price_adult IS NOT NULL GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ag.post_date ORDER BY ag.post_date DESC LIMIT 4"
   );
 
-  // const [data] = await db.query(
-  //   "SELECT ai.`activity_sid`, ai.`name`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.`name`) AS feature_names, aty.`name` AS type_name, ag.`time`, ag.`price_adult`, CAST(ar.`avg_star` AS UNSIGNED) AS avg_star, ag.`post_date`FROM `activity_info` ai JOIN `activity_group` ag ON ai.`activity_sid` = ag.`activity_sid` JOIN`activity_feature_with_info` afwi ON ai.`activity_sid` = afwi.`activity_sid`JOIN`activity_feature` af ON afwi.`activity_feature_sid` = af.`activity_feature_sid`JOIN`activity_type` aty ON ai.`activity_type_sid` = aty.`activity_type_sid`JOIN( SELECT `activity_sid`, MIN(`date`) AS recent_date, MAX(`date`) AS farthest_date FROM `activity_group` GROUP BY `activity_sid` ) ag_temp ON ai.`activity_sid` = ag_temp.`activity_sid`JOIN ( SELECT `activity_sid`, AVG(`star`) AS avg_star FROM `activity_rating` GROUP BY `activity_sid` ) ar ON ai.`activity_sid` = ar.`activity_sid` WHERE ag.`time` IS NOT NULL AND ag.`price_adult` IS NOT NULL GROUP BY ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, aty.`name`, ag.`time`, ag.`price_adult`, ar.`avg_star`, ag.`post_date` ORDER BY ag.`post_date` DESC LIMIT 4"
-  // );
-
-  // 熱門縣市-> 依訂單排序 排名前6
+  // 熱門縣市-> 依order_details排序 排名前6
   const [topCityData] = await db.query(
-    "SELECT DISTINCT ai.`city`, COUNT(*) AS `city_count` FROM `order_cart` oc JOIN `activity_info` ai ON oc.`rel_sid` = ai.`activity_sid` WHERE oc.`rel_type` = 'activity' GROUP BY ai.`city` ORDER BY `city_count` DESC LIMIT 6"
+    "SELECT DISTINCT ai.`city`, COUNT(*) AS `city_count` FROM `order_details` oc JOIN `activity_info` ai ON oc.`rel_sid` = ai.`activity_sid` WHERE oc.`rel_type` = 'activity' GROUP BY ai.`city` ORDER BY `city_count` DESC LIMIT 6"
   );
 
   // 會員願望投票區
@@ -33,6 +32,11 @@ router.get("/", async (req, res) => {
     i.farthest_date = res.toDateString(i.farthest_date);
   });
 
+  popularCount.forEach((v) => {
+    v.recent_date = res.toDateString(v.recent_date);
+    v.farthest_date = res.toDateString(v.farthest_date);
+  });
+
   // 全部欄位都取得的 終極sql
   // SELECT ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date,
   // GROUP_CONCAT(DISTINCT af.`name`) AS feature_names, aty.`name` AS type_name, ag.`time`, ag.`price_adult`, CAST(ar.`avg_star` AS UNSIGNED) AS avg_star FROM `activity_info` ai LEFT JOIN `activity_group` ag ON ai.`activity_sid` = ag.`activity_sid` LEFT JOIN  `activity_feature_with_info` afwi ON ai.`activity_sid` = afwi.`activity_sid` LEFT JOIN `activity_feature` af ON afwi.`activity_feature_sid` = af.`activity_feature_sid` LEFT JOIN `activity_type` aty ON ai.`activity_type_sid` = aty.`activity_type_sid`
@@ -40,9 +44,8 @@ router.get("/", async (req, res) => {
   // LEFT JOIN ( SELECT `activity_sid`,  AVG(`star`) AS avg_star FROM `activity_rating` GROUP BY `activity_sid`) ar ON ai.`activity_sid` = ar.`activity_sid` WHERE ag.`time` IS NOT NULL AND ag.`price_adult` IS NOT NULL GROUP BY ai.`activity_sid`, ai.`name`, ai.`content`, ai.`city`, ai.`area`, ai.`address`, ai.`activity_pic`, recent_date, farthest_date, aty.`name`, ag.`time`, ag.`price_adult`, ar.`avg_star`
 
   // 取上面全部資料
-  res.json({ data, topCityData, wish });
+  res.json({ data, topCityData, wish, popularCount });
 });
-
 
 router.get("/activity", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity?activity_type_sid=分類值
@@ -70,7 +73,6 @@ router.get("/activity", async (req, res) => {
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
 
-   
     date_DESC: "recent_date DESC",
     date_ASC: "recent_date ASC",
     hot_DESC: "sales_qty DESC", // TODO: 需再確認cart那邊怎麼抓熱門活動
@@ -88,13 +90,11 @@ router.get("/activity", async (req, res) => {
   let area = req.query.area || "";
   let orderBy = req.query.orderBy || "date_ASC";
 
-
   let page = req.query.page ? parseInt(req.query.page) : 1;
 
   if (!page || page < 1) {
     page = 1;
   }
-
 
   //queryString條件判斷
   let where = " WHERE 1";
@@ -103,10 +103,9 @@ router.get("/activity", async (req, res) => {
   let where_price = "";
 
   if (minPrice && maxPrice) {
-      where_price += ` AND price_adult BETWEEN ${minPrice} AND ${maxPrice}`;
+    where_price += ` AND price_adult BETWEEN ${minPrice} AND ${maxPrice}`;
   }
 
-  
   // 類別
   if (activity_type_sid) {
     where += ` AND ai.activity_type_sid = ${activity_type_sid}`;
@@ -118,7 +117,7 @@ router.get("/activity", async (req, res) => {
     where += ` AND ai.name LIKE ${kw_escaped}`;
   }
 
-  // 日期區間 
+  // 日期區間
   if (startDate && endDate) {
     where += ` AND ag.date BETWEEN ${db.escape(startDate)} AND ${db.escape(
       endDate
@@ -164,18 +163,16 @@ router.get("/activity", async (req, res) => {
   let totalPages = 0;
   let rows = [];
 
+  //有資料時
+  if (totalRows) {
+    //取得總頁數
+    totalPages = Math.ceil(totalRows / perPage);
 
-//有資料時
-if (totalRows) {
-  //取得總頁數
-  totalPages = Math.ceil(totalRows / perPage);
+    if (page > totalPages) {
+      page = totalPages;
+    }
 
-  if (page > totalPages) {
-    page = totalPages;
-  }
-
-
-  const sqlQuery = `
+    const sqlQuery = `
     SELECT activity_sid, name, content, city, area, address, activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
       GROUP_CONCAT(DISTINCT feature_name) AS feature_names,
@@ -204,10 +201,8 @@ if (totalRows) {
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
 
-  
-   [rows] = await db.query(sqlQuery);
-}
-
+    [rows] = await db.query(sqlQuery);
+  }
 
   // 日期處理
   rows.forEach((i) => {
@@ -215,8 +210,6 @@ if (totalRows) {
     i.farthest_date = res.toDateString(i.farthest_date);
     i.post_date = res.toDateString(i.post_date);
   });
-
-
 
   output = {
     ...output,
@@ -229,11 +222,7 @@ if (totalRows) {
   };
 
   return res.json(output);
-
-  
 });
-
-
 
 // 讀取收藏清單
 router.get("/show-like-list", async (req, res) => {
@@ -242,7 +231,6 @@ router.get("/show-like-list", async (req, res) => {
     likeDatas: [],
   };
 
-  
   let member = "";
   if (res.locals.jwtData) {
     member = res.locals.jwtData.id;
@@ -282,32 +270,28 @@ router.get("/show-like-list", async (req, res) => {
     [likeDatas] = await db.query(sql_likeList);
 
     // 日期處理
-  likeDatas.forEach((v) => {
-    v.recent_date = res.toDateString(v.recent_date);
-    v.farthest_date = res.toDateString(v.farthest_date);
-    v.date = res.toDateString(v.date);
-  });
+    likeDatas.forEach((v) => {
+      v.recent_date = res.toDateString(v.recent_date);
+      v.farthest_date = res.toDateString(v.farthest_date);
+      v.date = res.toDateString(v.date);
+    });
 
-  // 圖片處理 (字串->陣列)
+    // 圖片處理 (字串->陣列)
 
-  likeDatas.map((pic) => {
+    likeDatas.map((pic) => {
       const imgNames = pic.activity_pic;
-      const imgs = imgNames.split(',');
-      const trimmedImgs = imgs.map(img => img.trim());
+      const imgs = imgNames.split(",");
+      const trimmedImgs = imgs.map((img) => img.trim());
       pic.activity_pic = trimmedImgs;
-
     });
   }
-
 
   output = {
     ...output,
     likeDatas,
   };
   return res.json(output);
-
 });
-
 
 // 刪除收藏清單
 router.delete("/likelist/:aid", async (req, res) => {
@@ -325,7 +309,10 @@ router.delete("/likelist/:aid", async (req, res) => {
   }
 
   try {
-    const [result] = await db.query(sql_deleteLikeList, aid === "all" ? [member] : [member, aid]);
+    const [result] = await db.query(
+      sql_deleteLikeList,
+      aid === "all" ? [member] : [member, aid]
+    );
     res.json({ ...result });
   } catch (error) {
     console.log(error);
@@ -333,11 +320,8 @@ router.delete("/likelist/:aid", async (req, res) => {
   }
 });
 
-
 // faheart新增收藏清單
 router.post("/addlikelist/:aid", async (req, res) => {
-
-
   let member = "";
   if (res.locals.jwtData) {
     member = res.locals.jwtData.id;
@@ -346,23 +330,19 @@ router.post("/addlikelist/:aid", async (req, res) => {
   const { aid } = req.params;
 
   // Use MySQL DATE_FORMAT function to format the date directly in the SQL query
-  let sql_insertLikeList = "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'))";
+  let sql_insertLikeList =
+    "INSERT INTO `activity_like` (`activity_sid`, `member_sid`, `date`) VALUES (?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'))";
 
   try {
     // Execute INSERT INTO query
     const [result] = await db.query(sql_insertLikeList, [aid, member]);
     res.json({ ...result });
-    console.log('會員ID:', member);
-
+    console.log("會員ID:", member);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
-
-
-
-
 
 //  (old) list 拿取各分類資料
 // router.get("/activity", async (req, res) => {
@@ -515,9 +495,6 @@ router.post("/addlikelist/:aid", async (req, res) => {
 //   res.json({cid_data, sqlQueryKeyword});
 // });
 
-
-
-
 // [aid] 動態路由
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
@@ -528,6 +505,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actDateRows: [],
     actFeatureRows: [],
     actRatingRows: [],
+    actRecommend: [],
   };
 
   const { activity_sid } = req.params;
@@ -569,6 +547,31 @@ router.get("/activity/:activity_sid", async (req, res) => {
 
   let [actRatingRows] = await db.query(sql_rating);
 
+  // 取得 推薦活動
+  const customerLookforPet = actDetailRows[0].type_name;
+  const sql_actRecommend = `
+  SELECT subquery.*
+    FROM (
+      SELECT ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.activity_pic,
+        MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names,
+        aty.name AS type_name, ag.time, ag.price_adult, MAX(ag.post_date) AS post_date,
+        CAST(AVG(ar.star) AS UNSIGNED) AS avg_star
+      FROM activity_info ai
+      JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+      JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+      JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+      JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+      LEFT JOIN activity_rating ar ON ai.activity_sid = ar.activity_sid
+     
+      AND aty.name = '${customerLookforPet}' 
+      AND ag.time IS NOT NULL AND ag.price_adult IS NOT NULL
+      GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult
+    ) AS subquery
+    ORDER BY subquery.post_date DESC
+    LIMIT 2`;
+
+  let [actRecommend] = await db.query(sql_actRecommend);
+
   // feature處理 (字串->陣列)
   // actDetailRows.map((activity) => {
   //   const featureNames = activity.feature_names;
@@ -600,8 +603,9 @@ router.get("/activity/:activity_sid", async (req, res) => {
     i.date = res.toDateString(i.date);
   });
 
-  actRatingRows.map((i) => {
-    i.date = res.toDateString(i.date);
+  actRecommend.map((i) => {
+    i.recent_date = res.toDateString(i.recent_date);
+    i.farthest_date = res.toDateString(i.farthest_date);
   });
 
   output = {
@@ -611,19 +615,17 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actDateRows,
     actFeatureRows,
     actRatingRows,
+    actRecommend,
   };
 
   return res.json(output);
 });
 
-
-
-
 // [aid] 新增活動訂單 + 判斷是否已存在相同activity_group_sid
 router.post("/order-activity/:activity_sid", async (req, res) => {
-  console.log('Reached the order-activity route handler');
-  console.log('Request Params:', req.params);
-  console.log('Request Body:', req.body);
+  console.log("Reached the order-activity route handler");
+  console.log("Request Params:", req.params);
+  console.log("Request Body:", req.body);
 
   let member = "";
   if (res.locals.jwtData) {
@@ -646,10 +648,9 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
     // 去資料庫查詢 是否已存在相同activity_group_sid
     const [existingCartItem] = await db.query(sql_checkExistingCartItem);
     if (existingCartItem.length > 0) {
-      throw new Error('該項目已經在購物車中');
+      throw new Error("該項目已經在購物車中");
     }
 
-    
     const [result] = await db.query(sql_orderActivity, [
       member,
       activity_sid,
@@ -659,14 +660,12 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
     ]);
 
     res.json({ ...result });
-    console.log('會員ID:', member);
+    console.log("會員ID:", member);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
 });
-
-
 
 // [aid] 新增活動訂單
 // router.post("/order-activity/:activity_sid", async (req, res) => {
@@ -683,14 +682,11 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
 //   console.log(req.params);
 //   const { rel_seq_sid, adult_qty, child_qty } = req.body;
 
-  
-
 //   const sql_orderActivity = `
 //   INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
 
-
 //   try {
-    
+
 //     const [result] = await db.query(sql_orderActivity, [
 //       member,
 //       activity_sid,
@@ -707,10 +703,9 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
 //   }
 // });
 
-
 //[aid] 取得活動訂單資料
 // router.get("check-order-activity/:activity_sid", async (req, res) => {
-  
+
 //   let member = "";
 //   if (res.locals.jwtData) {
 //     member = res.locals.jwtData.id;
@@ -719,8 +714,6 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
 //   const { activity_sid } = req.params;
 //   console.log(req.params);
 
-  
-
 //   try {
 //     let sql_checkOrderActivity;
 //     if (member && activity_sid) {
@@ -728,19 +721,14 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
 //       SELECT cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_sid='${activity_sid}'`;
 //     }
 //     const [result] = await db.query(sql_checkOrderActivity);
-  
+
 //     res.json({ ...result });
 //     console.log('會員ID:', member);
 //   } catch (error) {
 //     console.log(error);
 //     res.status(500).json({ error: "An error occurred" });
 //   }
-  
+
 // });
 
-
 module.exports = router;
-
-
-
-
