@@ -497,6 +497,26 @@ router.get("/booking", async (req, res) => {
     })`;
   });
 
+  // bookingRows.forEach((v) => {
+  //   const dateStr = v.date;
+
+  //   // 分割日期字串
+  //   const [monthDay, weekday] = dateStr.split(" (");
+
+  //   // 獲取月份、日期和星期幾
+  //   const [month, day] = monthDay.split("/");
+  //   const [, weekdayStr] = weekday.split(")");
+
+  //   // 獲取星期幾對應的數字
+  //   const weekdayNum = ["日", "一", "二", "三", "四", "五", "六"].indexOf(weekdayStr);
+
+  //   // 構建新的日期字串，格式為 "yyyy-MM-dd"
+  //   const year = 2023; // 這裡可以根據需要指定年份
+  //   const formattedDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+  //   v.date = formattedDate;
+  // });
+
   const member_aql =
     "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
   [memberRows] = await db.query(member_aql);
@@ -510,7 +530,7 @@ router.get("/booking", async (req, res) => {
 });
 
 //booking insert
-router.post("/booking_modal", async (req, res) => {
+router.post("/booking_modal", multipartParser, async (req, res) => {
   let output = {
     success: true,
   };
@@ -525,8 +545,8 @@ router.post("/booking_modal", async (req, res) => {
     note,
   } = req.body;
 
-  const book_action =
-    "INSERT INTO `restaurant_booking`(`rest_sid`,`section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at`) VALUES (?,?,?,?,?,?,?,NOW())";
+  const book_action = `INSERT INTO restaurant_booking(rest_sid,section_code, date, member_sid, people_num, pet_num, note, created_at) VALUES (?,?,?,?,?,?,?,NOW())`;
+
   console.log(
     db.format(book_action, [
       rest_sid,
@@ -538,8 +558,9 @@ router.post("/booking_modal", async (req, res) => {
       note,
     ])
   );
+
   try {
-    await db.query(book_action, {
+    await db.query(book_action, [
       rest_sid,
       section_code,
       date,
@@ -547,7 +568,7 @@ router.post("/booking_modal", async (req, res) => {
       people_num,
       pet_num,
       note,
-    });
+    ]);
 
     return res.json(output);
   } catch (error) {
