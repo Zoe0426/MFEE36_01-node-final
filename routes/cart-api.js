@@ -369,7 +369,7 @@ router.get('/get-home-data', async(req,res)=>{
     }
 
     try{
-        const getShopDataSql = `SELECT p.product_sid, p.name, p.img, p.sales_qty, 
+        const getShopDataSql = `SELECT p.product_sid, p.name, p.img, p.sales_qty, p.avg_rating,
             (SELECT MIN(price) FROM shop_product_detail WHERE product_sid = p.product_sid) AS min_price,
             (SELECT MAX(price) FROM shop_product_detail WHERE product_sid = p.product_sid ) AS max_price, c.detail_name
         FROM shop_category AS c
@@ -382,7 +382,14 @@ router.get('/get-home-data', async(req,res)=>{
             ) AS p ON c.category_detail_sid = p.category_detail_sid
         ORDER BY p.sales_qty DESC;`;
         const [shopRows] = await db.query(getShopDataSql);
-        const useRows = shopRows.slice(0,6);
+        const uniqueData = shopRows.reduce((acc, curr) => {
+        const existingDetailName = acc.find(item => item.detail_name === curr.detail_name);
+        if (!existingDetailName) {
+             acc.push(curr);
+        }
+        return acc;
+        }, []);
+        const useRows = uniqueData.slice(0,6);
         const sortedUseRows = useRows.map(v=>({...v,sales_qty:parseInt(v.sales_qty) }))
         output.shop = sortedUseRows;
     }catch(error){
