@@ -4,11 +4,62 @@ const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
 
+// // 論壇首頁
+// router.get("/", async (req, res) => {
+//   // 論壇文章列表
+//   // 熱門文章(按讚數)
+//   const output = {
+//     success:false,
+//     error:"",
+//     data:null,
+//     totalRows: 0,
+//     perPage: 15,
+//     totalPages: 0,
+//     page: 1,
+//     rows: [],
+//   };
+
+//   const page = parseInt(req.query.page) || 1;
+//   const perPage = output.perPage;
+//   const offset = (page - 1) * perPage;
+
+//   const [totalRowsData] = await db.query(
+//     `SELECT COUNT(1) AS totalRows FROM post_list_member WHERE 1;`
+//     );
+//     const totalRows = totalRowsData[0].totalRows;
+//     const totalPages = Math.ceil(totalRows / perPage);
+
+//   const [data] = await db.query(
+//     `
+//         SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, 
+//         CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+//         ELSE plm.post_content END AS post_content, pb.board_name, 
+//         (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
+//         (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+//         (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+//         (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
+//         JOIN member_info mi ON mi.member_sid = plm.member_sid 
+//         JOIN post_board pb ON plm.board_sid = pb.board_sid 
+//         ORDER BY postLike DESC
+//         LIMIT ${offset}, ${perPage};
+//       `
+//   );
+//   output.success = true;
+//   output.totalRows = totalRows;
+//   output.totalPages = totalPages;
+//   output.page = page;
+//   output.rows = data;
+//   console.log("data",data);
+//   res.json(output);
+
+//   // res.json(data);
+// });
+
 // 論壇首頁
 router.get("/", async (req, res) => {
   // 論壇文章列表
   // 熱門文章(按讚數)
-  const output = {
+  let output = {
     success:false,
     error:"",
     data:null,
@@ -18,20 +69,44 @@ router.get("/", async (req, res) => {
     page: 1,
     rows: [],
   };
+  console.log(req.query);
+  let perPage = req.query.perPage || 15;
+  let keyword = req.query.keyword || "";
+  let orderBy = req.query.orderBy || "postLike";
+  let board_sid = req.query.board_sid || 0;
+  console.log('orderBy',orderBy);
 
-  const page = parseInt(req.query.page) || 1;
-  const perPage = output.perPage;
-  const offset = (page - 1) * perPage;
+  // const offset = (page - 1) * perPage;
+  let page = req.query.page ? parseInt(req.query.page) : 1;
 
-  const [totalRowsData] = await db.query(
-    `SELECT COUNT(1) AS totalRows FROM post_list_member WHERE 1;`
-    );
-    const totalRows = totalRowsData[0].totalRows;
-    const totalPages = Math.ceil(totalRows / perPage);
+  if (!page || page < 1) {
+    page = 1;
+  }
+
+  //queryString條件判斷
+  let where = ` WHERE 1`;
+
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    where += ` AND (plm.post_content LIKE ${keyword_escaped}) OR (plm.post_title LIKE ${keyword_escaped})`;
+  }
+  //看板篩選
+  if(board_sid != 0){
+    where += ` AND plm.board_sid=${board_sid} `
+  }
+
+  //排序
+  let order = " ";
+  if(orderBy==="postLike"){
+    order=" ORDER BY postLike DESC "
+  }else{
+    order=" ORDER BY plm.post_date DESC "
+  }
 
   const [data] = await db.query(
     `
-        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, 
+        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
         CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
         ELSE plm.post_content END AS post_content, pb.board_name, 
         (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -39,17 +114,36 @@ router.get("/", async (req, res) => {
         (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
         (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
         JOIN member_info mi ON mi.member_sid = plm.member_sid 
-        JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        ORDER BY postLike DESC
-        LIMIT ${offset}, ${perPage};
+        JOIN post_board pb ON plm.board_sid = pb.board_sid
+        ${where}
+        ${order}
+        LIMIT ${perPage * (page - 1)}, ${perPage}
       `
   );
+
+  const [totalRowsData] = await db.query(
+    `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
+    CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+    ELSE plm.post_content END AS post_content, pb.board_name, 
+    (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
+    (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+    (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+    (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
+    JOIN member_info mi ON mi.member_sid = plm.member_sid 
+    JOIN post_board pb ON plm.board_sid = pb.board_sid
+    ${where}
+    ${order}`
+    );
+    const totalRows = totalRowsData.length;
+    console.log('totalRows',totalRows);
+    const totalPages = Math.ceil(totalRows / perPage);
   output.success = true;
   output.totalRows = totalRows;
   output.totalPages = totalPages;
+  output.perPage = perPage;
   output.page = page;
   output.rows = data;
-  console.log("data",data);
+  //console.log("data",data);
   res.json(output);
 
   // res.json(data);
@@ -91,51 +185,6 @@ router.get("/board/:boardid", async (req, res) => {
   });
 });
 
-
-
-
-
-
-
-
-
-
-// 論壇首頁try try 看
-router.get("/index_try", async (req, res) => {
-  // 論壇文章列表
-  // 熱門文章(按讚數)
-  const [data] = await db.query(
-    `
-        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, 
-        CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
-        ELSE plm.post_content END AS post_content, pb.board_name, 
-        (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
-        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
-        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
-        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
-        JOIN member_info mi ON mi.member_sid = plm.member_sid 
-        JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        ORDER BY postLike DESC;
-      `
-  );
-  // 最新文章（按日期）
-  const [lateD] = await db.query(
-    `
-        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date, 
-        CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
-        ELSE plm.post_content END AS post_content, pb.board_name, 
-        (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
-        (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
-        (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
-        (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist FROM post_list_member plm 
-        JOIN member_info mi ON mi.member_sid = plm.member_sid 
-        JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        ORDER BY post_date DESC;
-        `
-  );
-
-  res.json({ data, lateD });
-});
 // 首頁下面：你可能會喜歡
 router.get("/recommend", async (req, res) => {
   const [data] = await db.query(
@@ -309,25 +358,46 @@ router.get('/forum/blog/favlist', async (req, res) => {
     page: 1,
     rows: [],
   };
-
   if (!res.locals.jwtData) {
     output.error = "沒有驗證";
     return res.json(output);
   }
-
-  console.log(res.locals.jwtData.id);
-
+  // console.log(res.locals.jwtData.id);
   const sid = res.locals.jwtData.id;
-  const page = parseInt(req.query.page) || 1;
-  const perPage = output.perPage;
-  const offset = (page - 1) * perPage;
+
+  let page = req.query.page ? parseInt(req.query.page) : 1;
+  let perPage = req.query.perPage || 15;
+  let keyword = req.query.keyword || "";
+  let listName = req.query.listName || "";
+
+
+  //queryString條件判斷
+  let where = ` WHERE 1`;
+
+  //會員編號
+  if(sid){
+    where += ` AND pf.member_sid = '${sid}'`
+  }
+
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    where += ` AND (plm.post_content LIKE ${keyword_escaped}) OR (plm.post_title LIKE ${keyword_escaped})`;
+  }
+
+  //收藏列表名稱
+  if(listName!=""){
+    where += ` AND pf.list_name='${listName}'`
+  }
+
+
 
   // 使用子查詢來獲取 totalRows 和 favData
   const [result] = await db.query(
     `
     SELECT 
       (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = '${sid}') AS totalRows,
-      plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf_member.nickname AS favorite_nickname,
+      plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
       CASE 
         WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
         ELSE plm.post_content 
@@ -341,19 +411,50 @@ router.get('/forum/blog/favlist', async (req, res) => {
     JOIN post_board pb ON pb.board_sid = plm.board_sid
     JOIN member_info mi ON mi.member_sid = plm.member_sid
     JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
-    WHERE pf.member_sid = '${sid}'
+    ${where}
     ORDER BY post_date DESC
-    LIMIT ${offset}, ${perPage};;
+    LIMIT ${perPage * (page - 1)}, ${perPage}
   `
   );
+  const [totalRowsData] = await db.query(
+    `
+    SELECT 
+      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = '${sid}') AS totalRows,
+      plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+      CASE 
+        WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+        ELSE plm.post_content 
+      END AS post_content, pb.board_name, 
+      (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file,
+      (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+      (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+      (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
+    FROM post_favlist pf
+    JOIN post_list_member plm ON plm.post_sid = pf.post_sid
+    JOIN post_board pb ON pb.board_sid = plm.board_sid
+    JOIN member_info mi ON mi.member_sid = plm.member_sid
+    JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
+    ${where}
+    ORDER BY post_date DESC`
+  );
+  const totalRows = totalRowsData.length;
+  console.log('totalRows',totalRows);
+  const totalPages = Math.ceil(totalRows / perPage);
+  output.success = true;
+  output.totalRows = totalRows;
+  output.totalPages = totalPages;
+  output.perPage = perPage;
+  output.page = page;
+  // output.rows = data;
+  output.rows = result;
 
-  if (result.length > 0) {
-    output.success = true;
-    output.totalRows = result[0].totalRows;
-    output.totalPages = Math.ceil(result[0].totalRows / perPage);
-    output.page = page;
-    output.rows = result;
-  }
+  // if (result.length > 0) {
+  //   output.success = true;
+  //   output.totalRows = result[0].totalRows;
+  //   output.totalPages = Math.ceil(result[0].totalRows / perPage);
+  //   output.page = page;
+  //   output.rows = result;
+  // }
 
   res.json(output);
 });
