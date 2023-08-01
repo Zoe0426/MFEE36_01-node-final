@@ -536,7 +536,7 @@ router.post("/sent-to-cart", async (req, res) => {
 
   //先確認該會員先前是否該商品有加入購物車了
   if (member) {
-    const sql_checkCart = `SELECT * FROM order_cart WHERE member_sid="${member}" AND rel_sid="${receiveData.pid}" AND rel_seq_sid="${receiveData.spec}"`;
+    const sql_checkCart = `SELECT * FROM order_cart WHERE member_sid="${member}" AND rel_sid="${receiveData.pid}" AND rel_seq_sid="${receiveData.spec}" AND order_status="001"`;
     [alreadyInCart] = await db.query(sql_checkCart);
 
     if (alreadyInCart.length > 0) {
