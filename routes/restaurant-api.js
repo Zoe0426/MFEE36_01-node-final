@@ -384,16 +384,27 @@ WHERE rest_sid="${rest_sid}";`;
   let [serviceRows] = await db.query(sql_restService);
 
   //取得餐廳評分
+  // const sql_comment = `SELECT
+  // m.name,
+  // m.profile,
+  // rr.content,
+  // rr.created_at,
+  // rr.rest_commtent_id,
+  // ROUND((rr.environment + rr.food + rr.friendly) / 3) AS avg_rating
+  // FROM member_info AS m
+  // JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
+  // WHERE rr.rest_sid = ${rest_sid};`;
   const sql_comment = `SELECT 
   m.name,
   m.profile,
   rr.content,
   rr.created_at,
   rr.rest_commtent_id,
-  ROUND((rr.environment + rr.food + rr.friendly) / 3) AS avg_rating
-  FROM member_info AS m
-  JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
-  WHERE rr.rest_sid = ${rest_sid};`;
+  rr.friendly AS avg_rating
+FROM member_info AS m
+JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
+WHERE rr.rest_sid = ${rest_sid};`;
+
   let [commentRows] = await db.query(sql_comment);
 
   commentRows.forEach((v) => {
@@ -760,10 +771,10 @@ router.get("/create-comment", async (req, res) => {
     const create_member = `mem00${Math.ceil(Math.random() * 500)
       .toString()
       .padStart(3, "0")}`;
-    
-    const environment = Math.floor(Math.random() * 4) + 4;
-    const food = Math.floor(Math.random() * 4) + 4;
-    const friendly = Math.floor(Math.random() * 4) + 4;
+
+    const environment = Math.floor(Math.random() * 3) + 3;
+    const food = Math.floor(Math.random() * 3) + 3;
+    const friendly = Math.floor(Math.random() * 3) + 3;
 
     const startDate = new Date("2023-01-01").getTime();
     const endDate = new Date("2023-07-25").getTime();
@@ -771,18 +782,19 @@ router.get("/create-comment", async (req, res) => {
       Math.random() * (endDate - startDate) + startDate
     );
 
-    const sql = "INSERT INTO `restaurant_rating`( `rest_sid`, `member_sid`, `environment`, `food`, `friendly`, `content`, `booking_sid`, `created_at`) VALUES (?,?,?,?,?,?,?,?)";
+    const sql =
+      "INSERT INTO `restaurant_rating`( `rest_sid`, `member_sid`, `environment`, `food`, `friendly`, `content`, `booking_sid`, `created_at`) VALUES (?,?,?,?,?,?,?,?)";
 
-    const [result] = await db.query(sql,[
+    const [result] = await db.query(sql, [
       v.rest_sid,
-      create_member,  
+      create_member,
       environment,
       food,
       friendly,
-      comment[selectIndex], 
+      comment[selectIndex],
       v.booking_sid,
-      randomDate,  
-    ])
+      randomDate,
+    ]);
   }
   res.json(selectIndex);
 });
