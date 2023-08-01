@@ -48,6 +48,7 @@ router.post("/login", async (req, res) => {
     id: rows[0].member_sid,
     email: rows[0].email,
     nickname: rows[0].nickname,
+    profile: rows[0].profile,
     token,
   };
 
@@ -290,11 +291,23 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
     req.body.pet,
   ]);
 
-  res.json({
-    // success: !!result.changedRows,
-    // result,
-    result,
-  });
+  const [rows] = await db.query(`
+  SELECT 
+  mo.member_sid as memberSid,
+  mo.name as name, 
+  mo.email as email, 
+  mo.mobile as mobile, 
+  mo.gender as gender, 
+  mo.birthday as birthday, 
+  mo.pet as pet, 
+  mo.level as level,
+  mo.profile as profile 
+
+  FROM member_info mo 
+  WHERE mo.member_sid='${sid}'
+  `);
+
+  res.json(rows);
 });
 
 // 抓取會員優惠券
@@ -657,7 +670,28 @@ router.post("/restReviews", async (req, res) => {
     req.body.restContent,
   ]);
 
-  res.json(rowsRest);
+  const [sqlProdComment] = await db.query(
+    `
+    SELECT product_sid,
+    ROUND(AVG(rating), 1) avg_rating
+    FROM restaurant_rating 
+    WHERE product_sid = "${prodSid}"
+    GROUP BY product_sid
+    `
+  );
+
+  const avgRating = sqlProdComment[0].avg_rating;
+
+  const [affectedRows] = await db.query(
+    `
+    UPDATE shop_product sp
+    JOIN shop_comment sc ON sc.product_sid = sp.product_sid
+    SET avg_rating = ${avgRating}
+    WHERE sp.product_sid = "${prodSid}"
+    `
+  );
+
+  res.json({ rowsRest, affectedRows });
 });
 // 讀取評價
 // router.get("/getReviews/:sid", async (req, res) => {
