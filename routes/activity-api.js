@@ -638,7 +638,7 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
 
   // 抓資料 (判斷用)
   const sql_checkExistingCartItem = `
-    SELECT cart_sid FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_seq_sid='${rel_seq_sid}'`;
+    SELECT cart_sid FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_seq_sid='${rel_seq_sid}' AND order_status='001'`;
 
   // 新增
   const sql_orderActivity = `
