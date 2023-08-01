@@ -20,26 +20,28 @@ router.get("/", async (req, res) => {
   r.name,
   r.city,
   r.area,
+  r.average_friendly,
+  r.booking_count,
   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-  ROUND(AVG(rr.friendly), 1) AS average_friendly,
-  COUNT(b.booking_sid) AS booking_count
-  FROM
-  restaurant_information AS r
-  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-  JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-  LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-  LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
+  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
+    FROM
+        restaurant_information AS r
+    JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+    JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+    JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+    JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+    JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+    LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+    JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
   WHERE 1
   GROUP BY
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area
+    r.rest_sid,
+    r.name,
+    r.city,
+    r.area,
+    r.average_friendly,
+    r.booking_count
   ORDER BY
     booking_count DESC
     LIMIT 12;`;
@@ -52,26 +54,28 @@ router.get("/", async (req, res) => {
   r.name,
   r.city,
   r.area,
+  r.average_friendly,
+  r.booking_count,
   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-  ROUND(AVG(rr.friendly), 1) AS average_friendly,
-  COUNT(b.booking_sid) AS booking_count
-  FROM
-  restaurant_information AS r
-  JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-  JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-  JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-  JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-  JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-  LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-  LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
+  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
+    FROM
+        restaurant_information AS r
+    JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+    JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+    JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+    JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+    JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+    LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+    JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
   WHERE 1
   GROUP BY
-  r.rest_sid,
-  r.name,
-  r.city,
-  r.area
+    r.rest_sid,
+    r.name,
+    r.city,
+    r.area,
+    r.average_friendly,
+    r.booking_count
   ORDER BY
     average_friendly DESC
     LIMIT 12;`;
@@ -254,11 +258,11 @@ router.get("/list", async (req, res) => {
     r.name,
     r.city,
     r.area,
+    r.average_friendly,
+    r.booking_count,
     GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
     GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-    GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-    ROUND(AVG(rr.friendly), 1) AS average_friendly,
-    COUNT(b.booking_sid) AS booking_count
+    GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
       FROM
           restaurant_information AS r
       JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
@@ -267,14 +271,15 @@ router.get("/list", async (req, res) => {
       JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
       JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
       LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-      LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
       JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
       ${where}
       GROUP BY
           r.rest_sid,
           r.name,
           r.city,
-          r.area
+          r.area,
+          r.average_friendly,
+          r.booking_count
       ${order}
       LIMIT ${perPage * (page - 1)}, ${perPage};`;
     //要插入${order}在group by下面
@@ -722,5 +727,63 @@ router.delete("/likelist/:rid", async (req, res) => {
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
+//製作評價假資料...
+// router.get("/create-comment", async (req, res) => {
+//   const booking_data =
+//     "SELECT `rest_sid`, `booking_sid`, `section_code`, `date`, `member_sid`, `people_num`, `pet_num`, `note`, `created_at` FROM `restaurant_booking` WHERE 1";
+
+//   const [booking] = await db.query(booking_data);
+//   const selectIndex = Math.floor(Math.random() * 15);
+
+//   for (const v of booking) {
+//     const selectIndex = Math.floor(Math.random() * 15);
+//     const comment = [
+//       "這間餐廳真的超級適合帶寵物，環境寬敞舒適，讓毛小孩也能享受美味的用餐體驗！工作人員對寵物超友善，下次還會再來",
+//       "餐廳的寵物政策很人性化，可以陪伴毛寶貝一起用餐，真的是個很溫暖的地方。食物味道也相當好，很推薦給有寵物的家庭",
+//       "我們帶著愛犬來到這家餐廳，感受到了真摯的寵物友善，餐廳提供了寵物用具與水源，讓我們的小狗也能玩得很開心！",
+//       "太愛這家餐廳了！不僅食物美味，環境舒適，還可以和愛狗一起來用餐。這裡真的是寵物友善的天堂，我們家狗狗很喜歡",
+//       "這裡不僅有美食，還有可愛的寵物陪伴。餐廳的寵物區很乾淨整潔，工作人員也非常細心照顧我們的寵物，讓我們感到很放心",
+//       "第一次帶我家貓咪出門用餐，這家餐廳的寵物友善政策真的讓我們感到很驚喜。貓咪非常享受這個新經驗，我們也玩得很開心",
+//       "寵物友善的餐廳真的是太難得了！這裡的服務讓人感到賓至如歸，我們的愛狗也很快樂。下次再來，還要帶更多寵物朋友",
+//       "終於找到一家可以和愛狗一起用餐的餐廳！這裡的食物超級好吃，環境也很舒適，最棒的是可以與愛狗一同分享美好時光",
+//       "我們一家人加上愛狗一起來用餐，這裡的寵物區非常貼心，提供了舒適的環境與玩具，讓愛狗也能玩得很開心。真的是很棒的體驗",
+//       "來到這家寵物友善餐廳，讓我們的貓咪第一次感受到了用餐的樂趣。這裡真的是貓咪的天堂，吃飯的同時也能一起和貓咪互動，太幸福了",
+//       "這裡是寵物的天堂，我們帶著愛貓來用餐，餐廳提供了專屬的貓咪用具，讓我們的貓咪也能融入用餐的氛圍，是個非常愉快的用餐體驗",
+//       "寵物友善餐廳真的讓我們的用餐時光更加幸福。環境很寬敞舒適，有專屬的寵物區域，愛狗也能和我們一起用餐，是個難得的用餐選擇",
+//       "我們家的狗狗非常喜歡這家餐廳，他在這裡有專屬的區域可以玩耍，工作人員也很貼心，讓我們的用餐體驗更加愉快。這裡真的是寵物友善的好地方",
+//       "有寵物的家庭一定不能錯過這家餐廳！我們帶著愛犬來用餐，餐廳提供了寵物用具，服務人員也很照顧我們的愛狗，讓我們的用餐時光更加溫馨愉快",
+//       "這家餐廳真的是寵物友善的天堂！我帶著愛犬來用餐，餐廳提供了專屬的寵物區域，有寵物用具和玩具，讓我的愛犬也能玩得很開心",
+//     ];
+
+//     const create_member = `mem00${Math.ceil(Math.random() * 500)
+//       .toString()
+//       .padStart(3, "0")}`;
+    
+//     const environment = Math.floor(Math.random() * 3) + 3;
+//     const food = Math.floor(Math.random() * 3) + 3;
+//     const friendly = Math.floor(Math.random() * 3) + 3;
+
+//     const startDate = new Date("2023-01-01").getTime();
+//     const endDate = new Date("2023-07-25").getTime();
+//     const randomDate = res.toDatetimeString(
+//       Math.random() * (endDate - startDate) + startDate
+//     );
+
+//     const sql = "INSERT INTO `restaurant_rating`( `rest_sid`, `member_sid`, `environment`, `food`, `friendly`, `content`, `booking_sid`, `created_at`) VALUES (?,?,?,?,?,?,?,?)";
+
+//     const [result] = await db.query(sql,[
+//       v.rest_sid,
+//       create_member,  
+//       environment,
+//       food,
+//       friendly,
+//       comment[selectIndex], 
+//       v.booking_sid,
+//       randomDate,  
+//     ])
+//   }
+//   res.json(selectIndex);
+// });
 module.exports = router;
 // console.log(JSON.stringify(router, null, 4));
