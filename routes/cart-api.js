@@ -628,7 +628,13 @@ router.post('/get-orderDetail', async(req,res)=>{
 router.post('/count-item', async(req,res)=>{
     try { 
         const member_sid = req.body.member_sid;
-        const getCartItemNumSql = `SELECT count(1) as itemInCart FROM order_cart WHERE member_sid = ? AND order_status = '001'` 
+        const getCartItemNumSql = `SELECT 
+            COUNT(oc.rel_sid) AS totalItem,
+            GROUP_CONCAT(CONCAT(oc.rel_sid, '_', oc.rel_seq_sid)) AS rel_sids
+        FROM 
+            order_cart oc
+        WHERE 
+            oc.member_sid = ? AND oc.order_status = '001';` 
         const [itemAmount]= await db.query(getCartItemNumSql,member_sid);
         res.json(itemAmount[0]);
     } catch(error) { 

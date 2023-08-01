@@ -370,4 +370,14 @@ FROM
             ) ab
     ) ac
     JOIN post_list_member pm ON ac.post_sid = pm.post_sid
-    JOIN post_board pb ON pm.board_sid = pb.board_sid
+    JOIN post_board pb ON pm.board_sid = pb.board_sid;
+
+--購物車
+SELECT
+    COUNT(DISTINCT oc.rel_sid) AS totalItem,
+    GROUP_CONCAT(DISTINCT oc.rel_sid) AS rel_sids
+FROM
+    order_cart oc
+WHERE
+    member_sid = 'mem00300'
+    AND order_status = '001';
