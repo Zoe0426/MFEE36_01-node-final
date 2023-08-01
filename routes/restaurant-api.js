@@ -279,7 +279,8 @@ router.get("/list", async (req, res) => {
           r.city,
           r.area,
           r.average_friendly,
-          r.booking_count
+          r.booking_count,
+          r.created_at 
       ${order}
       LIMIT ${perPage * (page - 1)}, ${perPage};`;
     //要插入${order}在group by下面
