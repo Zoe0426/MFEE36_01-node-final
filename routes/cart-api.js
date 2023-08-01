@@ -269,7 +269,7 @@ router.post ('/get-cart-items', async(req,res)=>{
     const memberSid = req.body.member_sid;
     const today = res.toDateString(new Date())
     //getCartItems
-    const getCartItemSql = `SELECT
+    const getCartItemSql = `SELECT sortedData.* FROM (SELECT
             oc.cart_sid as cart_sid,
             sp.product_sid as rel_sid,
             sp.name as rel_name,
@@ -281,7 +281,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             0 as adult_price, 0 as child_price,
             0 as adult_qty,
             0 as child_qty,
-            sp.img as img
+            sp.img as img,
+            oc.added_time
         FROM
             order_cart oc
             JOIN shop_product sp ON oc.rel_sid = sp.product_sid
@@ -305,7 +306,8 @@ router.post ('/get-cart-items', async(req,res)=>{
             ag.price_kid as child_price,
             oc.adult_qty as adult_qty,
             oc.child_qty as child_qty,
-            ai.activity_pic as img
+            ai.activity_pic as img,
+            oc.added_time 
         FROM
             order_cart oc
             JOIN activity_info ai ON oc.rel_sid = ai.activity_sid
@@ -313,7 +315,9 @@ router.post ('/get-cart-items', async(req,res)=>{
             AND oc.rel_seq_sid = ag.activity_group_sid
         WHERE
             oc.member_sid = ? 
-            AND oc.order_status = '001'`;
+            AND oc.order_status = '001'
+            )sortedData ORDER BY added_time DESC`;
+            console.log(getCartItemSql);
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
     //console.log(cartData);
     output.shop = cartData.filter(p=>p.rel_type === "shop");
