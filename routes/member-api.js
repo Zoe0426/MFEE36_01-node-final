@@ -349,6 +349,29 @@ router.get("/coupon", async (req, res) => {
 // 抓取訂單
 router.get("/order", async (req, res) => {
   //let { sid } = req.params;
+  let keywordS = req.query.keywordS || "";
+  console.log({ keywordS});
+  let keywordA = req.query.keywordA || "";
+  let whereS = "";
+  if (keywordS) {
+    const kw_escaped = db.escape("%" + keywordS + "%");
+    whereS += ` AND ( 
+      od.rel_name LIKE ${kw_escaped} 
+      OR
+      od.order_sid LIKE ${kw_escaped}
+      )
+    `;
+  }
+  let whereA = "";
+  if (keywordA) {
+    const kw_escaped = db.escape("%" + keywordA + "%");
+    whereA += ` AND ( 
+      od.rel_name LIKE ${kw_escaped} 
+      OR
+      od.order_sid LIKE ${kw_escaped}
+      )
+    `;
+  }
 
   const output = {
     success: false,
@@ -376,7 +399,7 @@ JOIN member_coupon_category mc
 ON mc.coupon_sid = ms.coupon_sid
 JOIN shop_product sp
 ON sp.product_sid = od.rel_sid    
-WHERE o.member_sid = '${sid}'
+WHERE o.member_sid = '${sid}' ${whereS}
 ORDER BY o.create_dt DESC
   `);
 
@@ -394,7 +417,7 @@ JOIN activity_info af
 ON af.activity_sid = od.rel_sid  
 JOIN activity_group ag
 ON ag.activity_group_sid = od.rel_seq_sid  
-WHERE o.member_sid = '${sid}'
+WHERE o.member_sid = '${sid}' ${whereA}
 ORDER BY o.create_dt DESC
   `);
 
@@ -660,6 +683,8 @@ router.post("/restReviews", async (req, res) => {
       ?,NOW()
       )`;
 
+  const restSid = req.body.restSid;
+
   const [rowsRest] = await db.query(sqlProd, [
     req.body.restSid,
     req.body.bkSid,
@@ -670,24 +695,24 @@ router.post("/restReviews", async (req, res) => {
     req.body.restContent,
   ]);
 
-  const [sqlProdComment] = await db.query(
+  const [sqlResComment] = await db.query(
     `
-    SELECT product_sid,
-    ROUND(AVG(rating), 1) avg_rating
+    SELECT rest_sid,
+    ROUND(AVG(friendly), 1) average_friendly
     FROM restaurant_rating 
-    WHERE product_sid = "${prodSid}"
-    GROUP BY product_sid
+    WHERE rest_sid = "${restSid}"
+    GROUP BY rest_sid
     `
   );
 
-  const avgRating = sqlProdComment[0].avg_rating;
+  const avgFriendly = sqlResComment[0].average_friendly;
 
   const [affectedRows] = await db.query(
     `
-    UPDATE shop_product sp
-    JOIN shop_comment sc ON sc.product_sid = sp.product_sid
-    SET avg_rating = ${avgRating}
-    WHERE sp.product_sid = "${prodSid}"
+    UPDATE restaurant_information ri
+    JOIN restaurant_rating ra ON ra.rest_sid = ri.rest_sid
+    SET average_friendly = ${avgFriendly}
+    WHERE ri.rest_sid = "${restSid}"
     `
   );
 
