@@ -599,13 +599,17 @@ router.get("/activity/:activity_sid", async (req, res) => {
     i.date = res.toDateString(i.date);
   });
 
-  actDateRows.map((i) => {
-    i.date = res.toDateString(i.date);
+  actDateRows.map((v) => {
+    v.date = res.toDateString(v.date);
   });
 
-  actRecommend.map((i) => {
-    i.recent_date = res.toDateString(i.recent_date);
-    i.farthest_date = res.toDateString(i.farthest_date);
+  actRatingRows.map((j) => {
+    j.date = res.toDateString(j.date);
+  });
+
+  actRecommend.map((k) => {
+    k.recent_date = res.toDateString(k.recent_date);
+    k.farthest_date = res.toDateString(k.farthest_date);
   });
 
   output = {
