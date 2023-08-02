@@ -226,13 +226,13 @@ router.get("/products", async (req, res) => {
 
   let output = {
     totalRows: 0,
-    perPage: 20,
+    perPage: 16,
     totalPages: 0,
     page: 1,
     rows: [],
   };
 
-  let perPage = req.query.perPage || 20;
+  let perPage = req.query.perPage || 16;
   let keyword = req.query.keyword || "";
   let orderBy = req.query.orderBy || "new_DESC";
   let maxPrice = parseInt(req.query.maxPrice || 0);
