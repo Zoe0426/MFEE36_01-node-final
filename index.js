@@ -36,23 +36,11 @@ app.use((req, res, next) => {
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDateDayString = (d)=>{
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      const date = dayjs(d).format("YYYY.MM.DD")
-      const Dday = new Date(date);
-      const dayOfWeek = weekdays[Dday.getDay()];
-      return `${date}(${dayOfWeek})`;
-  }
   res.toDatetimeString = (d) => {
     const fm = "YYYY-MM-DD HH:mm:ss";
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDatetimeString2 = (d)=>{
-        const fm = "YYYY/MM/DD HH:mm:ss";
-        const djs = dayjs(d);
-        return djs.format(fm);
-  }
 
   const auth = req.get("Authorization");
   if (auth && auth.indexOf("Bearer ") === 0) {
@@ -64,9 +52,13 @@ app.use((req, res, next) => {
     if (jwtData) {
       res.locals.jwtData = jwtData; // 標記有沒有使用 token
     }
-    // console.log(jwtData);
+    console.log(jwtData);
   }
-   
+    res.toDatetimeString2 = (d)=>{
+        const fm = "YYYY/MM/DD HH:mm:ss";
+        const djs = dayjs(d);
+        return djs.format(fm);
+    }
   next();
 });
 //=====測試=====
