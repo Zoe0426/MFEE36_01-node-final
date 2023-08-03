@@ -333,7 +333,12 @@ router.post ('/get-cart-items', async(req,res)=>{
             JOIN member_info mi ON ma.member_sid = mi.member_sid
         WHERE
             ma.member_sid = ? 
-        ORDER BY ma.default_status DESC`;
+        ORDER BY 
+            CASE
+                WHEN ma.default_status = 1 THEN default_status
+                ELSE NULL
+            END DESC,
+            ma.create_time DESC`;
     const [postData] = await db.query(getAddressSql,[memberSid]);
     //console.log(postData);
     output.postAddress =  postData;
