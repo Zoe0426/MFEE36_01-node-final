@@ -6,6 +6,7 @@ const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
+const { OAuth2Client } = require("google-auth-library");
 
 // 登入
 router.post("/login", async (req, res) => {
@@ -46,6 +47,119 @@ router.post("/login", async (req, res) => {
   output.token = token;
   output.data = {
     id: rows[0].member_sid,
+    email: rows[0].email,
+    nickname: rows[0].nickname,
+    profile: rows[0].profile,
+    token,
+  };
+
+  res.json(output);
+});
+
+// google登入
+router.post("/googleLogin", async (req, res) => {
+  const output = {
+    success: true,
+    code: 0,
+    error: "",
+  };
+
+  const CLIENT_ID = "157368154764-abg5711auh3c254hcqfqu4sg1iv1gd3n.apps.googleusercontent.com";
+  const client = new OAuth2Client(CLIENT_ID);
+  const googleToken = req.body.id_token;
+
+  //將token和client_Id放入參數一起去做驗證
+  const ticket = await client.verifyIdToken({
+    idToken: googleToken,
+    audience: CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+
+  //拿到的ticket就是換回來的使用者資料
+  console.log(ticket);
+
+  //以下就個人需求看要拿資料做哪些使用
+  //ex 使用者資訊存入資料庫，把資料存到 session內 等等
+  const sql = `INSERT INTO member_info(
+    member_sid, name, email, 
+    password, mobile, gender, 
+    birthday, pet, level, 
+    member_ID, profile, 
+    game_pet, nickname,
+    create_time, update_time) VALUES(
+    ?, ?, ?,
+    ?, ?, ?,
+    ?, ?, ?,
+    ?,?,
+    ?,?,
+    NOW(), NOW()
+  )`;
+
+  let sql_memSid = `SELECT MAX(member_sid) AS maxSid FROM member_info`;
+  let [result_memSid] = await db.query(sql_memSid);
+  // res.json(result_memSid);
+
+  let new_memSid = "";
+  if (!result_memSid[0].maxSid) {
+    new_memSid = "mem00001";
+  } else {
+    let currentCount = parseInt(result_memSid[0].maxSid.substring(3));
+    let newCount = currentCount + 1;
+    new_memSid = `mem${String(newCount).padStart(5, "0")}`;
+  }
+
+  // 自動生成會員ID
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
+  let member_ID = req.body.member_ID || "";
+
+  for (let i = 0; i < 8; i++) {
+    const randomIndex = Math.floor(Math.random() * chars.length);
+    member_ID += chars[randomIndex];
+  }
+
+  const [result] = await db.query(sql, [
+    new_memSid,
+    payload.name,
+    payload.email,
+    null,
+    null,
+    null,
+    null,
+    "狗",
+    "銅牌",
+    member_ID,
+    payload.picture,
+    "狗",
+    payload.name,
+  ]);
+
+  const [rows] = await db.query(`
+  SELECT 
+  mo.member_sid as memberSid,
+  mo.name as name, 
+  mo.email as email, 
+  mo.mobile as mobile, 
+  mo.gender as gender, 
+  mo.birthday as birthday, 
+  mo.pet as pet, 
+  mo.level as level,
+  mo.profile as profile 
+
+  FROM member_info mo 
+  WHERE mo.member_sid='${new_memSid}'
+  `);
+
+  // 包 jwt 傳給前端
+  const token = jwt.sign(
+    {
+      id: rows[0].memberSid,
+      email: rows[0].email,
+    },
+    "GoWithMe"
+  );
+  output.token = token;
+  output.data = {
+    id: rows[0].memberSid,
     email: rows[0].email,
     nickname: rows[0].nickname,
     profile: rows[0].profile,
@@ -350,7 +464,7 @@ router.get("/coupon", async (req, res) => {
 router.get("/order", async (req, res) => {
   //let { sid } = req.params;
   let keywordS = req.query.keywordS || "";
-  console.log({ keywordS});
+  console.log({ keywordS });
   let keywordA = req.query.keywordA || "";
   let whereS = "";
   if (keywordS) {
