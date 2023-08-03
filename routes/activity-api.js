@@ -28,13 +28,13 @@ router.get("/", async (req, res) => {
 
   // 日期處理
   data.forEach((i) => {
-    i.recent_date = res.toDateString(i.recent_date);
-    i.farthest_date = res.toDateString(i.farthest_date);
+    i.recent_date = res.toDateDayString(i.recent_date);
+    i.farthest_date = res.toDateDayString(i.farthest_date);
   });
 
   popularCount.forEach((v) => {
-    v.recent_date = res.toDateString(v.recent_date);
-    v.farthest_date = res.toDateString(v.farthest_date);
+    v.recent_date = res.toDateDayString(v.recent_date);
+    v.farthest_date = res.toDateDayString(v.farthest_date);
   });
 
   // 全部欄位都取得的 終極sql
@@ -206,9 +206,9 @@ router.get("/activity", async (req, res) => {
 
   // 日期處理
   rows.forEach((i) => {
-    i.recent_date = res.toDateString(i.recent_date);
-    i.farthest_date = res.toDateString(i.farthest_date);
-    i.post_date = res.toDateString(i.post_date);
+    i.recent_date = res.toDateDayString(i.recent_date);
+    i.farthest_date = res.toDateDayString(i.farthest_date);
+    i.post_date = res.toDateDayString(i.post_date);
   });
 
   output = {
@@ -594,9 +594,9 @@ router.get("/activity/:activity_sid", async (req, res) => {
 
   // 日期處理 (actDetailRows + actDateRows+actRatingRows)
   actDetailRows.map((i) => {
-    i.recent_date = res.toDateString(i.recent_date);
-    i.farthest_date = res.toDateString(i.farthest_date);
-    i.date = res.toDateString(i.date);
+    i.recent_date = res.toDateDayString(i.recent_date);
+    i.farthest_date = res.toDateDayString(i.farthest_date);
+    i.date = res.toDateDayString(i.date);
   });
 
   actDateRows.map((v) => {
@@ -608,8 +608,8 @@ router.get("/activity/:activity_sid", async (req, res) => {
   });
 
   actRecommend.map((k) => {
-    k.recent_date = res.toDateString(k.recent_date);
-    k.farthest_date = res.toDateString(k.farthest_date);
+    k.recent_date = res.toDateDayString(k.recent_date);
+    k.farthest_date = res.toDateDayString(k.farthest_date);
   });
 
   output = {
