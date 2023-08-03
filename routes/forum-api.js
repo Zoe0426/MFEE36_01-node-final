@@ -312,15 +312,39 @@ router.get("/forum/blog", async (req, res) => {
 
   const sid = res.locals.jwtData.id;
   const page = parseInt(req.query.page) || 1;
-  const perPage = output.perPage;
-  const offset = (page - 1) * perPage;
+  let perPage = req.query.perPage || 15;
+  let keyword = req.query.keyword || "";
+  // const perPage = output.perPage;
+  // const offset = (page - 1) * perPage;
+
+  //queryString條件判斷
+  let where = ` WHERE 1`;
+  //會員編號
+  if(sid){
+    where += ` AND pf.member_sid = '${sid}'`
+  }
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    where += ` AND (plm.post_content LIKE ${keyword_escaped} OR plm.post_title LIKE ${keyword_escaped})`;
+  }
 
   const [totalRowsData] = await db.query(
-    `SELECT COUNT(1) AS totalRows FROM post_list_member plm
-    JOIN member_info mi ON mi.member_sid = plm.member_sid
-    WHERE mi.member_sid = '${sid}';`
+    `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date, 
+    CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
+    ELSE plm.post_content END AS post_content, pb.board_name, 
+    (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
+    (SELECT COUNT(1) FROM post_like pl WHERE pl.post_sid = plm.post_sid) AS postLike, 
+    (SELECT COUNT(1) FROM post_comment pc WHERE pc.post_sid = plm.post_sid) AS postComment, 
+    (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
+    FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
+    JOIN post_board pb ON plm.board_sid = pb.board_sid 
+    ${where}
+    ORDER BY post_date DESC;`
   );
-  const totalRows = totalRowsData[0].totalRows;
+  // const totalRows = totalRowsData[0].totalRows;
+  const totalRows = totalRowsData.length;
+  console.log('totalRows',totalRows);
   const totalPages = Math.ceil(totalRows / perPage);
 
   const [blogPostData] = await db.query(
@@ -333,14 +357,15 @@ router.get("/forum/blog", async (req, res) => {
         (SELECT COUNT(1) FROM post_favlist pf WHERE pf.post_sid = plm.post_sid) AS postFavlist 
         FROM post_list_member plm JOIN member_info mi ON mi.member_sid = plm.member_sid 
         JOIN post_board pb ON plm.board_sid = pb.board_sid 
-        WHERE mi.member_sid = '${sid}' 
+        ${where}
         ORDER BY post_date DESC
-        LIMIT ${offset}, ${perPage};`
+        LIMIT ${perPage * (page - 1)}, ${perPage}`
   );
   output.success = true;
   output.totalRows = totalRows;
   output.totalPages = totalPages;
   output.page = page;
+  output.perPage = perPage;
   output.rows = blogPostData;
   res.json(output);
   //console.log("blogPostData", blogPostData);
@@ -622,11 +647,12 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
   const board_sid = req.body.boardSid;
   const post_title = req.body.title;
   const post_content = req.body.content;
+  const post_status = req.body.postStatus;
 
   // 新增文章標題 // 新增文章內容
   const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
-  VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,0)`;
-  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content]);
+  VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,?)`;
+  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, post_status]);
   console.log(result); 
   // res.json(result)
 
