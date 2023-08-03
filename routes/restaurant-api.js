@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
+const nodemailer = require("nodemailer");
 
 router.get("/", async (req, res) => {
   let output = {
@@ -342,13 +343,13 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
 
   const chinesseChange = (rest_date) => {
     if (!rest_date) {
-      return '';
+      return "";
     }
-  
-    const daysOfWeek = ['一', '二', '三', '四', '五', '六', '日'];
-    const restDays = rest_date.split(',').map((day) => parseInt(day));
 
-    return restDays.map((day) => `${daysOfWeek[day - 1]}`).join('/');
+    const daysOfWeek = ["一", "二", "三", "四", "五", "六", "日"];
+    const restDays = rest_date.split(",").map((day) => parseInt(day));
+
+    return restDays.map((day) => `${daysOfWeek[day - 1]}`).join("/");
   };
 
   const sql_restDetail = `SELECT
@@ -373,13 +374,25 @@ WHERE rest_sid="${rest_sid}";`;
 
   let [restDetailRows] = await db.query(sql_restDetail);
 
+  //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
+  const locationDict = {
+    台北市: "台北市",
+    新北市: "新北市",
+    大安區: "大安區",
+    台中市: "台中市",
+    西區: "西區",
+    大同區: "大同區",
+    中正區: "中正區",
+  };
+  const city_chinese_name = locationDict[restDetailRows[0].city];
+  restDetailRows[0].city_chinese_name = city_chinese_name;
 
-// 處理 rest_date，將其轉換成中文星期
-restDetailRows = restDetailRows.map((row) => {
-  const rest_date = row.rest_date;
-  row.rest_date = chinesseChange(rest_date);
-  return row;
-});
+  // 處理 rest_date，將其轉換成中文星期
+  restDetailRows = restDetailRows.map((row) => {
+    const rest_date = row.rest_date;
+    row.rest_date = chinesseChange(rest_date);
+    return row;
+  });
 
   //取得餐廳照片
   const sql_image = `SELECT rest_sid, img_sid, img_name FROM restaurant_img WHERE rest_sid = ${rest_sid}`;
@@ -449,8 +462,6 @@ WHERE rr.rest_sid = ${rest_sid};`;
 
   let [menuRows] = await db.query(sql_menu);
 
- 
-
   //判斷用戶有沒有登入，用token驗證，並確認該產品有沒有收藏
   let member = "";
   if (res.locals.jwtData) {
@@ -480,7 +491,7 @@ WHERE rr.rest_sid = ${rest_sid};`;
   return res.json(output);
 });
 
-//booking路由
+//booking預約頁面路由
 router.get("/booking", async (req, res) => {
   let output = {
     bookingRows: [],
@@ -512,7 +523,17 @@ router.get("/booking", async (req, res) => {
   return res.json(output);
 });
 
-//booking insert
+// 寄預約通知
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+});
+
+// booking insert
 router.post("/booking_modal", multipartParser, async (req, res) => {
   let output = {
     success: true,
@@ -526,6 +547,10 @@ router.post("/booking_modal", multipartParser, async (req, res) => {
     people_num,
     pet_num,
     note,
+    rest_name,
+    member_name,
+    member_mobile,
+    date_time,
   } = req.body;
 
   const book_action = `INSERT INTO restaurant_booking(rest_sid,section_code, date, member_sid, people_num, pet_num, note, created_at) VALUES (?,?,?,?,?,?,?,NOW())`;
@@ -552,6 +577,37 @@ router.post("/booking_modal", multipartParser, async (req, res) => {
       pet_num,
       note,
     ]);
+
+    const mailOptions = {
+      from: "gowithmeispan@gmail.com",
+      to: "jillwunnie1213@gmail.com", // 接收郵件的地址
+      subject: "狗with咪_餐廳預約通知",
+      html: `<pre>
+<h2>您已成功預約餐廳!🎉</h2>
+<p style="font-size:18px; display:inline; font-weight:bold">預約明細</p>
+----------------------------------
+<div style="color:black; font-size:16px; display:inline;">
+餐廳名稱：${rest_name}</br>
+會員名稱：${member_name}</br>
+會員電話：${member_mobile}</br>
+預約日期：${date}</br>
+預約時間：${date_time}</br>
+預約人數：${people_num}人</br>
+預約寵物：${pet_num}隻</br>
+備註：${note}</br>
+</div>
+----------------------------------
+<p style="color:red; font-size:18px; display:inline;">您的訂位將保留15分鐘~</p>
+</pre>`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error(error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    });
 
     return res.json(output);
   } catch (error) {
@@ -784,5 +840,31 @@ router.get("/create-comment", async (req, res) => {
   }
   res.json(selectIndex);
 });
+
+// router.get("/send-email", async (req, res) => {
+//   try {
+//     const transporter = nodemailer.createTransport({
+//       host: "smtp.gmail.com",
+//       port: 465,
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASSWORD,
+//       },
+//     });
+
+//     const info = await transporter.sendMail({
+//       from: "gowithmeispan@gmail.com",
+//       to: "接收郵件地址",
+//       subject: "狗with咪_餐廳預約通知",
+//       html: body,
+//     });
+
+//     // console.log({ info });
+//     res.status(200).send("郵件發送成功！");
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send("發送郵件時出錯。");
+//   }
+// });
 module.exports = router;
 // console.log(JSON.stringify(router, null, 4));
