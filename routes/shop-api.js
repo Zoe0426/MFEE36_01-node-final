@@ -157,24 +157,44 @@ router.get("/search-brand-list", async (req, res) => {
   });
 
   brand.forEach((v1) => {
-    v1.category_detail_sid = [];
-    v1.for_pet_type = [];
-    v1.for_age = [];
-
+    v1.category = [];
+    v1.typeForPet = [];
+    v1.typeForAge = [];
     brand_has.forEach((v2) => {
       if (v1.id === v2.id) {
-        if (!v1.category_detail_sid.includes(v2.category_detail_sid)) {
-          v1.category_detail_sid.push(v2.category_detail_sid);
+        if (!v1.category.includes(v2.category_detail_sid)) {
+          v1.category.push(v2.category_detail_sid);
         }
-        if (!v1.for_pet_type.includes(v2.for_pet_type)) {
-          v1.for_pet_type.push(v2.for_pet_type);
+        if (!v1.typeForPet.includes(v2.for_pet_type)) {
+          v1.typeForPet.push(v2.for_pet_type);
         }
-        if (!v1.for_age.includes(v2.for_age)) {
-          v1.for_age.push(v2.for_age);
+        if (!v1.typeForAge.includes(v2.for_age)) {
+          v1.typeForAge.push(v2.for_age);
         }
       }
     });
   });
+
+  brand.forEach((v1) => {
+    if (v1.typeForPet.includes("cat") && v1.typeForPet.includes("dog")) {
+      v1.typeForPet = ["cat", "dog", "both"];
+    }
+    if (v1.typeForPet.includes("both")) {
+      v1.typeForPet = ["cat", "dog", "both"];
+    }
+    if (
+      v1.typeForAge.includes("younger") &&
+      v1.typeForAge.includes("adult") &&
+      v1.typeForAge.includes("elder")
+    ) {
+      v1.typeForAge = ["younger", "adult", "elder", "all"];
+    }
+    if (v1.typeForAge.includes("all")) {
+      v1.typeForAge = ["younger", "adult", "elder", "all"];
+    }
+  });
+
+  console.log(brand);
 
   let keywords = [];
   let productsName = [];
@@ -242,8 +262,6 @@ router.get("/products", async (req, res) => {
   let typeForPet = req.query.typeForPet ? req.query.typeForPet.split(",") : [];
   let typeForAge = req.query.typeForAge ? req.query.typeForAge.split(",") : [];
   let filterbrand = req.query.brand ? req.query.brand.split(",") : [];
-
-  console.log(filterbrand);
 
   let page = req.query.page ? parseInt(req.query.page) : 1;
 
