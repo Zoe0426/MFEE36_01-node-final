@@ -8,12 +8,12 @@ const multipartParser = upload.none();
 router.get("/", async (req, res) => {
   // 熱門活動-> 依 order_details排序 排名前4
   const [popularCount] = await db.query(
-    "SELECT subquery.activity_sid, subquery.name, subquery.content, subquery.city, subquery.area, subquery.address, subquery.activity_pic, subquery.recent_date, subquery.farthest_date, subquery.feature_names, subquery.type_name, subquery.time, subquery.price_adult, subquery.avg_star, subquery.post_date, popular_counts.popular_count FROM (SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, CAST(AVG(ar.star) AS UNSIGNED) AS avg_star, MAX(ag.post_date) AS post_date FROM activity_info ai INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid LEFT JOIN (SELECT activity_sid, AVG(star) AS star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult) AS subquery LEFT JOIN (SELECT rel_sid AS activity_sid, COUNT(*) AS popular_count FROM order_details WHERE rel_type = 'activity' GROUP BY rel_sid) AS popular_counts ON subquery.activity_sid = popular_counts.activity_sid ORDER BY popular_counts.popular_count DESC LIMIT 4"
+    "SELECT subquery.activity_sid, subquery.name, subquery.content, subquery.city, subquery.area, subquery.address, subquery.activity_pic, subquery.recent_date, subquery.farthest_date, subquery.feature_names, subquery.type_name, subquery.time, subquery.price_adult, subquery.post_date, ai.avg_rating AS avg_rating, popular_counts.popular_count FROM (SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, MAX(ag.post_date) AS post_date FROM activity_info ai INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult) AS subquery LEFT JOIN (SELECT rel_sid AS activity_sid, COUNT(*) AS popular_count FROM order_details WHERE rel_type = 'activity' GROUP BY rel_sid) AS popular_counts ON subquery.activity_sid = popular_counts.activity_sid LEFT JOIN activity_info ai ON subquery.activity_sid = ai.activity_sid ORDER BY popular_counts.popular_count DESC LIMIT 4"
   );
 
   // 最新上架-> 依 post_date 排序
   const [data] = await db.query(
-    "SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, ag.post_date, CAST(ar.avg_star AS UNSIGNED) AS avg_star FROM activity_info ai JOIN activity_group ag ON ai.activity_sid = ag.activity_sid JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid JOIN ( SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid ) ag_temp ON ai.activity_sid = ag_temp.activity_sid JOIN ( SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid ) ar ON ai.activity_sid = ar.activity_sid WHERE ag.time IS NOT NULL AND ag.price_adult IS NOT NULL GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ag.post_date ORDER BY ag.post_date DESC LIMIT 4"
+    "SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.time, ag.price_adult, ag.post_date, CAST(ar.avg_star AS UNSIGNED) AS avg_star, ai.avg_rating FROM activity_info ai JOIN activity_group ag ON ai.activity_sid = ag.activity_sid JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid WHERE ag.time IS NOT NULL AND ag.price_adult IS NOT NULL GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic, recent_date, farthest_date, aty.name, ag.time, ag.price_adult, ag.post_date, ai.avg_rating ORDER BY ag.post_date DESC LIMIT 4"
   );
 
   // 熱門縣市-> 依order_details排序 排名前6
@@ -159,6 +159,8 @@ router.get("/activity", async (req, res) => {
   ) ar ON ai.activity_sid = ar.activity_sid
   ${where} ${where_price}`;
 
+ 
+
   const [[{ totalRows }]] = await db.query(sqlTotalRows);
   let totalPages = 0;
   let rows = [];
@@ -173,16 +175,16 @@ router.get("/activity", async (req, res) => {
     }
 
     const sqlQuery = `
-    SELECT activity_sid, name, content, city, area, address, activity_pic,
+    SELECT activity_sid, name, content, city, area, address, avg_rating,activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
       GROUP_CONCAT(DISTINCT feature_name) AS feature_names,
-      type_name, time, price_adult, CAST(avg_star AS UNSIGNED) AS avg_star,
+      type_name, time, price_adult,
       MAX(post_date) AS post_date
     FROM (
-      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.activity_pic,
+      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic,
         ag.date AS recent_date, ag.date AS farthest_date,
         af.name AS feature_name,
-        aty.name AS type_name, ag.time, ag.price_adult, ar.star AS avg_star,
+        aty.name AS type_name, ag.time, ag.price_adult,
         ag.post_date
       FROM activity_info ai
       INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
@@ -190,13 +192,13 @@ router.get("/activity", async (req, res) => {
       LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
       LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
       LEFT JOIN (
-        SELECT activity_sid, AVG(star) AS star
+        SELECT activity_sid
         FROM activity_rating
         GROUP BY activity_sid
       ) ar ON ai.activity_sid = ar.activity_sid
       ${where} ${where_price}
     ) AS subquery
-    GROUP BY activity_sid, name, content, city, area, address, activity_pic, type_name, time, price_adult, avg_star
+    GROUP BY activity_sid, name, content, city, area, address, avg_rating,activity_pic, type_name, time, price_adult
     ${order}
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
@@ -511,17 +513,64 @@ router.get("/activity/:activity_sid", async (req, res) => {
   const { activity_sid } = req.params;
   console.log(req.params);
 
+  // const sql_activityDetail = `
+  //   SELECT ai.activity_sid, ai.name, ai.content,ai.policy,ai.schedule,ai.policy,ai.must_know, ai.city, ai.area, ai.address, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.date, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
+  //   FROM activity_info ai
+  //   JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+  //   JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+  //   JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+  //   JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+  //   LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+  //   LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
+  //   WHERE ai.activity_sid = ${activity_sid}
+  //   GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, recent_date, farthest_date, aty.name, ag.date, ag.time, ag.price_adult, ar.avg_star`;
+
   const sql_activityDetail = `
-    SELECT ai.activity_sid, ai.name, ai.content,ai.policy,ai.schedule,ai.policy,ai.must_know, ai.city, ai.area, ai.address, recent_date, farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names, aty.name AS type_name, ag.date, ag.time, ag.price_adult, CAST(ar.avg_star AS UNSIGNED) AS avg_star
-    FROM activity_info ai
-    JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
-    JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
-    JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
-    JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
-    LEFT JOIN (SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date FROM activity_group GROUP BY activity_sid) ag_temp ON ai.activity_sid = ag_temp.activity_sid
-    LEFT JOIN (SELECT activity_sid, AVG(star) AS avg_star FROM activity_rating GROUP BY activity_sid) ar ON ai.activity_sid = ar.activity_sid
-    WHERE ai.activity_sid = ${activity_sid}
-    GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, recent_date, farthest_date, aty.name, ag.date, ag.time, ag.price_adult, ar.avg_star`;
+  SELECT
+  ai.activity_sid,
+  ai.name,
+  ai.content,
+  ai.policy,
+  ai.schedule,
+  ai.policy,
+  ai.must_know,
+  ai.city,
+  ai.area,
+  ai.address,
+  ai.avg_rating,
+  recent_date,
+  farthest_date,
+  GROUP_CONCAT(DISTINCT af.name) AS feature_names,
+  aty.name AS type_name,
+  ag.date,
+  ag.time,
+  ag.price_adult,
+  COUNT(DISTINCT ar.activity_rating_sid) AS rating_count
+FROM activity_info ai
+JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+LEFT JOIN (
+  SELECT activity_sid, MIN(date) AS recent_date, MAX(date) AS farthest_date
+  FROM activity_group GROUP BY activity_sid
+) ag_temp ON ai.activity_sid = ag_temp.activity_sid
+LEFT JOIN activity_rating ar ON ai.activity_sid = ar.activity_sid
+WHERE ai.activity_sid = ${activity_sid}
+GROUP BY
+  ai.activity_sid,
+  ai.name,
+  ai.content,
+  ai.city,
+  ai.area,
+  ai.address,
+  ai.avg_rating,
+  recent_date,
+  farthest_date,
+  aty.name,
+  ag.date,
+  ag.time,
+  ag.price_adult LIMIT 1`;
 
   let [actDetailRows] = await db.query(sql_activityDetail);
 
@@ -552,10 +601,9 @@ router.get("/activity/:activity_sid", async (req, res) => {
   const sql_actRecommend = `
   SELECT subquery.*
     FROM (
-      SELECT ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.activity_pic,
+      SELECT ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.avg_rating,ai.activity_pic,
         MAX(ag.date) AS recent_date, MIN(ag.date) AS farthest_date, GROUP_CONCAT(DISTINCT af.name) AS feature_names,
-        aty.name AS type_name, ag.time, ag.price_adult, MAX(ag.post_date) AS post_date,
-        CAST(AVG(ar.star) AS UNSIGNED) AS avg_star
+        aty.name AS type_name, ag.time, ag.price_adult, MAX(ag.post_date) AS post_date
       FROM activity_info ai
       JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
       JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
@@ -565,7 +613,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
      
       AND aty.name = '${customerLookforPet}' 
       AND ag.time IS NOT NULL AND ag.price_adult IS NOT NULL
-      GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address, ai.activity_pic, aty.name, ag.time, ag.price_adult
+      GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic, aty.name, ag.time, ag.price_adult
     ) AS subquery
     ORDER BY subquery.post_date DESC
     LIMIT 2`;
