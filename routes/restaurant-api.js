@@ -338,7 +338,18 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
     menuRows: [],
   };
   const { rest_sid } = req.params;
-  console.log(rest_sid);
+  // console.log(rest_sid);
+
+  const chinesseChange = (rest_date) => {
+    if (!rest_date) {
+      return '';
+    }
+  
+    const daysOfWeek = ['一', '二', '三', '四', '五', '六', '日'];
+    const restDays = rest_date.split(',').map((day) => parseInt(day));
+
+    return restDays.map((day) => `${daysOfWeek[day - 1]}`).join('/');
+  };
 
   const sql_restDetail = `SELECT
   rest_sid,
@@ -361,7 +372,15 @@ FROM restaurant_information
 WHERE rest_sid="${rest_sid}";`;
 
   let [restDetailRows] = await db.query(sql_restDetail);
-  // return res.json(restDetailRows)
+
+
+// 處理 rest_date，將其轉換成中文星期
+restDetailRows = restDetailRows.map((row) => {
+  const rest_date = row.rest_date;
+  row.rest_date = chinesseChange(rest_date);
+  return row;
+});
+
   //取得餐廳照片
   const sql_image = `SELECT rest_sid, img_sid, img_name FROM restaurant_img WHERE rest_sid = ${rest_sid}`;
   let [imageRows] = await db.query(sql_image);
@@ -384,16 +403,27 @@ WHERE rest_sid="${rest_sid}";`;
   let [serviceRows] = await db.query(sql_restService);
 
   //取得餐廳評分
+  // const sql_comment = `SELECT
+  // m.name,
+  // m.profile,
+  // rr.content,
+  // rr.created_at,
+  // rr.rest_commtent_id,
+  // ROUND((rr.environment + rr.food + rr.friendly) / 3) AS avg_rating
+  // FROM member_info AS m
+  // JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
+  // WHERE rr.rest_sid = ${rest_sid};`;
   const sql_comment = `SELECT 
   m.name,
   m.profile,
   rr.content,
   rr.created_at,
   rr.rest_commtent_id,
-  ROUND((rr.environment + rr.food + rr.friendly) / 3) AS avg_rating
-  FROM member_info AS m
-  JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
-  WHERE rr.rest_sid = ${rest_sid};`;
+  rr.friendly AS avg_rating
+FROM member_info AS m
+JOIN restaurant_rating AS rr ON m.member_sid = rr.member_sid
+WHERE rr.rest_sid = ${rest_sid};`;
+
   let [commentRows] = await db.query(sql_comment);
 
   commentRows.forEach((v) => {
@@ -419,40 +449,7 @@ WHERE rest_sid="${rest_sid}";`;
 
   let [menuRows] = await db.query(sql_menu);
 
-  //   //取得某一個會員的喜愛清單(這邊需要再修改，要看怎樣取得mem的編號
-  //   const sql_likeList = `SELECT
-  //   r.rest_sid,
-  //   r.name,
-  //   r.city,
-  //   r.area,
-  //   (SELECT ru.rule_name FROM restaurant_associated_rule AS ar_sub
-  //    JOIN restaurant_rule AS ru ON ar_sub.rule_sid = ru.rule_sid
-  //    WHERE ar_sub.rest_sid = r.rest_sid
-  //    LIMIT 1) AS rule_name,
-  //   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-  //   (SELECT img_name FROM restaurant_img WHERE rest_sid = r.rest_sid LIMIT 1) AS img_name,
-  //   MAX(rl.date) AS latest_like_date
-  // FROM
-  //   restaurant_information AS r
-  //   JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-  //   JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-  //   JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-  //   JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-  //   JOIN restaurant_like AS rl ON r.rest_sid = rl.rest_sid
-  // WHERE rl.member_sid = 'mem00001'
-  // GROUP BY
-  //   r.rest_sid,
-  //   r.name,
-  //   r.city,
-  //   r.area
-  // ORDER BY
-  //   latest_like_date DESC;
-  // `;
-  //   const [likeDatas] = await db.query(sql_likeList);
-
-  //   likeDatas.forEach((v) => {
-  //     v.date = res.toDateString(v.date);
-  //   });
+ 
 
   //判斷用戶有沒有登入，用token驗證，並確認該產品有沒有收藏
   let member = "";
@@ -760,10 +757,10 @@ router.get("/create-comment", async (req, res) => {
     const create_member = `mem00${Math.ceil(Math.random() * 500)
       .toString()
       .padStart(3, "0")}`;
-    
-    const environment = Math.floor(Math.random() * 4) + 4;
-    const food = Math.floor(Math.random() * 4) + 4;
-    const friendly = Math.floor(Math.random() * 4) + 4;
+
+    const environment = Math.floor(Math.random() * 3) + 3;
+    const food = Math.floor(Math.random() * 3) + 3;
+    const friendly = Math.floor(Math.random() * 3) + 3;
 
     const startDate = new Date("2023-01-01").getTime();
     const endDate = new Date("2023-07-25").getTime();
@@ -771,18 +768,19 @@ router.get("/create-comment", async (req, res) => {
       Math.random() * (endDate - startDate) + startDate
     );
 
-    const sql = "INSERT INTO `restaurant_rating`( `rest_sid`, `member_sid`, `environment`, `food`, `friendly`, `content`, `booking_sid`, `created_at`) VALUES (?,?,?,?,?,?,?,?)";
+    const sql =
+      "INSERT INTO `restaurant_rating`( `rest_sid`, `member_sid`, `environment`, `food`, `friendly`, `content`, `booking_sid`, `created_at`) VALUES (?,?,?,?,?,?,?,?)";
 
-    const [result] = await db.query(sql,[
+    const [result] = await db.query(sql, [
       v.rest_sid,
-      create_member,  
+      create_member,
       environment,
       food,
       friendly,
-      comment[selectIndex], 
+      comment[selectIndex],
       v.booking_sid,
-      randomDate,  
-    ])
+      randomDate,
+    ]);
   }
   res.json(selectIndex);
 });
