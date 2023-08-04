@@ -17,6 +17,7 @@ const app = express();
 const db = require(__dirname + "/modules/db_connect");
 const dayjs = require("dayjs");
 const cors = require("cors");
+const bodyparesr = require("body-parser");
 const jwt = require("jsonwebtoken");
 const corsOptions = {
   Credential: true,
@@ -26,6 +27,7 @@ const corsOptions = {
   },
 };
 //=====middle ware=====
+app.use(bodyparesr.json());
 app.use(cors(corsOptions)); //拜訪權限？
 app.use(express.urlencoded({ extended: false })); //翻釋req.body
 app.use(express.json()); //翻釋req.body
