@@ -317,7 +317,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             oc.member_sid = ? 
             AND oc.order_status = '001'
             )sortedData ORDER BY added_time DESC`;
-            console.log(getCartItemSql);
+            //console.log(getCartItemSql);
     const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
     //console.log(cartData);
     output.shop = cartData.filter(p=>p.rel_type === "shop");
