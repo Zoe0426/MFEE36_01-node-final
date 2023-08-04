@@ -438,12 +438,6 @@ router.get("/product/:product_sid", async (req, res) => {
   let shopMainData = [];
 
   //取得商品主要資訊
-  // const sql_productMainData = `SELECT p.*, s.name supplier_name, s.made_in_where, ROUND(AVG(c.rating), 1) avg_rating, COUNT(c.rating) comment_count,SUM(product_qty) sales_qty
-  //       FROM shop_product p
-  //       JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid
-  //       LEFT JOIN shop_comment c ON p.product_sid=c.product_sid
-  //       LEFT JOIN order_details o ON o.rel_sid=p.product_sid
-  //       WHERE p.product_sid="${product_sid}"`;
   const sql_productMainData = `SELECT p.*, s.name supplier_name, s.made_in_where, COUNT(c.rating) comment_count
         FROM shop_product p
         JOIN shop_supplier s ON s.supplier_sid = p.supplier_sid

@@ -12,34 +12,43 @@ if (process.argv[2] === "production") {
 }
 
 //=====載入node套件=====
-const http = require('http');
+const http = require("http");
 const express = require("express");
 const app = express();
-const httpServer =  http.createServer(app)
+const httpServer = http.createServer(app);
 const db = require(__dirname + "/modules/db_connect");
 const dayjs = require("dayjs");
 const cors = require("cors");
 const bodyparesr = require("body-parser");
 const jwt = require("jsonwebtoken");
 const corsOptions = {
-  Credential: true,
+  // Credential: true,
+  credentials: true,
   origin: (origin, cb) => {
     console.log({ origin });
     cb(null, true);
   },
 };
 
-
 //socket.io設定白名單
-const io = require("socket.io")(httpServer,{
-  
-    cors: (req, res)=>{
-      // console.log(req, res)
-      console.log(req.headers.origin)
-      return{
-        origin: req.headers.origin
-      }
-    }
+const socketIO = require("socket.io");
+const io = socketIO(httpServer, {
+  cors: {
+    origin: (origin, cb) => {
+      console.log({ origin });
+      cb(null, true);
+    },
+  },
+
+  //老師寫的
+  // cors: (req, res) => {
+  //   // console.log(req, res)
+  //   console.log({ socket: req.headers.origin });
+  //   return {
+  //     origin: req.headers.origin,
+  //   };
+  // },
+
   // cors: {
   //   origin: "http://localhost:3000"
   // }
@@ -53,6 +62,7 @@ const io = require("socket.io")(httpServer,{
 
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
+  // console.log(socket);
   console.log("success connect!");
   //監聽透過 connection 傳進來的事件
   socket.on("getMessage", (message) => {
@@ -60,7 +70,6 @@ io.on("connection", (socket) => {
     socket.emit("getMessage", message);
   });
 });
-
 
 //=====middle ware=====
 app.use(bodyparesr.json());
@@ -74,23 +83,23 @@ app.use((req, res, next) => {
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDateDayString = (d)=>{
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      const date = dayjs(d).format("YYYY.MM.DD")
-      const Dday = new Date(date);
-      const dayOfWeek = weekdays[Dday.getDay()];
-      return `${date}(${dayOfWeek})`;
-  }
+  res.toDateDayString = (d) => {
+    const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+    const date = dayjs(d).format("YYYY.MM.DD");
+    const Dday = new Date(date);
+    const dayOfWeek = weekdays[Dday.getDay()];
+    return `${date}(${dayOfWeek})`;
+  };
   res.toDatetimeString = (d) => {
     const fm = "YYYY-MM-DD HH:mm:ss";
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDatetimeString2 = (d)=>{
-        const fm = "YYYY/MM/DD HH:mm:ss";
-        const djs = dayjs(d);
-        return djs.format(fm);
-  }
+  res.toDatetimeString2 = (d) => {
+    const fm = "YYYY/MM/DD HH:mm:ss";
+    const djs = dayjs(d);
+    return djs.format(fm);
+  };
 
   const auth = req.get("Authorization");
   if (auth && auth.indexOf("Bearer ") === 0) {
@@ -104,7 +113,7 @@ app.use((req, res, next) => {
     }
     // console.log(jwtData);
   }
-   
+
   next();
 });
 
