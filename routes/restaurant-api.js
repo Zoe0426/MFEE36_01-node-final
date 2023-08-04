@@ -298,7 +298,7 @@ router.get("/list", async (req, res) => {
       });
     }
   }
-  console.log(rows);
+  // console.log(rows);
   output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
   return res.json(output);
 });
