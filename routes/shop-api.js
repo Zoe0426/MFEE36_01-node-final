@@ -76,7 +76,7 @@ router.get("/hompage-cards", async (req, res) => {
         );
         return foundLike ? { ...v1, like: true } : { ...v1, like: false };
       });
-      // console.log(newData);
+
       dogDatas = dogDatas.map((v1) => {
         const foundLike = like_rows.find(
           (v2) => v1.product_sid === v2.product_sid
@@ -147,33 +147,67 @@ router.get("/search-brand-list", async (req, res) => {
 
   const [brand_has] = await db.query(sql_brand_has);
 
-  const findKey = (value) => {
-    return Object.keys(dict).find((key) => dict[key] === value);
-  };
-  brand_has.forEach((v) => {
-    (v.category_detail_sid = findKey(v.category_detail_sid)),
-      (v.for_pet_type = findKey(v.for_pet_type)),
-      (v.for_age = findKey(v.for_age));
+  const reversedDict = {};
+  Object.entries(dict).forEach(([key, value]) => {
+    reversedDict[value] = key;
   });
-
+  
+  brand_has.forEach((v) => {
+    // 使用Set來存儲不重複的值
+    v.category_detail_sid = new Set([reversedDict[v.category_detail_sid]]);
+    v.for_pet_type = new Set([reversedDict[v.for_pet_type]]);
+    v.for_age = new Set([reversedDict[v.for_age]]);
+  });
+  
   brand.forEach((v1) => {
-    v1.category = [];
-    v1.typeForPet = [];
-    v1.typeForAge = [];
+    v1.category = new Set();
+    v1.typeForPet = new Set();
+    v1.typeForAge = new Set();
+  
     brand_has.forEach((v2) => {
       if (v1.id === v2.id) {
-        if (!v1.category.includes(v2.category_detail_sid)) {
-          v1.category.push(v2.category_detail_sid);
-        }
-        if (!v1.typeForPet.includes(v2.for_pet_type)) {
-          v1.typeForPet.push(v2.for_pet_type);
-        }
-        if (!v1.typeForAge.includes(v2.for_age)) {
-          v1.typeForAge.push(v2.for_age);
-        }
+        v1.category.add(...v2.category_detail_sid);
+        v1.typeForPet.add(...v2.for_pet_type);
+        v1.typeForAge.add(...v2.for_age);
       }
     });
+  
+    // 使用Set轉換為陣列
+    v1.category = Array.from(v1.category);
+    v1.typeForPet = Array.from(v1.typeForPet);
+    v1.typeForAge = Array.from(v1.typeForAge);
+  
+    // ...後面的程式碼...
   });
+
+
+  // const findKey = (value) => {
+  //   return Object.keys(dict).find((key) => dict[key] === value);
+  // };
+  // brand_has.forEach((v) => {
+  //   (v.category_detail_sid = findKey(v.category_detail_sid)),
+  //     (v.for_pet_type = findKey(v.for_pet_type)),
+  //     (v.for_age = findKey(v.for_age));
+  // });
+
+  // brand.forEach((v1) => {
+  //   v1.category = [];
+  //   v1.typeForPet = [];
+  //   v1.typeForAge = [];
+  //   brand_has.forEach((v2) => {
+  //     if (v1.id === v2.id) {
+  //       if (!v1.category.includes(v2.category_detail_sid)) {
+  //         v1.category.push(v2.category_detail_sid);
+  //       }
+  //       if (!v1.typeForPet.includes(v2.for_pet_type)) {
+  //         v1.typeForPet.push(v2.for_pet_type);
+  //       }
+  //       if (!v1.typeForAge.includes(v2.for_age)) {
+  //         v1.typeForAge.push(v2.for_age);
+  //       }
+  //     }
+  //   });
+  // });
 
   brand.forEach((v1) => {
     if (v1.typeForPet.includes("cat") && v1.typeForPet.includes("dog")) {
@@ -193,8 +227,6 @@ router.get("/search-brand-list", async (req, res) => {
       v1.typeForAge = ["younger", "adult", "elder", "all"];
     }
   });
-
-  console.log(brand);
 
   let keywords = [];
   let productsName = [];
