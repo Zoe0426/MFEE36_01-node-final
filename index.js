@@ -12,8 +12,10 @@ if (process.argv[2] === "production") {
 }
 
 //=====載入node套件=====
+const http = require('http');
 const express = require("express");
 const app = express();
+const httpServer =  http.createServer(app)
 const db = require(__dirname + "/modules/db_connect");
 const dayjs = require("dayjs");
 const cors = require("cors");
@@ -25,6 +27,40 @@ const corsOptions = {
     cb(null, true);
   },
 };
+
+
+//socket.io設定白名單
+const io = require("socket.io")(httpServer,{
+  
+    cors: (req, res)=>{
+      // console.log(req, res)
+      console.log(req.headers.origin)
+      return{
+        origin: req.headers.origin
+      }
+    }
+  // cors: {
+  //   origin: "http://localhost:3000"
+  // }
+
+  // allowRequest: (req, callback) => {
+  //   console.log(req.headers.origin)
+  //   // const noOriginHeader = req.headers.origin === undefined;
+  //   callback(null, req.headers.origin);
+  // }
+});
+
+io.on("connection", (socket) => {
+  //經過連線後在 console 中印出訊息
+  console.log("success connect!");
+  //監聽透過 connection 傳進來的事件
+  socket.on("getMessage", (message) => {
+    //回傳 message 給發送訊息的 Client
+    socket.emit("getMessage", message);
+  });
+});
+
+
 //=====middle ware=====
 app.use(cors(corsOptions)); //拜訪權限？
 app.use(express.urlencoded({ extended: false })); //翻釋req.body
@@ -69,6 +105,7 @@ app.use((req, res, next) => {
    
   next();
 });
+
 //=====測試=====
 app.get("/", (req, res) => {
   res.send("Hello");
@@ -100,8 +137,12 @@ app.use((req, res) => {
   res.status(404);
   res.send("<h1>404 - not found</h1>");
 });
+
 //=====port設定=====
 const port = process.env.PORT || 3001;
+httpServer.listen(port);
+/*
 app.listen(port, () => {
   console.log("start server, port:" + port);
 });
+*/
