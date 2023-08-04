@@ -74,13 +74,35 @@ router.post("/googleLogin", async (req, res) => {
     audience: CLIENT_ID,
   });
   const payload = ticket.getPayload();
+  const googleEmail = payload.email;
 
   //拿到的ticket就是換回來的使用者資料
   console.log(ticket);
 
-  //以下就個人需求看要拿資料做哪些使用
-  //ex 使用者資訊存入資料庫，把資料存到 session內 等等
-  const sql = `INSERT INTO member_info(
+  //判斷email是否有註冊過
+  const sqlEmail = `SELECT * FROM member_info WHERE email="${googleEmail}"`;
+  const [rowsEnail] = await db.query(sqlEmail, [googleEmail]);
+  if (rowsEnail.length) {
+    // 包 jwt 傳給前端
+    const token = jwt.sign(
+      {
+        id: rowsEnail[0].member_sid,
+        email: rowsEnail[0].email,
+      },
+      "GoWithMe"
+    );
+    output.token = token;
+    output.data = {
+      id: rowsEnail[0].member_sid,
+      email: rowsEnail[0].email,
+      nickname: rowsEnail[0].nickname,
+      profile: rowsEnail[0].profile,
+      token,
+    };
+  } else {
+    //以下就個人需求看要拿資料做哪些使用
+    //ex 使用者資訊存入資料庫，把資料存到 session內 等等
+    const sql = `INSERT INTO member_info(
     member_sid, name, email, 
     password, mobile, gender, 
     birthday, pet, level, 
@@ -95,45 +117,45 @@ router.post("/googleLogin", async (req, res) => {
     NOW(), NOW()
   )`;
 
-  let sql_memSid = `SELECT MAX(member_sid) AS maxSid FROM member_info`;
-  let [result_memSid] = await db.query(sql_memSid);
-  // res.json(result_memSid);
+    let sql_memSid = `SELECT MAX(member_sid) AS maxSid FROM member_info`;
+    let [result_memSid] = await db.query(sql_memSid);
+    // res.json(result_memSid);
 
-  let new_memSid = "";
-  if (!result_memSid[0].maxSid) {
-    new_memSid = "mem00001";
-  } else {
-    let currentCount = parseInt(result_memSid[0].maxSid.substring(3));
-    let newCount = currentCount + 1;
-    new_memSid = `mem${String(newCount).padStart(5, "0")}`;
-  }
+    let new_memSid = "";
+    if (!result_memSid[0].maxSid) {
+      new_memSid = "mem00001";
+    } else {
+      let currentCount = parseInt(result_memSid[0].maxSid.substring(3));
+      let newCount = currentCount + 1;
+      new_memSid = `mem${String(newCount).padStart(5, "0")}`;
+    }
 
-  // 自動生成會員ID
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
-  let member_ID = req.body.member_ID || "";
+    // 自動生成會員ID
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
+    let member_ID = req.body.member_ID || "";
 
-  for (let i = 0; i < 8; i++) {
-    const randomIndex = Math.floor(Math.random() * chars.length);
-    member_ID += chars[randomIndex];
-  }
+    for (let i = 0; i < 8; i++) {
+      const randomIndex = Math.floor(Math.random() * chars.length);
+      member_ID += chars[randomIndex];
+    }
 
-  const [result] = await db.query(sql, [
-    new_memSid,
-    payload.name,
-    payload.email,
-    null,
-    null,
-    null,
-    null,
-    "狗",
-    "銅牌",
-    member_ID,
-    payload.picture,
-    "狗",
-    payload.name,
-  ]);
+    const [result] = await db.query(sql, [
+      new_memSid,
+      payload.name,
+      payload.email,
+      null,
+      "",
+      null,
+      null,
+      "狗",
+      "銅牌",
+      member_ID,
+      null,
+      "狗",
+      payload.name,
+    ]);
 
-  const [rows] = await db.query(`
+    const [rows] = await db.query(`
   SELECT 
   mo.member_sid as memberSid,
   mo.name as name, 
@@ -149,22 +171,23 @@ router.post("/googleLogin", async (req, res) => {
   WHERE mo.member_sid='${new_memSid}'
   `);
 
-  // 包 jwt 傳給前端
-  const token = jwt.sign(
-    {
+    // 包 jwt 傳給前端
+    const token = jwt.sign(
+      {
+        id: rows[0].memberSid,
+        email: rows[0].email,
+      },
+      "GoWithMe"
+    );
+    output.token = token;
+    output.data = {
       id: rows[0].memberSid,
       email: rows[0].email,
-    },
-    "GoWithMe"
-  );
-  output.token = token;
-  output.data = {
-    id: rows[0].memberSid,
-    email: rows[0].email,
-    nickname: rows[0].nickname,
-    profile: rows[0].profile,
-    token,
-  };
+      nickname: rows[0].nickname,
+      profile: rows[0].profile,
+      token,
+    };
+  }
 
   res.json(output);
 });
@@ -183,9 +206,10 @@ router.get("/edit", async (req, res) => {
     output.error = "沒有驗證";
     return res.json(output);
   }
-  // console.log(jwtData);
+  console.log(res.locals);
 
   const sid = res.locals.jwtData.id;
+  console.log("sid", sid);
 
   const [rows] = await db.query(`
   SELECT 
@@ -205,10 +229,10 @@ router.get("/edit", async (req, res) => {
   res.json(rows);
 });
 
-router.get("/", async (req, res) => {
-  const [rows] = await db.query(`SELECT * FROM member_info`);
-  res.json(rows);
-});
+// router.get("/", async (req, res) => {
+//   const [rows] = await db.query(`SELECT * FROM member_info`);
+//   res.json(rows);
+// });
 
 // --------------------------------------------
 // 新增會員資料
