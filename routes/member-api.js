@@ -150,7 +150,7 @@ router.post("/googleLogin", async (req, res) => {
       "狗",
       "銅牌",
       member_ID,
-      null,
+      "default-dog.jpg",
       "狗",
       payload.name,
     ]);
@@ -316,6 +316,23 @@ router.post("/", async (req, res) => {
 
   console.log(member_ID);
 
+  // default profile
+  let profile = "";
+  switch (req.body.pet) {
+    case "狗":
+      profile = "default-dog.jpg";
+      break;
+    case "貓":
+      profile = "default-cat.jpg";
+      break;
+    case "狗貓":
+      profile = Math.floor(Math.random() * 2) === 1 ? "default-dog.jpg" : "default-cat.jpg";
+      break;
+    case "其他":
+      profile = Math.floor(Math.random() * 2) === 1 ? "default-dog.jpg" : "default-cat.jpg";
+      break;
+  }
+
   // 遊戲寵物
   // let pet = req.body.pet;
   let game_pet = "";
@@ -333,6 +350,7 @@ router.post("/", async (req, res) => {
       game_pet = Math.floor(Math.random() * 2) === 1 ? "狗" : "貓";
       break;
   }
+
   console.log(game_pet);
   console.log(req.body.gender);
   console.log(req.body.pet);
@@ -353,7 +371,7 @@ router.post("/", async (req, res) => {
     req.body.pet,
     "銅牌",
     member_ID,
-    req.body.profile,
+    profile,
     game_pet,
     req.body.name,
   ]);
@@ -740,9 +758,11 @@ router.post("/actReviews", async (req, res) => {
     ?,?,?,
     ?,NOW(),?)`;
 
+  const actSid = req.body.actSid;
+
   const [rowsAct] = await db.query(sqlAct, [
     req.body.memberSid,
-    req.body.actSid,
+    actSid,
     req.body.odSid,
     req.body.actStar,
     req.body.actContent,
@@ -754,7 +774,28 @@ router.post("/actReviews", async (req, res) => {
   WHERE od.order_detail_sid = ?`;
   const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
 
-  res.json({ ...rowsAct, updateRes });
+  const [sqlActComment] = await db.query(
+    `
+    SELECT activity_sid,
+    ROUND(AVG(star), 1) avg_rating
+    FROM activity_rating 
+    WHERE activity_sid = "${actSid}"
+    GROUP BY activity_sid
+    `
+  );
+
+  const avgRating = sqlActComment[0].avg_rating;
+
+  const [affectedRows] = await db.query(
+    `
+    UPDATE activity_info ai
+    JOIN activity_rating ar ON ar.activity_sid = ai.activity_sid
+    SET avg_rating = ${avgRating}
+    WHERE ai.activity_sid = "${actSid}"
+    `
+  );
+
+  res.json({ ...rowsAct, updateRes, affectedRows });
 });
 
 //新增商品評價
