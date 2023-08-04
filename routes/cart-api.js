@@ -454,34 +454,35 @@ router.get('/get-home-data', async(req,res)=>{
     }
     try{
         const getrestaurantDataSql =  `SELECT
-            r.rest_sid,
-            r.name,
-            r.city,
-            r.area,
-            r.info,
-            GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
-            GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
-            GROUP_CONCAT(DISTINCT ri.img_name) AS img_names,
-            ROUND(AVG(rr.friendly), 1) AS average_friendly,
-            COUNT(b.booking_sid) AS booking_count
-            FROM
-            restaurant_information AS r
-            JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
-            JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
-            JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
-            JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
-            JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
-            LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
-            LEFT JOIN restaurant_booking AS b ON r.rest_sid = b.rest_sid
-            WHERE 1
-            GROUP BY
-            r.rest_sid,
-            r.name,
-            r.city,
-            r.area
-            ORDER BY
-                booking_count DESC
-                LIMIT 2;`;
+  r.rest_sid,
+  r.name,
+  r.city,
+  r.area,
+  r.average_friendly,
+  r.booking_count,
+  GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
+  GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
+  GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
+    FROM
+        restaurant_information AS r
+    JOIN restaurant_associated_rule AS ar ON r.rest_sid = ar.rest_sid
+    JOIN restaurant_rule AS ru ON ar.rule_sid = ru.rule_sid
+    JOIN restaurant_associated_service AS asr ON r.rest_sid = asr.rest_sid
+    JOIN restaurant_service AS s ON asr.service_sid = s.service_sid
+    JOIN restaurant_img AS ri ON r.rest_sid = ri.rest_sid
+    LEFT JOIN restaurant_rating AS rr ON r.rest_sid = rr.rest_sid
+    JOIN restaurant_associated_category AS ac ON r.rest_sid = ac.rest_sid
+  WHERE 1
+  GROUP BY
+    r.rest_sid,
+    r.name,
+    r.city,
+    r.area,
+    r.average_friendly,
+    r.booking_count
+  ORDER BY
+    booking_count DESC
+    LIMIT 2;`;
         const [restaurantRows] = await db.query(getrestaurantDataSql);
         const useRows = restaurantRows.map(v=>{
             const hts = (v.service_names.split(',')).concat((v.rule_names.split(',')))
