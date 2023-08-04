@@ -374,25 +374,22 @@ WHERE rest_sid="${rest_sid}";`;
 
   let [restDetailRows] = await db.query(sql_restDetail);
 
-  //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
-  const locationDict = {
-    台北市: "台北市",
-    新北市: "新北市",
-    大安區: "大安區",
-    台中市: "台中市",
-    西區: "西區",
-    大同區: "大同區",
-    中正區: "中正區",
-  };
-  const city_chinese_name = locationDict[restDetailRows[0].city];
-  restDetailRows[0].city_chinese_name = city_chinese_name;
-
   // 處理 rest_date，將其轉換成中文星期
   restDetailRows = restDetailRows.map((row) => {
     const rest_date = row.rest_date;
     row.rest_date = chinesseChange(rest_date);
     return row;
   });
+
+  //將麵包屑中文與前端路由英文的產品類別轉換放置商品主要資訊
+  const breadCrumb = `SELECT rac.category_sid, rc.category_name, rc.category_englsih,rac.rest_sid
+  FROM restaurant_associated_category AS rac
+  JOIN restaurant_category AS rc ON rac.category_sid = rc.category_sid
+  WHERE rac.rest_sid = "${rest_sid}"
+  ORDER BY rac.category_sid 
+  LIMIT 1`;
+
+  let [breadCrumbData] = await db.query(breadCrumb);
 
   //取得餐廳照片
   const sql_image = `SELECT rest_sid, img_sid, img_name FROM restaurant_img WHERE rest_sid = ${rest_sid}`;
@@ -487,6 +484,7 @@ WHERE rr.rest_sid = ${rest_sid};`;
     commentAvgRows,
     activityRows,
     menuRows,
+    breadCrumbData,
   };
   return res.json(output);
 });
@@ -498,7 +496,7 @@ router.get("/booking", async (req, res) => {
     memberRows: [],
   };
   const book_sql =
-    "SELECT t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max` - IFNULL(SUM(rb.`people_num`), 0) AS `remaining_slots` FROM `restaurant_period_of_time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` LEFT JOIN `restaurant_booking` rb ON t1.`rest_sid` = rb.`rest_sid` AND t1.`section_code` = rb.`section_code` WHERE t1.`rest_sid` = 4 GROUP BY t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max`;";
+    "SELECT t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`city`, t2.`people_max` - IFNULL(SUM(rb.`people_num`), 0) AS `remaining_slots` FROM `restaurant_period_of_time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` LEFT JOIN `restaurant_booking` rb ON t1.`rest_sid` = rb.`rest_sid` AND t1.`section_code` = rb.`section_code` WHERE t1.`rest_sid` = 4 GROUP BY t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max`,t2.`city`;";
 
   [bookingRows] = await db.query(book_sql);
   bookingRows.forEach((v) => {

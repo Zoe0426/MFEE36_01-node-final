@@ -6,6 +6,7 @@ const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
 const upload = require(__dirname + "/../modules/img-upload.js");
 const multipartParser = upload.none();
+const { OAuth2Client } = require("google-auth-library");
 
 // 登入
 router.post("/login", async (req, res) => {
@@ -55,6 +56,142 @@ router.post("/login", async (req, res) => {
   res.json(output);
 });
 
+// google登入
+router.post("/googleLogin", async (req, res) => {
+  const output = {
+    success: true,
+    code: 0,
+    error: "",
+  };
+
+  const CLIENT_ID = "157368154764-abg5711auh3c254hcqfqu4sg1iv1gd3n.apps.googleusercontent.com";
+  const client = new OAuth2Client(CLIENT_ID);
+  const googleToken = req.body.id_token;
+
+  //將token和client_Id放入參數一起去做驗證
+  const ticket = await client.verifyIdToken({
+    idToken: googleToken,
+    audience: CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  const googleEmail = payload.email;
+
+  //拿到的ticket就是換回來的使用者資料
+  console.log(ticket);
+
+  //判斷email是否有註冊過
+  const sqlEmail = `SELECT * FROM member_info WHERE email="${googleEmail}"`;
+  const [rowsEnail] = await db.query(sqlEmail, [googleEmail]);
+  if (rowsEnail.length) {
+    // 包 jwt 傳給前端
+    const token = jwt.sign(
+      {
+        id: rowsEnail[0].member_sid,
+        email: rowsEnail[0].email,
+      },
+      "GoWithMe"
+    );
+    output.token = token;
+    output.data = {
+      id: rowsEnail[0].member_sid,
+      email: rowsEnail[0].email,
+      nickname: rowsEnail[0].nickname,
+      profile: rowsEnail[0].profile,
+      token,
+    };
+  } else {
+    //以下就個人需求看要拿資料做哪些使用
+    //ex 使用者資訊存入資料庫，把資料存到 session內 等等
+    const sql = `INSERT INTO member_info(
+    member_sid, name, email, 
+    password, mobile, gender, 
+    birthday, pet, level, 
+    member_ID, profile, 
+    game_pet, nickname,
+    create_time, update_time) VALUES(
+    ?, ?, ?,
+    ?, ?, ?,
+    ?, ?, ?,
+    ?,?,
+    ?,?,
+    NOW(), NOW()
+  )`;
+
+    let sql_memSid = `SELECT MAX(member_sid) AS maxSid FROM member_info`;
+    let [result_memSid] = await db.query(sql_memSid);
+    // res.json(result_memSid);
+
+    let new_memSid = "";
+    if (!result_memSid[0].maxSid) {
+      new_memSid = "mem00001";
+    } else {
+      let currentCount = parseInt(result_memSid[0].maxSid.substring(3));
+      let newCount = currentCount + 1;
+      new_memSid = `mem${String(newCount).padStart(5, "0")}`;
+    }
+
+    // 自動生成會員ID
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
+    let member_ID = req.body.member_ID || "";
+
+    for (let i = 0; i < 8; i++) {
+      const randomIndex = Math.floor(Math.random() * chars.length);
+      member_ID += chars[randomIndex];
+    }
+
+    const [result] = await db.query(sql, [
+      new_memSid,
+      payload.name,
+      payload.email,
+      null,
+      "",
+      null,
+      null,
+      "狗",
+      "銅牌",
+      member_ID,
+      "default-dog.jpg",
+      "狗",
+      payload.name,
+    ]);
+
+    const [rows] = await db.query(`
+  SELECT 
+  mo.member_sid as memberSid,
+  mo.name as name, 
+  mo.email as email, 
+  mo.mobile as mobile, 
+  mo.gender as gender, 
+  mo.birthday as birthday, 
+  mo.pet as pet, 
+  mo.level as level,
+  mo.profile as profile 
+
+  FROM member_info mo 
+  WHERE mo.member_sid='${new_memSid}'
+  `);
+
+    // 包 jwt 傳給前端
+    const token = jwt.sign(
+      {
+        id: rows[0].memberSid,
+        email: rows[0].email,
+      },
+      "GoWithMe"
+    );
+    output.token = token;
+    output.data = {
+      id: rows[0].memberSid,
+      email: rows[0].email,
+      nickname: rows[0].nickname,
+      profile: rows[0].profile,
+      token,
+    };
+  }
+
+  res.json(output);
+});
+
 // 讀取單筆會員資料
 router.get("/edit", async (req, res) => {
   //let { sid } = req.params;
@@ -69,9 +206,10 @@ router.get("/edit", async (req, res) => {
     output.error = "沒有驗證";
     return res.json(output);
   }
-  // console.log(jwtData);
+  console.log(res.locals);
 
   const sid = res.locals.jwtData.id;
+  console.log("sid", sid);
 
   const [rows] = await db.query(`
   SELECT 
@@ -91,10 +229,10 @@ router.get("/edit", async (req, res) => {
   res.json(rows);
 });
 
-router.get("/", async (req, res) => {
-  const [rows] = await db.query(`SELECT * FROM member_info`);
-  res.json(rows);
-});
+// router.get("/", async (req, res) => {
+//   const [rows] = await db.query(`SELECT * FROM member_info`);
+//   res.json(rows);
+// });
 
 // --------------------------------------------
 // 新增會員資料
@@ -178,6 +316,23 @@ router.post("/", async (req, res) => {
 
   console.log(member_ID);
 
+  // default profile
+  let profile = "";
+  switch (req.body.pet) {
+    case "狗":
+      profile = "default-dog.jpg";
+      break;
+    case "貓":
+      profile = "default-cat.jpg";
+      break;
+    case "狗貓":
+      profile = Math.floor(Math.random() * 2) === 1 ? "default-dog.jpg" : "default-cat.jpg";
+      break;
+    case "其他":
+      profile = Math.floor(Math.random() * 2) === 1 ? "default-dog.jpg" : "default-cat.jpg";
+      break;
+  }
+
   // 遊戲寵物
   // let pet = req.body.pet;
   let game_pet = "";
@@ -195,6 +350,7 @@ router.post("/", async (req, res) => {
       game_pet = Math.floor(Math.random() * 2) === 1 ? "狗" : "貓";
       break;
   }
+
   console.log(game_pet);
   console.log(req.body.gender);
   console.log(req.body.pet);
@@ -215,7 +371,7 @@ router.post("/", async (req, res) => {
     req.body.pet,
     "銅牌",
     member_ID,
-    req.body.profile,
+    profile,
     game_pet,
     req.body.name,
   ]);
@@ -350,7 +506,7 @@ router.get("/coupon", async (req, res) => {
 router.get("/order", async (req, res) => {
   //let { sid } = req.params;
   let keywordS = req.query.keywordS || "";
-  console.log({ keywordS});
+  console.log({ keywordS });
   let keywordA = req.query.keywordA || "";
   let whereS = "";
   if (keywordS) {
@@ -602,9 +758,11 @@ router.post("/actReviews", async (req, res) => {
     ?,?,?,
     ?,NOW(),?)`;
 
+  const actSid = req.body.actSid;
+
   const [rowsAct] = await db.query(sqlAct, [
     req.body.memberSid,
-    req.body.actSid,
+    actSid,
     req.body.odSid,
     req.body.actStar,
     req.body.actContent,
@@ -616,7 +774,28 @@ router.post("/actReviews", async (req, res) => {
   WHERE od.order_detail_sid = ?`;
   const [updateRes] = await db.query(sqlUpdateOrderMain, [req.body.odSid]);
 
-  res.json({ ...rowsAct, updateRes });
+  const [sqlActComment] = await db.query(
+    `
+    SELECT activity_sid,
+    ROUND(AVG(star), 1) avg_rating
+    FROM activity_rating 
+    WHERE activity_sid = "${actSid}"
+    GROUP BY activity_sid
+    `
+  );
+
+  const avgRating = sqlActComment[0].avg_rating;
+
+  const [affectedRows] = await db.query(
+    `
+    UPDATE activity_info ai
+    JOIN activity_rating ar ON ar.activity_sid = ai.activity_sid
+    SET avg_rating = ${avgRating}
+    WHERE ai.activity_sid = "${actSid}"
+    `
+  );
+
+  res.json({ ...rowsAct, updateRes, affectedRows });
 });
 
 //新增商品評價

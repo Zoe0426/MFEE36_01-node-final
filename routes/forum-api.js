@@ -321,7 +321,7 @@ router.get("/forum/blog", async (req, res) => {
   let where = ` WHERE 1`;
   //會員編號
   if(sid){
-    where += ` AND pf.member_sid = '${sid}'`
+    where += ` AND plm.member_sid = '${sid}'`
   }
   //關鍵字
   if (keyword) {

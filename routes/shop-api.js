@@ -76,7 +76,7 @@ router.get("/hompage-cards", async (req, res) => {
         );
         return foundLike ? { ...v1, like: true } : { ...v1, like: false };
       });
-      // console.log(newData);
+
       dogDatas = dogDatas.map((v1) => {
         const foundLike = like_rows.find(
           (v2) => v1.product_sid === v2.product_sid
@@ -147,33 +147,66 @@ router.get("/search-brand-list", async (req, res) => {
 
   const [brand_has] = await db.query(sql_brand_has);
 
-  const findKey = (value) => {
-    return Object.keys(dict).find((key) => dict[key] === value);
-  };
+  const reversedDict = {};
+  Object.entries(dict).forEach(([key, value]) => {
+    reversedDict[value] = key;
+  });
+
   brand_has.forEach((v) => {
-    (v.category_detail_sid = findKey(v.category_detail_sid)),
-      (v.for_pet_type = findKey(v.for_pet_type)),
-      (v.for_age = findKey(v.for_age));
+    // 使用Set來存儲不重複的值
+    v.category_detail_sid = new Set([reversedDict[v.category_detail_sid]]);
+    v.for_pet_type = new Set([reversedDict[v.for_pet_type]]);
+    v.for_age = new Set([reversedDict[v.for_age]]);
   });
 
   brand.forEach((v1) => {
-    v1.category = [];
-    v1.typeForPet = [];
-    v1.typeForAge = [];
+    v1.category = new Set();
+    v1.typeForPet = new Set();
+    v1.typeForAge = new Set();
+
     brand_has.forEach((v2) => {
       if (v1.id === v2.id) {
-        if (!v1.category.includes(v2.category_detail_sid)) {
-          v1.category.push(v2.category_detail_sid);
-        }
-        if (!v1.typeForPet.includes(v2.for_pet_type)) {
-          v1.typeForPet.push(v2.for_pet_type);
-        }
-        if (!v1.typeForAge.includes(v2.for_age)) {
-          v1.typeForAge.push(v2.for_age);
-        }
+        v1.category.add(...v2.category_detail_sid);
+        v1.typeForPet.add(...v2.for_pet_type);
+        v1.typeForAge.add(...v2.for_age);
       }
     });
+
+    // 使用Set轉換為陣列
+    v1.category = Array.from(v1.category);
+    v1.typeForPet = Array.from(v1.typeForPet);
+    v1.typeForAge = Array.from(v1.typeForAge);
+
+    // ...後面的程式碼...
   });
+
+  // const findKey = (value) => {
+  //   return Object.keys(dict).find((key) => dict[key] === value);
+  // };
+  // brand_has.forEach((v) => {
+  //   (v.category_detail_sid = findKey(v.category_detail_sid)),
+  //     (v.for_pet_type = findKey(v.for_pet_type)),
+  //     (v.for_age = findKey(v.for_age));
+  // });
+
+  // brand.forEach((v1) => {
+  //   v1.category = [];
+  //   v1.typeForPet = [];
+  //   v1.typeForAge = [];
+  //   brand_has.forEach((v2) => {
+  //     if (v1.id === v2.id) {
+  //       if (!v1.category.includes(v2.category_detail_sid)) {
+  //         v1.category.push(v2.category_detail_sid);
+  //       }
+  //       if (!v1.typeForPet.includes(v2.for_pet_type)) {
+  //         v1.typeForPet.push(v2.for_pet_type);
+  //       }
+  //       if (!v1.typeForAge.includes(v2.for_age)) {
+  //         v1.typeForAge.push(v2.for_age);
+  //       }
+  //     }
+  //   });
+  // });
 
   brand.forEach((v1) => {
     if (v1.typeForPet.includes("cat") && v1.typeForPet.includes("dog")) {
@@ -193,8 +226,6 @@ router.get("/search-brand-list", async (req, res) => {
       v1.typeForAge = ["younger", "adult", "elder", "all"];
     }
   });
-
-  console.log(brand);
 
   let keywords = [];
   let productsName = [];
@@ -808,6 +839,32 @@ router.get("/create-comment", async (req, res) => {
       "我的寵物之前常常因為尺寸不合適而不舒服，但這個產品的尺寸可調整，很貼心",
       "這個產品讓我和寵物更加親近，共同享受戶外的美好時光",
       "這個產品適用於各種戶外情況，讓我和寵物都喜愛上了大自然",
+    ];
+
+    const OT_comment = [
+      "這款寵物寢具提供超柔軟的材質和絕佳的支撐性，讓我的寵物能夠安心入睡，而且易於清潔，真是一個值得推薦的選擇。",
+      "這個寵物寢具採用有機棉和天然草編織而成，對於尋求環保、無毒寢具的寵物主人來說是理想的選擇，而且也符合寵物的自然睡眠需求",
+      "這款寵物寢具不僅可以作為床墊使用，還可以變換形狀成為寵物窩或者玩耍的場所，真是一個實用又有趣的寢具",
+      "特別適合冬天使用的寵物寢具，它內部填充有保暖材料，讓我的寵物在寒冷的夜晚也能感到溫暖和舒適",
+      "這個寵物寢具表面採用防水防污材質，從現在再也不用擔心寵物弄髒或弄濕了，清潔也變得輕鬆簡單",
+      "這款寵物寢具使用了高級的記憶棉材料，給予我的寵物最佳的身體支撐，同時材質非常耐用，是一個值得投資的選擇",
+      "寵物寢具上設有可愛的玩具或者活動設計，使寵物在休息之餘也能享受一些遊樂時光，增加生活樂趣",
+      "這個特殊設計的寵物寢具可以摺疊或者疊放，節省了存放空間，非常適合小空間居住的寵物家庭",
+      "寵物寢具上採用了抗菌處理，有效抑制細菌滋生，為寵物的健康提供了更好的保護",
+      "這個寵物寢具經過嚴格的質量測試，符合相關安全標準，讓我對寵物的安全感到放心",
+    ];
+
+    const DR_comment = [
+      "這款寵物衣服不僅款式時尚，而且使用高品質的棉質材料，讓我的寵物在穿著時感到舒適自在",
+      "特別適合寒冷季節的寵物衣服，內部加厚保暖材料，讓我的寵物在寒冷的天氣裡保持溫暖",
+      "專為夏季設計的寵物衣服，使用透氣的材料，讓我的寵物在炎熱的天氣裡也能保持涼爽",
+      "這個寵物衣服採用彈性材料，貼身又不緊繃，讓我的寵物在穿著時有更好的活動自由",
+      "這款寵物衣服結合了功能性和時尚性，例如具有雨衣功能或者可換式的配件，增加了使用價值",
+      "這個寵物衣服經過環保材料測試，沒有有害物質，給我的寵物健康提供了保護",
+      "設計簡單易穿脫的寵物衣服，讓我不必花太多時間幫寵物穿衣服，寵物也更願意配合",
+      "這個寵物衣服有著可愛的圖案或者造型，讓我的寵物看起來更加討人喜歡",
+      "根據寵物的尺寸設計，這款寵物衣服無論是小型犬還是大型貓，都能找到適合的尺碼",
+      "這款寵物衣服容易清洗，可以機洗或手洗，讓我能夠輕鬆保持寵物的衛生和整潔",
     ];
 
     // if (doInsert > 0.5) {
