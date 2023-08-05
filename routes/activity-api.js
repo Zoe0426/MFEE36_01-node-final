@@ -111,19 +111,16 @@ router.get("/activity", async (req, res) => {
   //   where += ` AND ai.activity_type_sid = ${activity_type_sid}`;
   // }
 
-if (activity_type_sid) {
-  let activity_type_sids = Array.isArray(activity_type_sid)
-    ? activity_type_sid
-    : [activity_type_sid];
+  if (activity_type_sid) {
+    let activity_type_sids = Array.isArray(activity_type_sid)
+      ? activity_type_sid
+      : [activity_type_sid];
 
-  // 將陣列轉換成字串
-  let typeFilter = activity_type_sids.join(',');
+    // 將陣列轉換成字串
+    let typeFilter = activity_type_sids.join(",");
 
-  where += ` AND ai.activity_type_sid IN (${typeFilter})`;
-}
-
-
-
+    where += ` AND ai.activity_type_sid IN (${typeFilter})`;
+  }
 
   // 關鍵字
   if (keyword) {
@@ -172,8 +169,6 @@ if (activity_type_sid) {
     GROUP BY activity_sid
   ) ar ON ai.activity_sid = ar.activity_sid
   ${where} ${where_price}`;
-
- 
 
   const [[{ totalRows }]] = await db.query(sqlTotalRows);
   let totalPages = 0;
@@ -360,7 +355,6 @@ router.post("/addlikelist/:aid", async (req, res) => {
   }
 });
 
-
 // [aid] 動態路由
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
@@ -372,6 +366,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actFeatureRows: [],
     actRatingRows: [],
     actRecommend: [],
+    actCartTotalQtyRows:[],
   };
 
   const { activity_sid } = req.params;
@@ -484,6 +479,14 @@ GROUP BY
 
   let [actRecommend] = await db.query(sql_actRecommend);
 
+  // 取得 總購買數量
+  const sql_cartTotalQty = `SELECT rel_sid, COUNT(*) AS purchase_count
+  FROM order_details
+  WHERE rel_type='activity' AND rel_sid="${activity_sid}"
+  GROUP BY rel_sid`;
+
+  let [actCartTotalQtyRows] = await db.query(sql_cartTotalQty);
+
   // feature處理 (字串->陣列)
   // actDetailRows.map((activity) => {
   //   const featureNames = activity.feature_names;
@@ -532,6 +535,7 @@ GROUP BY
     actFeatureRows,
     actRatingRows,
     actRecommend,
+    actCartTotalQtyRows,
   };
 
   return res.json(output);
