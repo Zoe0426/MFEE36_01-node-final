@@ -33,9 +33,9 @@ const corsOptions = {
 //socket.io設定白名單
 const socketIO = require("socket.io");
 const io = socketIO(httpServer, {
+  credentials: true,
   cors: {
     origin: (origin, cb) => {
-      console.log({ origin });
       cb(null, true);
     },
   },
@@ -48,27 +48,38 @@ const io = socketIO(httpServer, {
   //     origin: req.headers.origin,
   //   };
   // },
-
-  // cors: {
-  //   origin: "http://localhost:3000"
-  // }
-
-  // allowRequest: (req, callback) => {
-  //   console.log(req.headers.origin)
-  //   // const noOriginHeader = req.headers.origin === undefined;
-  //   callback(null, req.headers.origin);
-  // }
 });
+
+const map = new Map();
 
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
-  // console.log(socket);
   console.log("success connect!");
-  //監聽透過 connection 傳進來的事件
-  socket.on("getMessage", (message) => {
-    //回傳 message 給發送訊息的 Client
-    socket.emit("getMessage", message);
+
+  // socket.on("getMessageAll", (message) => {
+  //   //回傳給所有連結著的 client
+  //   io.sockets.emit("getMessageAll", message);
+  // });
+
+  // 當使用者加入聊天室時
+  socket.on("joinRoom", (username) => {
+    socket.join("chatroom"); // 假設聊天室名稱為 chatroom
+    map.set(socket.id, { username }); // 將使用者名稱與 socket 綁定
+    io.to("chatroom").emit("partnerJoined", username); // 廣播給其他使用者有新的使用者加入
   });
+
+  // 當使用者傳送訊息時
+  socket.on("sendMessage", (message) => {
+    const sender = map.get(socket.id)?.username; // 從 Map 中取得使用者名稱
+    const roomName = "chatroom"; // 假設聊天室名稱為 chatroom
+    io.to(roomName).emit("receiveMessage", { sender, message }); // 廣播訊息給其他使用者，包含傳送者的使用者名稱
+  });
+
+  // 當使用者斷線時
+  socket.on("disconnect", () => {
+    map.delete(socket.id); // 從 Map 中移除斷線的使用者
+  });
+
 });
 
 //=====middle ware=====
