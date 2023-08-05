@@ -63,13 +63,26 @@ io.on("connection", (socket) => {
 
   // 當使用者加入聊天室時
   socket.on("joinRoom", (username) => {
+    const today = new Date();
+    const hours = String(today.getHours()).padStart(2, "0");
+    const minutes = String(today.getMinutes()).padStart(2, "0");
     socket.join("chatroom"); // 假設聊天室名稱為 chatroom
     map.set(socket.id, { username }); // 將使用者名稱與 socket 綁定
-    io.to("chatroom").emit("partnerJoined", username); // 廣播給其他使用者有新的使用者加入
+    // socket.to("chatroom").emit("getMessageAll", username); // 廣播給其他使用者有新的使用者加入
+    if (username !== "狗with咪客服") {
+      io.to("chatroom").emit("receiveMessage", {
+        sender: "狗with咪客服",
+        message: {
+          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+          time: hours + ":" + minutes,
+        },
+      });
+    }
   });
 
   // 當使用者傳送訊息時
   socket.on("sendMessage", (message) => {
+    console.log(message);
     const sender = map.get(socket.id)?.username; // 從 Map 中取得使用者名稱
     const roomName = "chatroom"; // 假設聊天室名稱為 chatroom
     io.to(roomName).emit("receiveMessage", { sender, message }); // 廣播訊息給其他使用者，包含傳送者的使用者名稱
@@ -77,9 +90,9 @@ io.on("connection", (socket) => {
 
   // 當使用者斷線時
   socket.on("disconnect", () => {
+    console.log("有人斷線....");
     map.delete(socket.id); // 從 Map 中移除斷線的使用者
   });
-
 });
 
 //=====middle ware=====
