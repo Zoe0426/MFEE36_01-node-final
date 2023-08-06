@@ -267,65 +267,81 @@ router.post ('/get-cart-items', async(req,res)=>{
         coupon:[],
     }
     const memberSid = req.body.member_sid;
-    const today = res.toDateString(new Date())
-    //getCartItems
-    const getCartItemSql = `SELECT sortedData.* FROM (SELECT
-            oc.cart_sid as cart_sid,
-            sp.product_sid as rel_sid,
-            sp.name as rel_name,
-            spd.product_detail_sid as rel_seq_sid,
-            spd.name as rel_seq_name,
-            spd.price as prod_price,
-            oc.product_qty as prod_qty,
-            oc.rel_type as rel_type,
-            0 as adult_price, 0 as child_price,
-            0 as adult_qty,
-            0 as child_qty,
-            sp.img as img,
-            oc.added_time
-        FROM
-            order_cart oc
-            JOIN shop_product sp ON oc.rel_sid = sp.product_sid
-            JOIN shop_product_detail spd ON sp.product_sid = spd.product_sid
-            AND oc.rel_seq_sid = spd.product_detail_sid
-        WHERE
-            oc.member_sid = ? 
-            AND oc.order_status = '001'
-        UNION
-        ALL 
-        SELECT
-            oc.cart_sid as cart_sid,
-            ai.activity_sid as rel_sid,
-            ai.name as rel_name,
-            ag.activity_group_sid as rel_seq_sid,
-            ag.date as rel_seq_name,
-            0 as prod_price,
-            0 as prod_qty,
-            oc.rel_type as rel_type,
-            ag.price_adult as adult_price,
-            ag.price_kid as child_price,
-            oc.adult_qty as adult_qty,
-            oc.child_qty as child_qty,
-            ai.activity_pic as img,
-            oc.added_time 
-        FROM
-            order_cart oc
-            JOIN activity_info ai ON oc.rel_sid = ai.activity_sid
-            JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
-            AND oc.rel_seq_sid = ag.activity_group_sid
-        WHERE
-            oc.member_sid = ? 
-            AND oc.order_status = '001'
-            )sortedData ORDER BY added_time DESC`;
-            //console.log(getCartItemSql);
-    const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
-    //console.log(cartData);
-    output.shop = cartData.filter(p=>p.rel_type === "shop");
-    const actData = cartData.filter(p=>p.rel_type === "activity")
-    output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
+    //const today = res.toDateString(new Date())
+    //=====getEmail=====
+    try{
+        const getEmailSql = `SELECT email FROM member_info WHERE member_sid = ?`;
+        const [emailData] = await db.query(getEmailSql,[memberSid]);
+        //console.log(emailData);
+        output.email = emailData[0].email;
+    }catch(error){
+        console.error(error);
+        throw new Error('取email時出錯');
+    }
+    //=====getCartItems=====
+    try{
+        const getCartItemSql = `SELECT sortedData.* FROM (SELECT
+                oc.cart_sid as cart_sid,
+                sp.product_sid as rel_sid,
+                sp.name as rel_name,
+                spd.product_detail_sid as rel_seq_sid,
+                spd.name as rel_seq_name,
+                spd.price as prod_price,
+                oc.product_qty as prod_qty,
+                oc.rel_type as rel_type,
+                0 as adult_price, 0 as child_price,
+                0 as adult_qty,
+                0 as child_qty,
+                sp.img as img,
+                oc.added_time
+            FROM
+                order_cart oc
+                JOIN shop_product sp ON oc.rel_sid = sp.product_sid
+                JOIN shop_product_detail spd ON sp.product_sid = spd.product_sid
+                AND oc.rel_seq_sid = spd.product_detail_sid
+            WHERE
+                oc.member_sid = ? 
+                AND oc.order_status = '001'
+            UNION
+            ALL 
+            SELECT
+                oc.cart_sid as cart_sid,
+                ai.activity_sid as rel_sid,
+                ai.name as rel_name,
+                ag.activity_group_sid as rel_seq_sid,
+                ag.date as rel_seq_name,
+                0 as prod_price,
+                0 as prod_qty,
+                oc.rel_type as rel_type,
+                ag.price_adult as adult_price,
+                ag.price_kid as child_price,
+                oc.adult_qty as adult_qty,
+                oc.child_qty as child_qty,
+                ai.activity_pic as img,
+                oc.added_time 
+            FROM
+                order_cart oc
+                JOIN activity_info ai ON oc.rel_sid = ai.activity_sid
+                JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+                AND oc.rel_seq_sid = ag.activity_group_sid
+            WHERE
+                oc.member_sid = ? 
+                AND oc.order_status = '001'
+                )sortedData ORDER BY added_time DESC`;
+                //console.log(getCartItemSql);
+        const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
+        //console.log(cartData);
+        output.shop = cartData.filter(p=>p.rel_type === "shop");
+        const actData = cartData.filter(p=>p.rel_type === "activity")
+        output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
+    }catch(error){
+        console.error(error);
+        throw new Error('取購物車資料時出錯');
+    }
 
-    //getHistoryPostDetails
-    const getAddressSql = `SELECT
+    //=====getHistoryPostDetails=====
+    try{
+        const getAddressSql = `SELECT
             ma.*,
             mi.email
         FROM
@@ -342,9 +358,14 @@ router.post ('/get-cart-items', async(req,res)=>{
     const [postData] = await db.query(getAddressSql,[memberSid]);
     //console.log(postData);
     output.postAddress =  postData;
+    }catch(error){
+        console.error(error);
+        throw new Error('取地址時出錯');
+    }
 
-    //getUsableCoupon
-    const getCouponSql =  `SELECT
+    //=====getUsableCoupon=====
+    try{
+        const getCouponSql =  `SELECT
             mcs.member_sid,
             mcs.coupon_sid,
             mcs.coupon_send_sid,
@@ -365,6 +386,11 @@ router.post ('/get-cart-items', async(req,res)=>{
     const [couponData] = await db.query(getCouponSql,memberSid);
     couponData.map(d=>d.exp_date = res.toDateString(d.exp_date))
     output.coupon = couponData;
+    }catch(error){
+        console.error(error);
+        throw new Error('取優惠券時出錯');
+    }
+    
 
     res.json(output);
 })
@@ -508,6 +534,66 @@ router.post('/remove-cart-item', async (req,res)=>{
     const removeResult = await updateCart(cartItems);
     console.log(removeResult);
     res.json(removeResult);
+})
+router.post('/add-newAddress', async(req,res)=>{
+    const output = {success:false}
+    const member_sid = req.body.member_sid;
+    const {recipient,recipient_phone,post_type,store_name, default_status, city, area, address} = req.body.data;
+    if(default_status===1){
+        try{
+            const updateDefaultSql = `UPDATE member_address SET default_status=0 WHERE member_sid = ?`;
+            const [result]= await db.query(updateDefaultSql, member_sid);
+        }catch(error){
+            console.error(error);
+            throw new Error('更新default值時出錯');
+        }
+    } 
+    try{
+        const addAddressSql = `INSERT INTO
+            member_address(
+                member_sid,
+                recipient,
+                recipient_phone,
+                post_type,
+                store_name,
+                default_status,
+                city,
+                area,
+                \`address\`
+            )
+            VALUES
+                (
+                    ?,?,?,?,?,?,?,?,?
+                )`;
+                console.log(addAddressSql);
+        const [addAddressResult] = await db.query(addAddressSql,[member_sid,
+                recipient,
+                recipient_phone,
+                post_type,
+                store_name,
+                default_status,
+                city,
+                area,
+                address])
+        addAddressResult.affectedRows && (output.success = true) &&(output.newId = addAddressResult.insertId);
+        res.json(output);
+    }catch(error){
+        console.error(error);
+        throw new Error('新增地址時出錯');
+    }
+})
+router.delete('/delete-address', async(req,res)=>{
+    const output = {success:false}
+    const address_sid = req.body.address_sid;
+    try{
+        const deleteAddressSql = `DELETE FROM member_address WHERE address_sid = ?`;
+        const [result]= await db.query(deleteAddressSql, address_sid);
+        result.affectedRows && (output.success=true)
+    }catch(error){
+        console.error(error);
+        throw new Error('更新default值時出錯');
+    }
+    res.json(output);
 })
 router.post('/create-order', async (req,res)=>{
     const output = {

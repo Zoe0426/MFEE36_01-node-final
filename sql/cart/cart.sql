@@ -324,7 +324,7 @@ FROM
             ab.*,
             (
                 SELECT
-                    `file`
+                    file
                 FROM
                     post_file pf
                 WHERE
@@ -381,3 +381,19 @@ FROM
 WHERE
     member_sid = 'mem00300'
     AND order_status = '001';
+
+--加地址
+INSERT INTO
+    member_address(
+        member_sid,
+        recipient,
+        recipient_phone,
+        post_type,
+        store_name,
+        default_status,
+        city,
+        area,
+        'address'
+    )
+VALUES
+    (?, ?, ?, ?, ?, ?, ?, ?, ?)
