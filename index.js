@@ -21,6 +21,7 @@ const dayjs = require("dayjs");
 const cors = require("cors");
 const bodyparesr = require("body-parser");
 const jwt = require("jsonwebtoken");
+const { v4: uuidv4 } = require("uuid");
 const corsOptions = {
   // Credential: true,
   credentials: true,
@@ -50,48 +51,130 @@ const io = socketIO(httpServer, {
   // },
 });
 
-const map = new Map();
+const rooms = new Map();
+
+function findAvailableRoom() {
+  for (const room of rooms.values()) {
+    if (room.users.length < 2) {
+      return room;
+    }
+  }
+  return null;
+}
+
+function createRoom() {
+  const roomName = generateRandomRoomName();
+
+  const newRoom = {
+    roomName,
+    users: [],
+  };
+  rooms.set(roomName, newRoom);
+  return newRoom;
+}
+
+function generateRandomRoomName() {
+  return uuidv4();
+}
 
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
   console.log("success connect!");
 
-  // socket.on("getMessageAll", (message) => {
-  //   //回傳給所有連結著的 client
-  //   io.sockets.emit("getMessageAll", message);
-  // });
-
-  // 當使用者加入聊天室時
   socket.on("joinRoom", (username) => {
+    let room = findAvailableRoom();
+
+    // 如果找不到可用的房間，就創建新的房間
+    if (!room) {
+      const newRoom = createRoom();
+      newRoom.users.push({ socketId: socket.id, username });
+      room = newRoom;
+    } else {
+      room.users.push({ socketId: socket.id, username });
+    }
+
+    socket.join(room.roomName);
+    rooms.set(socket.id, room);
+
+    // 發送歡迎訊息給使用者
     const today = new Date();
     const hours = String(today.getHours()).padStart(2, "0");
     const minutes = String(today.getMinutes()).padStart(2, "0");
-    socket.join("chatroom"); // 假設聊天室名稱為 chatroom
-    map.set(socket.id, { username }); // 將使用者名稱與 socket 綁定
-    // socket.to("chatroom").emit("getMessageAll", username); // 廣播給其他使用者有新的使用者加入
-    if (username !== "狗with咪客服") {
-      io.to("chatroom").emit("receiveMessage", {
-        sender: "狗with咪客服",
-        message: {
-          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
-          time: hours + ":" + minutes,
-        },
-      });
-    }
+    socket.emit("receiveMessage", {
+      sender: "狗with咪客服",
+      message: {
+        message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+        time: hours + ":" + minutes,
+        img: "",
+      },
+    });
   });
 
   // 當使用者傳送訊息時
   socket.on("sendMessage", (message) => {
     console.log(message);
-    const sender = map.get(socket.id)?.username; // 從 Map 中取得使用者名稱
-    const roomName = "chatroom"; // 假設聊天室名稱為 chatroom
-    io.to(roomName).emit("receiveMessage", { sender, message }); // 廣播訊息給其他使用者，包含傳送者的使用者名稱
+    const room = rooms.get(socket.id);
+    if (room) {
+      const sender = room.users.find(
+        (user) => user.socketId === socket.id
+      )?.username;
+      if (sender) {
+        io.to(room.roomName).emit("receiveMessage", { sender, message });
+      }
+    }
   });
 
-  // 當使用者斷線時
+  socket.on("leaveRoom", (data) => {
+    console.log(data);
+    const room = rooms.get(socket.id);
+    if (room) {
+      const sender = room.users.find(
+        (user) => user.socketId === socket.id
+      )?.username;
+      const userIndex = room.users.findIndex(
+        (user) => user.socketId === socket.id
+      );
+      if (sender) {
+        // console.log(message);
+        io.to(room.roomName).emit("receiveMessage", {
+          sender,
+          data,
+        });
+        room.users.splice(userIndex, 1);
+        rooms.delete(socket.id);
+      }
+    }
+  });
+
   socket.on("disconnect", () => {
-    console.log("有人斷線....");
-    map.delete(socket.id); // 從 Map 中移除斷線的使用者
+    const room = rooms.get(socket.id);
+    if (room) {
+      const userIndex = room.users.findIndex(
+        (user) => user.socketId === socket.id
+      );
+      if (userIndex !== -1) {
+        const sender = room.users.find(
+          (user) => user.socketId === socket.id
+        )?.username;
+        const today = new Date();
+        const hours = String(today.getHours()).padStart(2, "0");
+        const minutes = String(today.getMinutes()).padStart(2, "0");
+        //         io.to(room.roomName).emit("receiveMessage", {
+        //  sender, message, message.message: `${sender} 已離開聊天室`
+        //         });
+        io.to(room.roomName).emit("receiveMessage", {
+          sender,
+          message: {
+            sender,
+            message: `${sender} 已離開聊天室`,
+            time: hours + ":" + minutes,
+            img: "",
+          },
+        });
+        room.users.splice(userIndex, 1);
+        rooms.delete(socket.id);
+      }
+    }
   });
 });
 
