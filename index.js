@@ -112,7 +112,6 @@ io.on("connection", (socket) => {
 
   // 當使用者傳送訊息時
   socket.on("sendMessage", (message) => {
-    console.log(message);
     const room = rooms.get(socket.id);
     if (room) {
       const sender = room.users.find(
@@ -120,28 +119,6 @@ io.on("connection", (socket) => {
       )?.username;
       if (sender) {
         io.to(room.roomName).emit("receiveMessage", { sender, message });
-      }
-    }
-  });
-
-  socket.on("leaveRoom", (data) => {
-    console.log(data);
-    const room = rooms.get(socket.id);
-    if (room) {
-      const sender = room.users.find(
-        (user) => user.socketId === socket.id
-      )?.username;
-      const userIndex = room.users.findIndex(
-        (user) => user.socketId === socket.id
-      );
-      if (sender) {
-        // console.log(message);
-        io.to(room.roomName).emit("receiveMessage", {
-          sender,
-          data,
-        });
-        room.users.splice(userIndex, 1);
-        rooms.delete(socket.id);
       }
     }
   });
@@ -159,9 +136,6 @@ io.on("connection", (socket) => {
         const today = new Date();
         const hours = String(today.getHours()).padStart(2, "0");
         const minutes = String(today.getMinutes()).padStart(2, "0");
-        //         io.to(room.roomName).emit("receiveMessage", {
-        //  sender, message, message.message: `${sender} 已離開聊天室`
-        //         });
         io.to(room.roomName).emit("receiveMessage", {
           sender,
           message: {
