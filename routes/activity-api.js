@@ -52,7 +52,7 @@ router.get("/activity", async (req, res) => {
 
   let output = {
     totalRows: 0,
-    perPage: 16,
+    perPage: 8,
     totalPages: 0,
     page: 1,
     rows: [],
@@ -79,7 +79,7 @@ router.get("/activity", async (req, res) => {
   };
 
   // 給query string的
-  let perPage = req.query.perPage || 16;
+  let perPage = req.query.perPage || 8;
   let activity_type_sid = req.query.activity_type_sid || "";
   let keyword = req.query.keyword || "";
   let startDate = req.query.startDate || "";
@@ -306,6 +306,12 @@ router.get("/show-like-list", async (req, res) => {
 
 // 刪除收藏清單
 router.delete("/likelist/:aid", async (req, res) => {
+
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
   let member = "";
   if (res.locals.jwtData) {
     member = res.locals.jwtData.id;
@@ -314,21 +320,42 @@ router.delete("/likelist/:aid", async (req, res) => {
   const { aid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
   if (aid === "all") {
-    sql_deleteLikeList += `member_sid = ?`;
+    sql_deleteLikeList += `member_sid = '${member}'`;
   } else {
-    sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
+    sql_deleteLikeList += `member_sid = '${member}' AND activity_sid='${aid}'`;
   }
 
   try {
-    const [result] = await db.query(
-      sql_deleteLikeList,
-      aid === "all" ? [member] : [member, aid]
-    );
+    const [result] = await db.query(sql_deleteLikeList);
     res.json({ ...result });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
+
+  // let member = "";
+  // if (res.locals.jwtData) {
+  //   member = res.locals.jwtData.id;
+  // }
+
+  // const { aid } = req.params;
+  // let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
+  // if (aid === "all") {
+  //   sql_deleteLikeList += `member_sid = ?`;
+  // } else {
+  //   sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
+  // }
+
+  // try {
+  //   const [result] = await db.query(
+  //     sql_deleteLikeList,
+  //     aid === "all" ? [member] : [member, aid]
+  //   );
+  //   res.json({ ...result });
+  // } catch (error) {
+  //   console.log(error);
+  //   res.status(500).json({ error: "An error occurred" });
+  // }
 });
 
 // faheart新增收藏清單
