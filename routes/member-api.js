@@ -1026,3 +1026,36 @@ router.get("/getRestReview/:sid", async (req, res) => {
 
   res.json(rows);
 });
+
+// 每日簽到
+router.post("/createSignGame/:sid", async (req, res) => {
+  let { sid } = req.params;
+
+  const sqlCouponSend = `INSERT INTO member_coupon_send(
+    coupon_sid, member_sid, coupon_status, 
+    used_time, create_time
+    ) 
+    VALUES (
+      ?,?,?,
+      ?,NOW()
+    )`;
+
+  const [rowCouponSend] = await db.query(sqlCouponSend, ["COUPON00001", sid, 0, null]);
+
+  const sqlLastId = "SELECT LAST_INSERT_ID() as last_insert_id";
+
+  const [rows] = await db.query(sqlLastId);
+  const last_insert_id = rows[0].last_insert_id;
+  console.log("last_insert_id", last_insert_id);
+
+  const sqlSignGame = `INSERT INTO member_signin_game(
+    member_sid, coupon_send_sid, signin_time
+    )
+    VALUES (
+      ?,?,NOW()
+      )`;
+
+  const [rowSignGame] = await db.query(sqlSignGame, [sid, last_insert_id]);
+
+  res.json({ rowCouponSend: rowCouponSend, lastInsertId: last_insert_id, rowSignGame });
+});
