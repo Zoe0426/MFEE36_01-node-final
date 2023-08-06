@@ -178,6 +178,7 @@ router.get("/:postid", async (req, res) => {
     mi.member_ID,
     mi.profile, 
     pb.board_name, 
+    pb.board_sid, 
     pb.board_img, 
     plm.post_date, 
     plm.update_date, 
@@ -725,36 +726,39 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
   res.json({ result, addhsResult, addIMGresult });
 })
 
+
 // 編輯文章 (草稿夾及我的文章)
-router.post('/forum/blog/edit' , upload.array('photo', 10), async(req, res)=>{
-  const member_sid = req.body.memberSid;
+router.put('/forum/blog/edit' , upload.array('photo', 10), async(req, res)=>{
+  // const member_sid = req.body.memberSid;
   const board_sid = req.body.boardSid;
   const post_title = req.body.title;
   const post_content = req.body.content;
   const post_status = req.body.postStatus;
+  const post_sid = req.body.postid ;
+  console.log(post_sid);
 
   // 編輯文章標題 // 編輯文章內容
-  const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
-  VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,?)`;
-  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, post_status]);
-  console.log(result); 
-  // res.json(result)
+  // let mySid = ''; //新增文章若affectedRows是1，可以直接用insertId拿到最新的post_sid
+  // result.affectedRows === 1 && (mySid = result.insertId);
+  // console.log(mySid);
+  const upPostSql = `
+  UPDATE post_list_member
+  SET board_sid = ?, post_title = ?, post_content = ?, post_date = NOW(), post_status = ?
+  WHERE post_sid = ?
+`;
 
-  // 從資料庫拿最新文章的post sid (可以不用再跑一次資料庫)
-  // const [maxSid] = await db.query(`SELECT MAX(post_sid) as maxSid FROM post_list_member`)
-  // const mySid = maxSid[0].maxSid;
-  let mySid = ''; //新增文章若affectedRows是1，可以直接用insertId拿到最新的post_sid
-  result.affectedRows === 1 && (mySid = result.insertId);
-  console.log(mySid);
+const [result] = await db.query(upPostSql, [board_sid, post_title, post_content, post_status, post_sid]);
+console.log(result); 
+
 
   // 拿到的hashtags資料
   const hashtags = req.body.choseHashtag;
-  const addhsResult = []
+  const uphsResult = []
   //if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
     for(let ht of hashtags){ 
-      const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid) VALUES (?,?)`
-      const [addHTresult] = await db.query(addHashTagsql, [ht,mySid]);
-      addhsResult.push(addHTresult);
+      const upHashTagsql = `UPDATE post_hashtag SET hashtag_name = ? WHERE post_sid = ?`
+      const [upHTresult] = await db.query(upHashTagsql, [ht,post_sid]);
+      uphsResult.push(upHTresult);
     }
   //}
   
@@ -764,15 +768,15 @@ router.post('/forum/blog/edit' , upload.array('photo', 10), async(req, res)=>{
   console.log({files}); //這個是從前端收到的檔案們
   let uploadedPhotos = [];
   files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
-  console.log({uploadedPhotos}); //這個會拿到要進資利庫的照片名稱們（補寫一個sql來加到你的post_file資料表裡）
-  const addIMGresult = []; // 新增一個陣列來收集每次迭代的結果
+  console.log({uploadedPhotos}); //這個會拿到要進資料庫的照片名稱們（補寫一個sql來加到你的post_file資料表裡）
+  const upIMGresult = []; // 新增一個陣列來收集每次迭代的結果
   for (const photo of uploadedPhotos){
-    const addimgSql = `INSERT INTO post_file(post_sid, file_type, file, file_status) VALUES (?,'F01',?,1)`;
-    const [addIMGresultItem] = await db.query(addimgSql, [mySid, photo]);
-    addIMGresult.push(addIMGresultItem);
+    const upimgSql = `UPDATE post_file SET file= ? WHERE post_sid=?`;
+    const [upIMGresultItem] = await db.query(upimgSql, [photo,post_sid]);
+    upIMGresult.push(upIMGresultItem);
   }
   
-  res.json({ result, addhsResult, addIMGresult });
+  res.json({ result, uphsResult, upIMGresult });
 })
 
 
