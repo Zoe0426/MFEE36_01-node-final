@@ -75,7 +75,7 @@ router.get("/activity", async (req, res) => {
 
     date_DESC: "recent_date DESC",
     date_ASC: "recent_date ASC",
-    hot_DESC: "sales_qty DESC", // TODO: 需再確認cart那邊怎麼抓熱門活動
+    hot_DESC: "purchase_count DESC", 
   };
 
   // 給query string的
@@ -184,13 +184,13 @@ router.get("/activity", async (req, res) => {
     }
 
     const sqlQuery = `
-    SELECT activity_sid, name, content, city, area, address, avg_rating,activity_pic,
+    SELECT activity_sid, name, content, city, area, address, avg_rating,purchase_count,activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
       GROUP_CONCAT(DISTINCT feature_name) AS feature_names,
       type_name, time, price_adult,
       MAX(post_date) AS post_date
     FROM (
-      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic,
+      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.purchase_count, ai.avg_rating, ai.activity_pic,
         ag.date AS recent_date, ag.date AS farthest_date,
         af.name AS feature_name,
         aty.name AS type_name, ag.time, ag.price_adult,
@@ -207,7 +207,7 @@ router.get("/activity", async (req, res) => {
       ) ar ON ai.activity_sid = ar.activity_sid
       ${where} ${where_price}
     ) AS subquery
-    GROUP BY activity_sid, name, content, city, area, address, avg_rating,activity_pic, type_name, time, price_adult
+    GROUP BY activity_sid, name, content, city, area, address,purchase_count, avg_rating,activity_pic, type_name, time, price_adult
     ${order}
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
