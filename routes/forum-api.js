@@ -687,7 +687,7 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
   // 新增文章標題 // 新增文章內容
   const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
   VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,?)`;
-  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, post_status]);
+  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, 1]);
   console.log(result); 
   // res.json(result)
 
@@ -700,14 +700,16 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
 
   // 拿到的hashtags資料
   const hashtags = req.body.choseHashtag;
+  const tags = hashtags.split(',')
   const addhsResult = []
-  //if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
-    for(let ht of hashtags){ 
+  console.log({tags})
+  if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
+    for(let ht of tags){ 
       const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid) VALUES (?,?)`
       const [addHTresult] = await db.query(addHashTagsql, [ht,mySid]);
       addhsResult.push(addHTresult);
     }
-  //}
+  }
   
   // 上傳多張圖片
   console.log(req.files)
@@ -735,7 +737,7 @@ router.put('/forum/blog/edit' , upload.array('photo', 10), async(req, res)=>{
   const post_content = req.body.content;
   const post_status = req.body.postStatus;
   const post_sid = req.body.postid ;
-  console.log(post_sid);
+  console.log('post_sid',post_sid);
 
   // 編輯文章標題 // 編輯文章內容
   // let mySid = ''; //新增文章若affectedRows是1，可以直接用insertId拿到最新的post_sid
@@ -753,14 +755,17 @@ console.log(result);
 
   // 拿到的hashtags資料
   const hashtags = req.body.choseHashtag;
+  console.log({hashtags})
+  const tags = hashtags.split(',')
   const uphsResult = []
-  //if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
-    for(let ht of hashtags){ 
-      const upHashTagsql = `UPDATE post_hashtag SET hashtag_name = ? WHERE post_sid = ?`
-      const [upHTresult] = await db.query(upHashTagsql, [ht,post_sid]);
-      uphsResult.push(upHTresult);
-    }
-  //}
+  console.log({tags})
+  // if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
+  //   for(let ht of tags){ 
+  //     const upHashTagsql = `UPDATE post_hashtag SET hashtag_name = ? WHERE post_sid = ?`
+  //     const [upHTresult] = await db.query(upHashTagsql, [ht,post_sid]);
+  //     uphsResult.push(upHTresult);
+  //   }
+  // }
   
   // 上傳多張圖片
   console.log(req.files)
