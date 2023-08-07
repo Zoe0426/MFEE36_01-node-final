@@ -298,7 +298,7 @@ router.get("/list", async (req, res) => {
       });
     }
   }
-  console.log(rows);
+  // console.log(rows);
   output = { ...output, totalRows, perPage, totalPages, page, rows, keyword };
   return res.json(output);
 });
@@ -507,6 +507,34 @@ router.get("/booking", async (req, res) => {
     v.date = `${date.getMonth() + 1}/${date.getDate()} (${
       ["日", "一", "二", "三", "四", "五", "六"][date.getDay()]
     })`;
+  });
+
+  const member_aql =
+    "SELECT `member_sid`, `name`, `mobile` FROM `member_info` WHERE `member_sid`='mem00300'";
+  [memberRows] = await db.query(member_aql);
+
+  output = {
+    ...output,
+    bookingRows,
+    memberRows,
+  };
+  return res.json(output);
+});
+router.get("/booking2", async (req, res) => {
+  let output = {
+    bookingRows: [],
+    memberRows: [],
+  };
+  const book_sql =
+    "SELECT t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`city`, t2.`people_max` - IFNULL(SUM(rb.`people_num`), 0) AS `remaining_slots` FROM `restaurant_period_of_time` t1 JOIN `restaurant_information` t2 ON t1.`rest_sid` = t2.`rest_sid` LEFT JOIN `restaurant_booking` rb ON t1.`rest_sid` = rb.`rest_sid` AND t1.`section_code` = rb.`section_code` WHERE t1.`rest_sid` = 4 GROUP BY t1.`rest_sid`, t1.`section_code`, t1.`time`, t1.`date`, t2.`name`, t2.`people_max`,t2.`city`;";
+
+  [bookingRows] = await db.query(book_sql);
+  bookingRows.forEach((v) => {
+    const date = new Date(v.date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    v.date = `${year}-${month}-${day}`;
   });
 
   const member_aql =
