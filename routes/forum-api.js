@@ -758,26 +758,31 @@ console.log(result);
   console.log({hashtags})
   const tags = hashtags.split(',')
   const uphsResult = []
+  const delHashTagsql = `DELETE FROM post_hashtag WHERE post_sid=?`
+  const [delHTresult] = await db.query(delHashTagsql, [post_sid]);
+  // 先刪除原本的話題資料再新增進去
   console.log({tags})
-  // if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
-  //   for(let ht of tags){ 
-  //     const upHashTagsql = `UPDATE post_hashtag SET hashtag_name = ? WHERE post_sid = ?`
-  //     const [upHTresult] = await db.query(upHashTagsql, [ht,post_sid]);
-  //     uphsResult.push(upHTresult);
-  //   }
-  // }
+  if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
+    for(let ht of tags){ 
+      const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid) VALUES (?,?)`
+      const [addHTresult] = await db.query(addHashTagsql,[ht,post_sid]);
+      uphsResult.push(addHTresult);
+    }
+  }
   
   // 上傳多張圖片
   console.log(req.files)
   const files = req.files;
   console.log({files}); //這個是從前端收到的檔案們
   let uploadedPhotos = [];
+  const delImg = `DELETE FROM post_file WHERE post_sid=?`
+  const [delImgResult] = await db.query(delImg,[post_sid]);
   files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
   console.log({uploadedPhotos}); //這個會拿到要進資料庫的照片名稱們（補寫一個sql來加到你的post_file資料表裡）
   const upIMGresult = []; // 新增一個陣列來收集每次迭代的結果
   for (const photo of uploadedPhotos){
-    const upimgSql = `UPDATE post_file SET file= ? WHERE post_sid=?`;
-    const [upIMGresultItem] = await db.query(upimgSql, [photo,post_sid]);
+    const addImgSql = `INSERT INTO post_file (post_sid, file) VALUES (?,?)`;
+    const [upIMGresultItem] = await db.query(addImgSql, [photo,post_sid]);
     upIMGresult.push(upIMGresultItem);
   }
   
