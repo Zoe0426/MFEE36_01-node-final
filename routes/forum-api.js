@@ -683,11 +683,12 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
   const post_title = req.body.title;
   const post_content = req.body.content;
   const post_status = req.body.postStatus;
+  console.log('member_sid',member_sid);
 
   // 新增文章標題 // 新增文章內容
   const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
   VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,?)`;
-  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, 1]);
+  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, post_status]);
   console.log(result); 
   // res.json(result)
 
@@ -777,12 +778,13 @@ console.log(result);
   let uploadedPhotos = [];
   const delImg = `DELETE FROM post_file WHERE post_sid=?`
   const [delImgResult] = await db.query(delImg,[post_sid]);
-  files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
+  // files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
+  uploadedPhotos = files.map(v=>v.filename);
   console.log({uploadedPhotos}); //這個會拿到要進資料庫的照片名稱們（補寫一個sql來加到你的post_file資料表裡）
   const upIMGresult = []; // 新增一個陣列來收集每次迭代的結果
   for (const photo of uploadedPhotos){
-    const addImgSql = `INSERT INTO post_file (post_sid, file) VALUES (?,?)`;
-    const [upIMGresultItem] = await db.query(addImgSql, [photo,post_sid]);
+    const addImgSql = `INSERT INTO post_file(post_sid, file_type, file, file_status) VALUES (?,'F01',?,1)`;
+    const [upIMGresultItem] = await db.query(addImgSql, [post_sid, photo]);
     upIMGresult.push(upIMGresultItem);
   }
   
