@@ -1027,9 +1027,52 @@ router.get("/getRestReview/:sid", async (req, res) => {
   res.json(rows);
 });
 
-// 每日簽到
-router.post("/createSignGame/:sid", async (req, res) => {
-  let { sid } = req.params;
+//讀取每日簽到時間
+router.get("/getSignGame", async (req, res) => {
+  // let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
+
+  const [sqlGetSignTime] = await db.query(
+    `SELECT signin_time 
+  FROM member_signin_game 
+  WHERE member_sid="${sid}"
+  ORDER BY signin_time DESC 
+  LIMIT 1`
+  );
+
+  res.json(sqlGetSignTime);
+});
+
+// 每日簽到寫入
+router.post("/createSignGame", async (req, res) => {
+  // let { sid } = req.params;
+
+  const output = {
+    success: false,
+    error: "",
+    data: null,
+  };
+
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(jwtData);
+
+  const sid = res.locals.jwtData.id;
 
   const sqlCouponSend = `INSERT INTO member_coupon_send(
     coupon_sid, member_sid, coupon_status, 
