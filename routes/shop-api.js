@@ -122,7 +122,7 @@ router.get("/hompage-cards", async (req, res) => {
   keywords = [...productsName, ...tags, ...brandsName].sort((a, b) =>
     a.localeCompare(b, "zh-Hant")
   );
-  console.log(keywords);
+
   res.json({ dogDatas, catDatas, brandData, newData, keywords });
 });
 
