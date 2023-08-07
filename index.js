@@ -12,55 +12,189 @@ if (process.argv[2] === "production") {
 }
 
 //=====載入node套件=====
-const http = require('http');
+const http = require("http");
 const express = require("express");
 const app = express();
-const httpServer =  http.createServer(app)
+const httpServer = http.createServer(app);
 const db = require(__dirname + "/modules/db_connect");
 const dayjs = require("dayjs");
 const cors = require("cors");
 const bodyparesr = require("body-parser");
 const jwt = require("jsonwebtoken");
+const { v4: uuidv4 } = require("uuid");
 const corsOptions = {
-  Credential: true,
+  // Credential: true,
+  credentials: true,
   origin: (origin, cb) => {
     console.log({ origin });
     cb(null, true);
   },
 };
 
-
 //socket.io設定白名單
-const io = require("socket.io")(httpServer,{
-  
-    cors: (req, res)=>{
-      // console.log(req, res)
-      console.log(req.headers.origin)
-      return{
-        origin: req.headers.origin
-      }
-    }
-  // cors: {
-  //   origin: "http://localhost:3000"
-  // }
+const socketIO = require("socket.io");
+const io = socketIO(httpServer, {
+  credentials: true,
+  cors: {
+    origin: (origin, cb) => {
+      cb(null, true);
+    },
+  },
 
-  // allowRequest: (req, callback) => {
-  //   console.log(req.headers.origin)
-  //   // const noOriginHeader = req.headers.origin === undefined;
-  //   callback(null, req.headers.origin);
-  // }
+  //老師寫的
+  // cors: (req, res) => {
+  //   // console.log(req, res)
+  //   console.log({ socket: req.headers.origin });
+  //   return {
+  //     origin: req.headers.origin,
+  //   };
+  // },
 });
+
+const rooms = new Map();
+
+function findAvailableRoom() {
+  for (const room of rooms.values()) {
+    if (room.users.length < 2) {
+      return room;
+    }
+  }
+  return null;
+}
+
+function createRoom(adminUsername) {
+  const roomName = generateRandomRoomName();
+
+  const newRoom = {
+    roomName,
+    users: [],
+    admin: adminUsername,
+  };
+  rooms.set(roomName, newRoom);
+  return newRoom;
+}
+
+function generateRandomRoomName() {
+  return uuidv4();
+}
 
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
   console.log("success connect!");
-  //監聽透過 connection 傳進來的事件
-  socket.on("getMessage", (message) => {
-    //回傳 message 給發送訊息的 Client
-    socket.emit("getMessage", message);
+
+  socket.on("joinRoom", (username) => {
+    const adminUsername = "狗with咪客服";
+    // let room = findAvailableRoom();
+
+    // 如果找不到可用的房間，就創建新的房間
+    // if (!room) {
+    //   const newRoom = createRoom();
+    //   newRoom.users.push({ socketId: socket.id, username });
+    //   room = newRoom;
+    // } else {
+    //   room.users.push({ socketId: socket.id, username });
+    // }
+
+    // socket.join(room.roomName);
+    // rooms.set(socket.id, room);
+
+    // 發送歡迎訊息給使用者
+    // const today = new Date();
+    // const hours = String(today.getHours()).padStart(2, "0");
+    // const minutes = String(today.getMinutes()).padStart(2, "0");
+    // socket.emit("receiveMessage", {
+    //   sender: "狗with咪客服",
+    //   message: {
+    //     message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+    //     time: hours + ":" + minutes,
+    //     img: "",
+    //   },
+    // });
+
+    if (username === adminUsername) {
+      let room = findAvailableRoom();
+      room.users.push({ socketId: socket.id, username });
+      socket.join(room.roomName);
+      rooms.set(socket.id, room);
+
+      const today = new Date();
+      const hours = String(today.getHours()).padStart(2, "0");
+      const minutes = String(today.getMinutes()).padStart(2, "0");
+      socket.emit("receiveMessage", {
+        sender: "狗with咪客服",
+        message: {
+          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+          time: hours + ":" + minutes,
+          img: "",
+        },
+      });
+    } else {
+      // 非管理员用户分配到其他房间
+      const newRoom = createRoom(adminUsername);
+      newRoom.users.push({ socketId: socket.id, username });
+      socket.join(newRoom.roomName);
+      rooms.set(socket.id, newRoom);
+
+      const today = new Date();
+      const hours = String(today.getHours()).padStart(2, "0");
+      const minutes = String(today.getMinutes()).padStart(2, "0");
+      socket.emit("receiveMessage", {
+        sender: "狗with咪客服",
+        message: {
+          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+          time: hours + ":" + minutes,
+          img: "",
+        },
+      });
+    }
+  });
+
+  // 當使用者傳送訊息時
+  socket.on("sendMessage", (message) => {
+    const room = rooms.get(socket.id);
+    if (room) {
+      const sender = room.users.find(
+        (user) => user.socketId === socket.id
+      )?.username;
+      if (sender) {
+        io.to(room.roomName).emit("receiveMessage", { sender, message });
+      }
+    }
+  });
+
+  socket.on("disconnect", () => {
+    const room = rooms.get(socket.id);
+    if (room) {
+      const userIndex = room.users.findIndex(
+        (user) => user.socketId === socket.id
+      );
+      if (userIndex !== -1) {
+        const sender = room.users.find(
+          (user) => user.socketId === socket.id
+        )?.username;
+        const today = new Date();
+        const hours = String(today.getHours()).padStart(2, "0");
+        const minutes = String(today.getMinutes()).padStart(2, "0");
+        io.to(room.roomName).emit("receiveMessage", {
+          sender,
+          message: {
+            sender,
+            message: `${sender} 已離開聊天室`,
+            time: hours + ":" + minutes,
+            img: "",
+          },
+        });
+        room.users.splice(userIndex, 1);
+        rooms.delete(socket.id);
+
+        // 如果聊天室沒人，从rooms Map中删除
+        if (room.users.length === 0) {
+          rooms.delete(room.roomName);
+        }
+      }
+    }
   });
 });
-
 
 //=====middle ware=====
 app.use(bodyparesr.json());
@@ -74,23 +208,23 @@ app.use((req, res, next) => {
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDateDayString = (d)=>{
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      const date = dayjs(d).format("YYYY.MM.DD")
-      const Dday = new Date(date);
-      const dayOfWeek = weekdays[Dday.getDay()];
-      return `${date}(${dayOfWeek})`;
-  }
+  res.toDateDayString = (d) => {
+    const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+    const date = dayjs(d).format("YYYY.MM.DD");
+    const Dday = new Date(date);
+    const dayOfWeek = weekdays[Dday.getDay()];
+    return `${date}(${dayOfWeek})`;
+  };
   res.toDatetimeString = (d) => {
     const fm = "YYYY-MM-DD HH:mm:ss";
     const djs = dayjs(d);
     return djs.format(fm);
   };
-  res.toDatetimeString2 = (d)=>{
-        const fm = "YYYY/MM/DD HH:mm:ss";
-        const djs = dayjs(d);
-        return djs.format(fm);
-  }
+  res.toDatetimeString2 = (d) => {
+    const fm = "YYYY/MM/DD HH:mm:ss";
+    const djs = dayjs(d);
+    return djs.format(fm);
+  };
 
   const auth = req.get("Authorization");
   if (auth && auth.indexOf("Bearer ") === 0) {
@@ -104,7 +238,7 @@ app.use((req, res, next) => {
     }
     // console.log(jwtData);
   }
-   
+
   next();
 });
 
