@@ -52,7 +52,7 @@ router.get("/activity", async (req, res) => {
 
   let output = {
     totalRows: 0,
-    perPage: 16,
+    perPage: 8,
     totalPages: 0,
     page: 1,
     rows: [],
@@ -75,11 +75,11 @@ router.get("/activity", async (req, res) => {
 
     date_DESC: "recent_date DESC",
     date_ASC: "recent_date ASC",
-    hot_DESC: "sales_qty DESC", // TODO: 需再確認cart那邊怎麼抓熱門活動
+    hot_DESC: "purchase_count DESC", 
   };
 
   // 給query string的
-  let perPage = req.query.perPage || 16;
+  let perPage = req.query.perPage || 8;
   let activity_type_sid = req.query.activity_type_sid || "";
   let keyword = req.query.keyword || "";
   let startDate = req.query.startDate || "";
@@ -111,19 +111,16 @@ router.get("/activity", async (req, res) => {
   //   where += ` AND ai.activity_type_sid = ${activity_type_sid}`;
   // }
 
-if (activity_type_sid) {
-  let activity_type_sids = Array.isArray(activity_type_sid)
-    ? activity_type_sid
-    : [activity_type_sid];
+  if (activity_type_sid) {
+    let activity_type_sids = Array.isArray(activity_type_sid)
+      ? activity_type_sid
+      : [activity_type_sid];
 
-  // 將陣列轉換成字串
-  let typeFilter = activity_type_sids.join(',');
+    // 將陣列轉換成字串
+    let typeFilter = activity_type_sids.join(",");
 
-  where += ` AND ai.activity_type_sid IN (${typeFilter})`;
-}
-
-
-
+    where += ` AND ai.activity_type_sid IN (${typeFilter})`;
+  }
 
   // 關鍵字
   if (keyword) {
@@ -173,8 +170,6 @@ if (activity_type_sid) {
   ) ar ON ai.activity_sid = ar.activity_sid
   ${where} ${where_price}`;
 
- 
-
   const [[{ totalRows }]] = await db.query(sqlTotalRows);
   let totalPages = 0;
   let rows = [];
@@ -189,13 +184,13 @@ if (activity_type_sid) {
     }
 
     const sqlQuery = `
-    SELECT activity_sid, name, content, city, area, address, avg_rating,activity_pic,
+    SELECT activity_sid, name, content, city, area, address, avg_rating,purchase_count,activity_pic,
       MAX(recent_date) AS recent_date, MAX(farthest_date) AS farthest_date,
       GROUP_CONCAT(DISTINCT feature_name) AS feature_names,
       type_name, time, price_adult,
       MAX(post_date) AS post_date
     FROM (
-      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic,
+      SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.purchase_count, ai.avg_rating, ai.activity_pic,
         ag.date AS recent_date, ag.date AS farthest_date,
         af.name AS feature_name,
         aty.name AS type_name, ag.time, ag.price_adult,
@@ -212,7 +207,7 @@ if (activity_type_sid) {
       ) ar ON ai.activity_sid = ar.activity_sid
       ${where} ${where_price}
     ) AS subquery
-    GROUP BY activity_sid, name, content, city, area, address, avg_rating,activity_pic, type_name, time, price_adult
+    GROUP BY activity_sid, name, content, city, area, address,purchase_count, avg_rating,activity_pic, type_name, time, price_adult
     ${order}
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
@@ -311,6 +306,12 @@ router.get("/show-like-list", async (req, res) => {
 
 // 刪除收藏清單
 router.delete("/likelist/:aid", async (req, res) => {
+
+  let output = {
+    success: true,
+    likeDatas: [],
+  };
+
   let member = "";
   if (res.locals.jwtData) {
     member = res.locals.jwtData.id;
@@ -319,21 +320,42 @@ router.delete("/likelist/:aid", async (req, res) => {
   const { aid } = req.params;
   let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
   if (aid === "all") {
-    sql_deleteLikeList += `member_sid = ?`;
+    sql_deleteLikeList += `member_sid = '${member}'`;
   } else {
-    sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
+    sql_deleteLikeList += `member_sid = '${member}' AND activity_sid='${aid}'`;
   }
 
   try {
-    const [result] = await db.query(
-      sql_deleteLikeList,
-      aid === "all" ? [member] : [member, aid]
-    );
+    const [result] = await db.query(sql_deleteLikeList);
     res.json({ ...result });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "An error occurred" });
   }
+
+  // let member = "";
+  // if (res.locals.jwtData) {
+  //   member = res.locals.jwtData.id;
+  // }
+
+  // const { aid } = req.params;
+  // let sql_deleteLikeList = "DELETE FROM `activity_like` WHERE ";
+  // if (aid === "all") {
+  //   sql_deleteLikeList += `member_sid = ?`;
+  // } else {
+  //   sql_deleteLikeList += `member_sid = ? AND activity_sid = ?`;
+  // }
+
+  // try {
+  //   const [result] = await db.query(
+  //     sql_deleteLikeList,
+  //     aid === "all" ? [member] : [member, aid]
+  //   );
+  //   res.json({ ...result });
+  // } catch (error) {
+  //   console.log(error);
+  //   res.status(500).json({ error: "An error occurred" });
+  // }
 });
 
 // faheart新增收藏清單
@@ -360,7 +382,6 @@ router.post("/addlikelist/:aid", async (req, res) => {
   }
 });
 
-
 // [aid] 動態路由
 router.get("/activity/:activity_sid", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/activity/活動的sid
@@ -372,6 +393,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actFeatureRows: [],
     actRatingRows: [],
     actRecommend: [],
+    actCartTotalQtyRows:[],
   };
 
   const { activity_sid } = req.params;
@@ -484,6 +506,14 @@ GROUP BY
 
   let [actRecommend] = await db.query(sql_actRecommend);
 
+  // 取得 總購買數量
+  const sql_cartTotalQty = `SELECT rel_sid, COUNT(*) AS purchase_count
+  FROM order_details
+  WHERE rel_type='activity' AND rel_sid="${activity_sid}"
+  GROUP BY rel_sid`;
+
+  let [actCartTotalQtyRows] = await db.query(sql_cartTotalQty);
+
   // feature處理 (字串->陣列)
   // actDetailRows.map((activity) => {
   //   const featureNames = activity.feature_names;
@@ -532,6 +562,7 @@ GROUP BY
     actFeatureRows,
     actRatingRows,
     actRecommend,
+    actCartTotalQtyRows,
   };
 
   return res.json(output);
