@@ -307,7 +307,7 @@ const getOrderDetail = async(orderSid)=>{
             WHERE
                 od.order_sid = ?`;
         const [details] = await db.query(getOrderDetailSql, [orderSid,orderSid]);
-        output.details = details;
+        output.details = details.map(v=>({...v,img:(v.img).split(',')[0]}));
         output.checkoutType = details[0].rel_type;
         
 
@@ -570,6 +570,7 @@ router.get('/get-home-data', async(req,res)=>{
   r.area,
   r.average_friendly,
   r.booking_count,
+  r.info,
   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
   GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
@@ -589,7 +590,8 @@ router.get('/get-home-data', async(req,res)=>{
     r.city,
     r.area,
     r.average_friendly,
-    r.booking_count
+    r.booking_count,
+    r.info
   ORDER BY
     booking_count DESC
     LIMIT 2;`;
