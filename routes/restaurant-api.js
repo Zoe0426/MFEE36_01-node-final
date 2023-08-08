@@ -520,7 +520,7 @@ router.get("/booking", async (req, res) => {
   };
   return res.json(output);
 });
-router.get("/booking2", async (req, res) => {
+router.get("/calendar", async (req, res) => {
   let output = {
     bookingRows: [],
     memberRows: [],
