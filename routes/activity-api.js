@@ -75,7 +75,7 @@ router.get("/activity", async (req, res) => {
 
     date_DESC: "recent_date DESC",
     date_ASC: "recent_date ASC",
-    hot_DESC: "purchase_count DESC", 
+    hot_DESC: "purchase_count DESC",
   };
 
   // 給query string的
@@ -306,7 +306,6 @@ router.get("/show-like-list", async (req, res) => {
 
 // 刪除收藏清單
 router.delete("/likelist/:aid", async (req, res) => {
-
   let output = {
     success: true,
     likeDatas: [],
@@ -393,7 +392,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
     actFeatureRows: [],
     actRatingRows: [],
     actRecommend: [],
-    actCartTotalQtyRows:[],
+    actCartTotalQtyRows: [],
   };
 
   const { activity_sid } = req.params;
@@ -614,68 +613,94 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
   }
 });
 
-// [aid] 新增活動訂單
-// router.post("/order-activity/:activity_sid", async (req, res) => {
-//   console.log('Reached the order-activity route handler');
-//   console.log('Request Params:', req.params);
-//   console.log('Request Body:', req.body);
+//讀取願望清單
+router.get("/vote", async (req, res) => {
+  // 網址在這裡看 http://localhost:3002/activity-api/vote
 
-//   let member = "";
-//   if (res.locals.jwtData) {
-//     member = res.locals.jwtData.id;
-//   }
+  let output = {
+    totalRows: 0,
+    perPage: 12,
+    totalPages: 0,
+    page: 1,
+    rows: [],
+    topVoteRows:[],
+  };
 
-//   const { activity_sid } = req.params;
-//   console.log(req.params);
-//   const { rel_seq_sid, adult_qty, child_qty } = req.body;
+  // 給query string的
+  let perPage = req.query.perPage || 12;
+  let keyword = req.query.keyword || "";
+  let page = req.query.page ? parseInt(req.query.page) : 1;
 
-//   const sql_orderActivity = `
-//   INSERT INTO order_cart(member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status) VALUES (?,'activity',?,?,null,?,?,'001')`;
+  if (!page || page < 1) {
+    page = 1;
+  }
 
-//   try {
+  //queryString
+  let where = " WHERE 1";
 
-//     const [result] = await db.query(sql_orderActivity, [
-//       member,
-//       activity_sid,
-//       rel_seq_sid,
-//       adult_qty,
-//       child_qty,
-//     ]);
+  // 關鍵字
+  if (keyword) {
+    const kw_escaped = db.escape("%" + keyword + "%");
+    where += ` AND aw.name LIKE ${kw_escaped}`;
+  }
 
-//     res.json({ ...result });
-//     console.log('會員ID:', member);
-//   } catch (error) {
-//     console.log(error);
-//     res.status(500).json({ error: "An error occurred" });
-//   }
-// });
+  // 分頁
+  const sqlQuery = `
+    SELECT aw.activity_wish_sid, aw.member_sid, aw.name, aw.city, aw.area, aw.content, aw.other_message, aw.wish_date, IFNULL(v.vote_count, 0) AS vote_count, mi.profile
+    FROM activity_wish aw
+    LEFT JOIN (
+      SELECT activity_wish_sid, COUNT(activity_vote_sid) AS vote_count
+      FROM activity_vote
+      GROUP BY activity_wish_sid
+    ) v ON aw.activity_wish_sid = v.activity_wish_sid
+    LEFT JOIN member_info mi ON aw.member_sid = mi.member_sid
+    ${where}
+    ORDER BY aw.wish_date
+    LIMIT ${perPage * (page - 1)}, ${perPage}
+  `;
 
-//[aid] 取得活動訂單資料
-// router.get("check-order-activity/:activity_sid", async (req, res) => {
+  // 總行數
+  const sqlTotalRows = `
+    SELECT COUNT(*) AS totalRows
+    FROM activity_wish aw
+    LEFT JOIN (
+      SELECT activity_wish_sid, COUNT(activity_vote_sid) AS vote_count
+      FROM activity_vote
+      GROUP BY activity_wish_sid
+    ) v ON aw.activity_wish_sid = v.activity_wish_sid
+    LEFT JOIN member_info mi ON aw.member_sid = mi.member_sid
+    ${where}
+  `;
 
-//   let member = "";
-//   if (res.locals.jwtData) {
-//     member = res.locals.jwtData.id;
-//   }
+  const [[{ totalRows }]] = await db.query(sqlTotalRows); 
 
-//   const { activity_sid } = req.params;
-//   console.log(req.params);
+  const [rows] = await db.query(sqlQuery); 
 
-//   try {
-//     let sql_checkOrderActivity;
-//     if (member && activity_sid) {
-//       sql_checkOrderActivity = `
-//       SELECT cart_sid, member_sid, rel_type, rel_sid, rel_seq_sid, product_qty, adult_qty, child_qty, order_status FROM order_cart WHERE rel_type='activity' AND member_sid='${member}' AND rel_sid='${activity_sid}'`;
-//     }
-//     const [result] = await db.query(sql_checkOrderActivity);
 
-//     res.json({ ...result });
-//     console.log('會員ID:', member);
-//   } catch (error) {
-//     console.log(error);
-//     res.status(500).json({ error: "An error occurred" });
-//   }
+  // 呼聲最高
+  const top_vote = `SELECT aw.activity_wish_sid, aw.member_sid, aw.name, aw.city, aw.area, aw.content, aw.other_message, aw.wish_date, IFNULL(v.vote_count, 0) AS vote_count, mi.profile FROM activity_wish aw LEFT JOIN ( SELECT activity_wish_sid, COUNT(activity_vote_sid) AS vote_count FROM activity_vote GROUP BY activity_wish_sid) v ON aw.activity_wish_sid = v.activity_wish_sid LEFT JOIN member_info mi ON aw.member_sid = mi.member_sid LIMIT 3`;
 
-// });
+  const [topVoteRows] = await db.query(top_vote); 
+
+  // 日期處理
+  rows.forEach((i) => {
+    i.wish_date = new Date(i.wish_date); 
+  });
+
+  const totalPages = Math.ceil(totalRows / perPage);
+
+  output = {
+    ...output,
+    totalRows,
+    perPage,
+    totalPages,
+    page,
+    rows,
+    topVoteRows,
+  };
+
+  return res.json(output);
+});
+
 
 module.exports = router;
