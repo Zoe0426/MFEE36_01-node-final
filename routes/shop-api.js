@@ -181,34 +181,6 @@ router.get("/search-brand-list", async (req, res) => {
     v1.typeForAge = Array.from(v1.typeForAge);
   });
 
-  // const findKey = (value) => {
-  //   return Object.keys(dict).find((key) => dict[key] === value);
-  // };
-  // brand_has.forEach((v) => {
-  //   (v.category_detail_sid = findKey(v.category_detail_sid)),
-  //     (v.for_pet_type = findKey(v.for_pet_type)),
-  //     (v.for_age = findKey(v.for_age));
-  // });
-
-  // brand.forEach((v1) => {
-  //   v1.category = [];
-  //   v1.typeForPet = [];
-  //   v1.typeForAge = [];
-  //   brand_has.forEach((v2) => {
-  //     if (v1.id === v2.id) {
-  //       if (!v1.category.includes(v2.category_detail_sid)) {
-  //         v1.category.push(v2.category_detail_sid);
-  //       }
-  //       if (!v1.typeForPet.includes(v2.for_pet_type)) {
-  //         v1.typeForPet.push(v2.for_pet_type);
-  //       }
-  //       if (!v1.typeForAge.includes(v2.for_age)) {
-  //         v1.typeForAge.push(v2.for_age);
-  //       }
-  //     }
-  //   });
-  // });
-
   brand.forEach((v1) => {
     if (v1.typeForPet.includes("cat") && v1.typeForPet.includes("dog")) {
       v1.typeForPet = ["cat", "dog", "both"];
