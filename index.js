@@ -84,7 +84,7 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", (username) => {
     const adminUsername = "狗with咪客服";
-    // let room = findAvailableRoom();
+    let room = findAvailableRoom();
 
     // 如果找不到可用的房間，就創建新的房間
     // if (!room) {
@@ -112,7 +112,10 @@ io.on("connection", (socket) => {
     // });
 
     if (username === adminUsername) {
-      let room = findAvailableRoom();
+      if(!room){
+        room = createRoom(adminUsername);
+      }
+      // let room = findAvailableRoom();
       room.users.push({ socketId: socket.id, username });
       socket.join(room.roomName);
       rooms.set(socket.id, room);
@@ -129,7 +132,7 @@ io.on("connection", (socket) => {
         },
       });
     } else {
-      // 非管理员用户分配到其他房间
+      // 非管理原分配到其他房間
       const newRoom = createRoom(adminUsername);
       newRoom.users.push({ socketId: socket.id, username });
       socket.join(newRoom.roomName);
@@ -143,7 +146,7 @@ io.on("connection", (socket) => {
         message: {
           message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
           time: hours + ":" + minutes,
-          img: "",
+          img: "default-profile.jpg",
         },
       });
     }
