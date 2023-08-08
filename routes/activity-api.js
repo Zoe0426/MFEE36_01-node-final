@@ -613,7 +613,7 @@ router.post("/order-activity/:activity_sid", async (req, res) => {
   }
 });
 
-//讀取願望清單
+//讀取我要投票
 router.get("/vote", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/vote
 
@@ -702,5 +702,86 @@ router.get("/vote", async (req, res) => {
   return res.json(output);
 });
 
+
+//讀取願望列表
+router.get("/wishlist", async (req, res) => {
+  // 網址在這裡看 http://localhost:3002/activity-api/vote
+
+  let output = {
+    totalRows: 0,
+    perPage: 8,
+    totalPages: 0,
+    page: 1,
+    rows: [],
+  };
+
+  const perPage = req.query.perPage || 8;
+  const keyword = req.query.keyword || "";
+  let page = req.query.page ? parseInt(req.query.page) : 1;
+
+  if (!page || page < 1) {
+    page = 1;
+  }
+
+  let whereConditions = "";
+
+  if (keyword) {
+    const kw_escaped = db.escape("%" + keyword + "%");
+    whereConditions += ` AND ai.name LIKE ${kw_escaped}`;
+  }
+
+  const sqlTotalRows = `
+    SELECT COUNT(DISTINCT ai.activity_sid) AS totalRows
+    FROM activity_info ai
+    INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+    INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+    LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+    LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+    WHERE aty.activity_type_sid = 6 ${whereConditions}
+  `;
+
+  const [[{ totalRows }]] = await db.query(sqlTotalRows);
+  let totalPages = Math.ceil(totalRows / perPage);
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
+
+  const sqlQuery = `
+    SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.avg_rating, ai.purchase_count, ai.activity_pic,
+      MAX(ag.date) AS recent_date, MAX(ag.date) AS farthest_date,
+      GROUP_CONCAT(DISTINCT af.name) AS feature_names,
+      aty.name AS type_name, ag.time, ag.price_adult,
+      MAX(ag.post_date) AS post_date
+    FROM activity_info ai
+    INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
+    INNER JOIN activity_feature_with_info afwi ON ai.activity_sid = afwi.activity_sid
+    LEFT JOIN activity_feature af ON afwi.activity_feature_sid = af.activity_feature_sid
+    LEFT JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
+    WHERE aty.activity_type_sid = 6 ${whereConditions}
+    GROUP BY ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address, ai.avg_rating, ai.purchase_count, ai.activity_pic,
+      type_name, ag.time, ag.price_adult
+    LIMIT ${perPage * (page - 1)}, ${perPage}
+  `;
+
+  const [rows] = await db.query(sqlQuery);
+
+  rows.forEach((i) => {
+    i.recent_date = i.recent_date ? res.toDateDayString(i.recent_date) : null;
+    i.farthest_date = i.farthest_date ? res.toDateDayString(i.farthest_date) : null;
+    i.post_date = i.post_date ? res.toDateDayString(i.post_date) : null;
+  });
+
+  output = {
+    ...output,
+    totalRows,
+    perPage,
+    totalPages,
+    page,
+    rows,
+  };
+
+  return res.json(output);
+});
 
 module.exports = router;
