@@ -256,8 +256,10 @@ const paymentSucceeded=async(data,res)=>{
         throw new Error('update order status failed 更新訂單狀態失敗');
     }
 }
-const paymentFailed = async()=>{
-    //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+const paymentFailed = async(data,res)=>{
+    const {CustomField1,CustomField2, CustomField3}= data;
+     //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
+    res.redirect(`http://localhost:3000/cart/repay/${CustomField1}`);
 }
 const getOrderDetail = async(orderSid)=>{
     const output = {checkoutType:'', details:[]}
@@ -342,7 +344,6 @@ const getCouponData = async(csSid, res)=>{
         throw new Error('取商品資料時出錯');
     }
 }
-
 router.post ('/get-cart-items', async(req,res)=>{
     let output ={
         shop : [],
@@ -914,7 +915,7 @@ router.post('/ecpayresult', (req, res) => {
         if(RtnMsg === 'Succeeded'){
             //TODO: 前往結帳成功頁面
             paymentSucceeded(req.body,res);
-        } else {
+        } else if(RtnMsg==="ERROR"){
             //TODO: 前往重新結帳頁面
             paymentFailed(req.body,res);
         }
