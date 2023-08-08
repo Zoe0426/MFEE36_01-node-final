@@ -146,7 +146,7 @@ io.on("connection", (socket) => {
         message: {
           message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
           time: hours + ":" + minutes,
-          img: "default-profile.jpg",
+          img: "default-profile.svg",
         },
       });
     }
