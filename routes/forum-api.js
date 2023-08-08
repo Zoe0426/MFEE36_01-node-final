@@ -56,7 +56,7 @@ router.get("/", async (req, res) => {
 
   const [data] = await db.query(
     `
-        SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
+        SELECT mi.member_sid, mi.nickname, mi.profile , plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
         CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
         ELSE plm.post_content END AS post_content, pb.board_name, 
         (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -72,7 +72,7 @@ router.get("/", async (req, res) => {
   );
 
   const [totalRowsData] = await db.query(
-    `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
+    `SELECT mi.member_sid, mi.nickname, mi.profile, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date ,
     CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content END AS post_content, pb.board_name, 
     (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -282,7 +282,7 @@ router.get("/forum/blog", async (req, res) => {
 
   const [totalRowsData] = await db.query(
     `
-    SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
+    SELECT mi.member_sid, mi.nickname, mi.profile, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
     CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content END AS post_content, pb.board_name, 
     (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -300,7 +300,7 @@ router.get("/forum/blog", async (req, res) => {
   const totalPages = Math.ceil(totalRows / perPage);
 
   const [blogPostData] = await db.query(
-    `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
+    `SELECT mi.member_sid, mi.nickname, mi.profile, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
     CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content END AS post_content, pb.board_name, 
     (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -365,7 +365,7 @@ router.get("/forum/blog/draft", async (req, res) => {
 
   const [totalRowsData] = await db.query(
     `
-    SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
+    SELECT mi.member_sid, mi.nickname, mi.profile, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
     CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content END AS post_content, pb.board_name, 
     (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -383,7 +383,7 @@ router.get("/forum/blog/draft", async (req, res) => {
   const totalPages = Math.ceil(totalRows / perPage);
 
   const [blogPostData] = await db.query(
-    `SELECT mi.member_sid, mi.nickname, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
+    `SELECT mi.member_sid, mi.nickname, mi.profile, plm.post_sid, plm.board_sid, plm.post_title, plm.post_date,
     CASE WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content END AS post_content, pb.board_name, 
     (SELECT file FROM post_file pfile WHERE pfile.post_sid = plm.post_sid ORDER BY pfile.file_type LIMIT 1) AS file, 
@@ -678,16 +678,18 @@ router.get('/forum/blog/hashtag', async (req, res) => {
 // 新增文章
 //router.post('/forum/blog/post' , async(req, res)=>{
 router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
+  console.log('req.body', req.body);
   const member_sid = req.body.memberSid;
   const board_sid = req.body.boardSid;
   const post_title = req.body.title;
   const post_content = req.body.content;
   const post_status = req.body.postStatus;
+  console.log('member_sid',member_sid);
 
   // 新增文章標題 // 新增文章內容
   const postSql = `INSERT INTO post_list_member(member_sid, board_sid, post_title, post_content, post_date, post_type, pet_sid, update_date, post_status) 
   VALUES (?,?,?,?,NOW(),'P01',NULL,NULL,?)`;
-  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, 1]);
+  const [result] = await db.query(postSql, [member_sid,board_sid, post_title, post_content, post_status]);
   console.log(result); 
   // res.json(result)
 
@@ -725,7 +727,7 @@ router.post('/forum/blog/post' , upload.array('photo', 10), async(req, res)=>{
     addIMGresult.push(addIMGresultItem);
   }
   
-  res.json({ result, addhsResult, addIMGresult });
+  res.json({ result, addhsResult, addIMGresult, mySid });
 })
 
 
@@ -758,30 +760,58 @@ console.log(result);
   console.log({hashtags})
   const tags = hashtags.split(',')
   const uphsResult = []
+  const delHashTagsql = `DELETE FROM post_hashtag WHERE post_sid=?`
+  const [delHTresult] = await db.query(delHashTagsql, [post_sid]);
+  // 先刪除原本的話題資料再新增進去
   console.log({tags})
-  // if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
-  //   for(let ht of tags){ 
-  //     const upHashTagsql = `UPDATE post_hashtag SET hashtag_name = ? WHERE post_sid = ?`
-  //     const [upHTresult] = await db.query(upHashTagsql, [ht,post_sid]);
-  //     uphsResult.push(upHTresult);
-  //   }
-  // }
+  if(hashtags.length>0){ //補判斷，若有資料再跑資料庫
+    for(let ht of tags){ 
+      const addHashTagsql = `INSERT INTO post_hashtag(hashtag_name, post_sid) VALUES (?,?)`
+      const [addHTresult] = await db.query(addHashTagsql,[ht,post_sid]);
+      uphsResult.push(addHTresult);
+    }
+  }
   
   // 上傳多張圖片
   console.log(req.files)
   const files = req.files;
   console.log({files}); //這個是從前端收到的檔案們
   let uploadedPhotos = [];
-  files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
+  const delImg = `DELETE FROM post_file WHERE post_sid=?`
+  const [delImgResult] = await db.query(delImg,[post_sid]);
+  // files.length>0 && (uploadedPhotos = files.map(v=>v.filename));
+  uploadedPhotos = files.map(v=>v.filename);
   console.log({uploadedPhotos}); //這個會拿到要進資料庫的照片名稱們（補寫一個sql來加到你的post_file資料表裡）
   const upIMGresult = []; // 新增一個陣列來收集每次迭代的結果
   for (const photo of uploadedPhotos){
-    const upimgSql = `UPDATE post_file SET file= ? WHERE post_sid=?`;
-    const [upIMGresultItem] = await db.query(upimgSql, [photo,post_sid]);
+    const addImgSql = `INSERT INTO post_file(post_sid, file_type, file, file_status) VALUES (?,'F01',?,1)`;
+    const [upIMGresultItem] = await db.query(addImgSql, [post_sid, photo]);
     upIMGresult.push(upIMGresultItem);
   }
   
   res.json({ result, uphsResult, upIMGresult });
+})
+
+// 刪除文章
+router.delete('/forum/blog/delete' , async(req, res)=>{
+  const post_sid = req.query.post_sid; //從url參數中獲取post_sid
+  console.log('post_sid',post_sid);
+
+  const delPostSql = `DELETE FROM post_list_member WHERE post_sid = ?`;
+const [result] = await db.query(delPostSql, [post_sid]);
+console.log(result); 
+
+  // 刪除hashtags資料
+  const delHashTagsql = `DELETE FROM post_hashtag WHERE post_sid=?`
+  const [delHTresult] = await db.query(delHashTagsql, [post_sid]);
+  console.log(delHTresult);
+  
+  // 刪除多張圖片
+  const delImg = `DELETE FROM post_file WHERE post_sid=?`
+  const [delImgResult] = await db.query(delImg,[post_sid]);
+  console.log(delImgResult);
+  
+  res.json({ result, delHTresult, delImgResult });
 })
 
 
