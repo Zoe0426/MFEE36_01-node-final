@@ -487,7 +487,9 @@ router.get("/coupon", async (req, res) => {
   SELECT * FROM member_coupon_send 
   INNER JOIN member_coupon_category 
   ON member_coupon_send.coupon_sid = member_coupon_category.coupon_sid 
-  WHERE member_sid='${sid}'`);
+  WHERE member_sid='${sid}'
+  ORDER BY member_coupon_category.price DESC;
+  `);
 
   // Processing all the rows and converting the 'exp_date' into 'YYYY-MM-DD' format
   rows.forEach((row) => {
@@ -582,6 +584,17 @@ ORDER BY o.create_dt DESC
 
   //整理datas
   const updatedDatas = datas.map((i) => {
+    //整理日期
+    let orderCreate = dayjs(i.create_dt);
+    if (orderCreate.isValid()) {
+      orderCreate = orderCreate.format("YYYY-MM-DD HH:ss");
+    } else {
+      orderCreate = null;
+    }
+
+    //整理期限日期
+    let orderExpire = dayjs(orderCreate).add(2, "day").format("YYYY-MM-DD HH:ss");
+
     return {
       order_sid: i.order_sid,
       post_status: i.post_status,
@@ -601,6 +614,9 @@ ORDER BY o.create_dt DESC
       area: i.area,
       address: i.address,
       actAddress: i.city + i.area + i.address,
+      orderStatus: i.order_status,
+      createDt: orderCreate,
+      orderExpire: orderExpire,
     };
   });
 

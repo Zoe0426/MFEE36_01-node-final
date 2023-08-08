@@ -256,8 +256,10 @@ const paymentSucceeded=async(data,res)=>{
         throw new Error('update order status failed 更新訂單狀態失敗');
     }
 }
-const paymentFailed = async()=>{
-    //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+const paymentFailed = async(data,res)=>{
+    const {CustomField1,CustomField2, CustomField3}= data;
+     //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
+    res.redirect(`http://localhost:3000/cart/repay/${CustomField1}`);
 }
 const getOrderDetail = async(orderSid)=>{
     const output = {checkoutType:'', details:[]}
@@ -307,7 +309,7 @@ const getOrderDetail = async(orderSid)=>{
             WHERE
                 od.order_sid = ?`;
         const [details] = await db.query(getOrderDetailSql, [orderSid,orderSid]);
-        output.details = details;
+        output.details = details.map(v=>({...v,img:(v.img).split(',')[0]}));
         output.checkoutType = details[0].rel_type;
         
 
@@ -316,6 +318,31 @@ const getOrderDetail = async(orderSid)=>{
         throw new Error('取商品資料時出錯');
     }
     return output;
+}
+const getCouponData = async(csSid, res)=>{
+     try{
+        const getCouponDetailSql = `SELECT
+            mcs.member_sid,
+            mcs.coupon_sid,
+            mcs.coupon_send_sid,
+            mcc.name,
+            mcc.price,
+            mcc.exp_date,
+            mcs.coupon_status
+        FROM
+            member_coupon_send mcs
+            JOIN member_coupon_category mcc 
+            ON mcs.coupon_sid = mcc.coupon_sid
+        WHERE
+           mcs.coupon_send_sid = ?`;
+        const [details] = await db.query(getCouponDetailSql, [csSid]);
+        const sortedData = details.map(v=>({...v, exp_date: res.toDateString(v.exp_date) }))
+        return sortedData;
+
+    }catch(error){
+        console.error(error);
+        throw new Error('取商品資料時出錯');
+    }
 }
 router.post ('/get-cart-items', async(req,res)=>{
     let output ={
@@ -544,6 +571,7 @@ router.get('/get-home-data', async(req,res)=>{
   r.area,
   r.average_friendly,
   r.booking_count,
+  r.info,
   GROUP_CONCAT(DISTINCT ru.rule_name) AS rule_names,
   GROUP_CONCAT(DISTINCT s.service_name) AS service_names,
   GROUP_CONCAT(DISTINCT ri.img_name) AS img_names
@@ -563,7 +591,8 @@ router.get('/get-home-data', async(req,res)=>{
     r.city,
     r.area,
     r.average_friendly,
-    r.booking_count
+    r.booking_count,
+    r.info
   ORDER BY
     booking_count DESC
     LIMIT 2;`;
@@ -589,66 +618,33 @@ router.get('/get-home-data', async(req,res)=>{
 })
 router.get('/get-repay-order/:orderSid', async(req,res)=>{
      let output ={
-        shop : [],
-        activity : [],
-        postAddress:[],
+        checkoutType : '',
+        postType:0,
+        details: [],
+        orderInfo:[],
         coupon:[],
     }
     const orderSid  = req.params.orderSid;
-   
-    //拿取訂單商品/活動細節
-    getOrderDetail(orderSid);
-   
-    // if(checkoutType === )
-        try{
-        const getOrderDetailSql = `SELECT
-                od.order_detail_sid as order_detail_sid,
-                sp.product_sid as rel_sid,
-                sp.name as rel_name,
-                spd.product_detail_sid as rel_seq_sid,
-                spd.name as rel_seq_name,
-                spd.price as prod_price,
-                od.product_qty as prod_qty,
-                od.rel_type as rel_type,
-                0 as adult_price,
-                0 as child_price,
-                0 as adult_qty,
-                0 as child_qty,
-                sp.img as img
-            FROM
-                order_details od
-                JOIN shop_product sp ON od.rel_sid = sp.product_sid
-                JOIN shop_product_detail spd ON sp.product_sid = spd.product_sid
-                AND od.rel_seq_sid = spd.product_detail_sid
-            WHERE
-                od.order_sid = ?
-            UNION
-            ALL
-            SELECT
-                od.order_detail_sid as order_detail_sid,
-                ai.activity_sid as rel_sid,
-                ai.name as rel_name,
-                ag.activity_group_sid as rel_seq_sid,
-                ag.date as rel_seq_name,
-                0 as prod_price,
-                0 as prod_qty,
-                od.rel_type as rel_type,
-                ag.price_adult as adult_price,
-                ag.price_kid as child_price,
-                od.adult_qty as adult_qty,
-                od.child_qty as child_qty,
-                ai.activity_pic as img
-            FROM
-                order_details od
-                JOIN activity_info ai ON od.rel_sid = ai.activity_sid
-                JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
-                AND od.rel_seq_sid = ag.activity_group_sid
-            WHERE
-                od.order_sid = ?`;
-        const [details] = await db.query(getOrderDetailSql, [orderSid,orderSid]);
-        console.log({details});
-        const checkoutType = details[0].rel_type;
-        console.log(checkoutType)
+    //拿取訂單商品/活動項目
+    const orderDetailResult = await getOrderDetail(orderSid);
+    console.log({orderDetailResult});
+    output.checkoutType = orderDetailResult.checkoutType;
+    output.details = orderDetailResult.details;
+    //拿取訂單細節
+    try{
+        const getOrderSql = `SELECT om.*, mi.email FROM order_main om JOIN member_info mi ON mi.member_sid = om.member_sid WHERE om.order_sid = ?;`;
+        const [getOrderResult] = await db.query(getOrderSql, [orderSid]);
+        output.orderInfo = getOrderResult;
+        console.log(getOrderResult);
+        output.postType = getOrderResult[0].post_type;
+        const csSid = getOrderResult[0].coupon_send_sid;
+        //拿coupon資料
+        let couponInfo = [];
+        if(!!csSid){
+            couponInfo = await getCouponData(csSid,res);
+            output.coupon = couponInfo;
+        } 
+        console.log('couponInfo', couponInfo);
     }catch(error){
         console.error(error);
         throw new Error('取商品資料時出錯');
@@ -919,7 +915,7 @@ router.post('/ecpayresult', (req, res) => {
         if(RtnMsg === 'Succeeded'){
             //TODO: 前往結帳成功頁面
             paymentSucceeded(req.body,res);
-        } else {
+        } else if(RtnMsg==="ERROR"){
             //TODO: 前往重新結帳頁面
             paymentFailed(req.body,res);
         }
