@@ -510,6 +510,7 @@ router.get("/order", async (req, res) => {
   let keywordS = req.query.keywordS || "";
   console.log({ keywordS });
   let keywordA = req.query.keywordA || "";
+  let keywordR = req.query.keywordR || "";
   let whereS = "";
   if (keywordS) {
     const kw_escaped = db.escape("%" + keywordS + "%");
@@ -524,6 +525,17 @@ router.get("/order", async (req, res) => {
   if (keywordA) {
     const kw_escaped = db.escape("%" + keywordA + "%");
     whereA += ` AND ( 
+      od.rel_name LIKE ${kw_escaped} 
+      OR
+      od.order_sid LIKE ${kw_escaped}
+      )
+    `;
+  }
+
+  let whereR = "";
+  if (keywordR) {
+    const kw_escaped = db.escape("%" + keywordR + "%");
+    whereR += ` AND ( 
       od.rel_name LIKE ${kw_escaped} 
       OR
       od.order_sid LIKE ${kw_escaped}
@@ -579,8 +591,29 @@ WHERE o.member_sid = '${sid}' ${whereA}
 ORDER BY o.create_dt DESC
   `);
 
+  const [rows3] = await db.query(`
+  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
+FROM order_main o 
+JOIN order_details od 
+ON o.order_sid = od.order_sid
+JOIN member_coupon_send ms 
+ON o.coupon_send_sid = ms.coupon_send_sid
+JOIN member_coupon_category mc 
+ON mc.coupon_sid = ms.coupon_sid 
+JOIN activity_info af
+ON af.activity_sid = od.rel_sid  
+JOIN activity_group ag
+ON ag.activity_group_sid = od.rel_seq_sid  
+JOIN shop_product sp
+ON sp.product_sid = od.rel_sid  
+WHERE o.member_sid = '${sid}' ${whereR}
+ORDER BY o.create_dt DESC
+  `);
+  console.log("keywordR", keywordR);
+  console.log("keywordA", keywordA);
   //合併成一個datas
-  const datas = rows.concat(rows2);
+  const datas = rows.concat(rows2).concat(rows3);
 
   //整理datas
   const updatedDatas = datas.map((i) => {
