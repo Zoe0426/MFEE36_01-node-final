@@ -623,7 +623,7 @@ router.get("/vote", async (req, res) => {
     totalPages: 0,
     page: 1,
     rows: [],
-    topVoteRows:[],
+    topVoteRows: [],
   };
 
   // 給query string的
@@ -655,7 +655,7 @@ router.get("/vote", async (req, res) => {
     ) v ON aw.activity_wish_sid = v.activity_wish_sid
     LEFT JOIN member_info mi ON aw.member_sid = mi.member_sid
     ${where}
-    ORDER BY aw.wish_date
+    ORDER BY aw.wish_date DESC
     LIMIT ${perPage * (page - 1)}, ${perPage}
   `;
 
@@ -672,19 +672,18 @@ router.get("/vote", async (req, res) => {
     ${where}
   `;
 
-  const [[{ totalRows }]] = await db.query(sqlTotalRows); 
+  const [[{ totalRows }]] = await db.query(sqlTotalRows);
 
-  const [rows] = await db.query(sqlQuery); 
-
+  const [rows] = await db.query(sqlQuery);
 
   // 呼聲最高
   const top_vote = `SELECT aw.activity_wish_sid, aw.member_sid, aw.name, aw.city, aw.area, aw.content, aw.other_message, aw.wish_date, IFNULL(v.vote_count, 0) AS vote_count, mi.profile FROM activity_wish aw LEFT JOIN ( SELECT activity_wish_sid, COUNT(activity_vote_sid) AS vote_count FROM activity_vote GROUP BY activity_wish_sid) v ON aw.activity_wish_sid = v.activity_wish_sid LEFT JOIN member_info mi ON aw.member_sid = mi.member_sid LIMIT 3`;
 
-  const [topVoteRows] = await db.query(top_vote); 
+  const [topVoteRows] = await db.query(top_vote);
 
   // 日期處理
   rows.forEach((i) => {
-    i.wish_date = new Date(i.wish_date); 
+    i.wish_date = new Date(i.wish_date);
   });
 
   const totalPages = Math.ceil(totalRows / perPage);
@@ -701,7 +700,6 @@ router.get("/vote", async (req, res) => {
 
   return res.json(output);
 });
-
 
 //讀取願望列表
 router.get("/wishlist", async (req, res) => {
@@ -768,7 +766,9 @@ router.get("/wishlist", async (req, res) => {
 
   rows.forEach((i) => {
     i.recent_date = i.recent_date ? res.toDateDayString(i.recent_date) : null;
-    i.farthest_date = i.farthest_date ? res.toDateDayString(i.farthest_date) : null;
+    i.farthest_date = i.farthest_date
+      ? res.toDateDayString(i.farthest_date)
+      : null;
     i.post_date = i.post_date ? res.toDateDayString(i.post_date) : null;
   });
 
@@ -782,6 +782,42 @@ router.get("/wishlist", async (req, res) => {
   };
 
   return res.json(output);
+});
+
+//wish新增願望
+router.post("/wish", async (req, res) => {
+  console.log("Reached the wish route handler");
+  console.log("Request Body:", req.body);
+
+  let member = "";
+  if (res.locals.jwtData) {
+    member = res.locals.jwtData.id;
+  }
+
+  const { name, city, area, content, other_message } = req.body;
+
+  // 新增
+  const sql_addWish = `
+    INSERT INTO activity_wish(member_sid, name, city, area, content, other_message, wish_date)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())`;
+
+  try {
+    // 執行
+    const [result] = await db.query(sql_addWish, [
+      member,
+      name,
+      city,
+      area,
+      content,
+      other_message,
+    ]);
+
+    res.json({ ...result });
+    console.log("會員ID:", member);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred" });
+  }
 });
 
 module.exports = router;
