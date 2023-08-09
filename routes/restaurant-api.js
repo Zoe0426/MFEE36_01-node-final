@@ -364,6 +364,7 @@ router.get("/restaurant/:rest_sid", async (req, res) => {
   feature_title,
   feature_content,
   feature_img,
+  average_friendly,
   SUBSTRING(start_at_1, 1, 5) AS start_at_1,
   SUBSTRING(end_at_1, 1, 5) AS end_at_1,
   SUBSTRING(start_at_2, 1, 5) AS start_at_2,
