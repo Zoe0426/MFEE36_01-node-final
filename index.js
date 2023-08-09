@@ -120,17 +120,17 @@ io.on("connection", (socket) => {
       socket.join(room.roomName);
       rooms.set(socket.id, room);
 
-      const today = new Date();
-      const hours = String(today.getHours()).padStart(2, "0");
-      const minutes = String(today.getMinutes()).padStart(2, "0");
-      socket.emit("receiveMessage", {
-        sender: "狗with咪客服",
-        message: {
-          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
-          time: hours + ":" + minutes,
-          img: "",
-        },
-      });
+      // const today = new Date();
+      // const hours = String(today.getHours()).padStart(2, "0");
+      // const minutes = String(today.getMinutes()).padStart(2, "0");
+      // socket.emit("receiveMessage", {
+      //   sender: "狗with咪客服",
+      //   message: {
+      //     message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+      //     time: hours + ":" + minutes,
+      //     img: "",
+      //   },
+      // });
     } else {
       // 非管理原分配到其他房間
       const newRoom = createRoom(adminUsername);
@@ -146,7 +146,7 @@ io.on("connection", (socket) => {
         message: {
           message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
           time: hours + ":" + minutes,
-          img: "default-profile.jpg",
+          img: "default-profile.svg",
         },
       });
     }
@@ -190,7 +190,7 @@ io.on("connection", (socket) => {
         room.users.splice(userIndex, 1);
         rooms.delete(socket.id);
 
-        // 如果聊天室沒人，从rooms Map中删除
+        // 如果聊天室沒人，rooms Map中删除
         if (room.users.length === 0) {
           rooms.delete(room.roomName);
         }
