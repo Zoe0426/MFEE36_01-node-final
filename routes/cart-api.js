@@ -476,7 +476,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         throw new Error('取優惠券時出錯');
     }
     
-
+    //console.log(output)
     res.json(output);
 })
 router.get('/get-home-data', async(req,res)=>{
