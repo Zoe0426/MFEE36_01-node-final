@@ -69,6 +69,10 @@ router.get("/activity", async (req, res) => {
     台中市: "台中市",
     高雄市: "高雄市",
     台南市: "台南市",
+    北區: "北區",
+    西屯區: "西屯區",
+    苓雅區: "苓雅區",
+    信義區: "信義區",
 
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
@@ -193,7 +197,9 @@ router.get("/activity", async (req, res) => {
       SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.purchase_count, ai.avg_rating, ai.activity_pic,
         ag.date AS recent_date, ag.date AS farthest_date,
         af.name AS feature_name,
-        aty.name AS type_name, ag.time, ag.price_adult,
+        aty.name AS type_name,
+        aty.activity_type_sid,
+        ag.time, ag.price_adult,
         ag.post_date
       FROM activity_info ai
       INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
@@ -427,6 +433,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
   farthest_date,
   GROUP_CONCAT(DISTINCT af.name) AS feature_names,
   aty.name AS type_name,
+  aty.activity_type_sid,
   ag.date,
   ag.time,
   ag.price_adult,
@@ -453,6 +460,7 @@ GROUP BY
   recent_date,
   farthest_date,
   aty.name,
+  aty.activity_type_sid,
   ag.date,
   ag.time,
   ag.price_adult LIMIT 1`;
@@ -700,6 +708,33 @@ router.get("/vote", async (req, res) => {
 
   return res.json(output);
 });
+
+//新增 投票
+router.post("/addvote", async (req, res) => {
+  try {
+    let member = "";
+    if (res.locals.jwtData) {
+      member = res.locals.jwtData.id;
+    }
+
+  
+    const { activity_wish_sid } = req.body; // 假設前端傳遞的是活動願望的 ID
+
+ 
+    const sql_addVote = `
+      INSERT INTO activity_vote (member_sid, activity_wish_sid, date, status)
+      VALUES (?, ?, NOW(), '0')
+    `;
+
+    const [result] = await db.query(sql_addVote, [member, activity_wish_sid]);
+
+    return res.status(201).json({ message: "Vote added successfully", result });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 //讀取願望列表
 router.get("/wishlist", async (req, res) => {
