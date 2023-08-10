@@ -68,6 +68,7 @@ function createRoom(adminUsername) {
   const newRoom = {
     roomName,
     users: [],
+    chatHistory: [],
     admin: adminUsername,
   };
   rooms.set(roomName, newRoom);
@@ -78,11 +79,13 @@ function generateRandomRoomName() {
   return uuidv4();
 }
 
+//若使用者比管理員先登入聊天室，可以將訊息存放在這邊
+
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
   console.log("success connect!");
-
-  socket.on("joinRoom", (username) => {
+  // let chatHistory = [];
+  socket.on("joinRoom", ({ username, productName }) => {
     const adminUsername = "狗with咪客服";
     let room = findAvailableRoom();
 
@@ -112,31 +115,25 @@ io.on("connection", (socket) => {
     // });
 
     if (username === adminUsername) {
-      if(!room){
+      if (!room) {
         room = createRoom(adminUsername);
       }
-      // let room = findAvailableRoom();
       room.users.push({ socketId: socket.id, username });
       socket.join(room.roomName);
       rooms.set(socket.id, room);
-
-      // const today = new Date();
-      // const hours = String(today.getHours()).padStart(2, "0");
-      // const minutes = String(today.getMinutes()).padStart(2, "0");
-      // socket.emit("receiveMessage", {
-      //   sender: "狗with咪客服",
-      //   message: {
-      //     message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
-      //     time: hours + ":" + minutes,
-      //     img: "",
-      //   },
-      // });
+      if (room.chatHistory.length > 0) {
+        console.log(123);
+        console.log(room.chatHistory);
+        socket.emit("receiveMessage", room.chatHistory);
+      }
     } else {
-      // 非管理原分配到其他房間
-      const newRoom = createRoom(adminUsername);
-      newRoom.users.push({ socketId: socket.id, username });
-      socket.join(newRoom.roomName);
-      rooms.set(socket.id, newRoom);
+      if (!room || !room.users[0].username.includes(adminUsername)) {
+        // 若現有的聊天室對象不是管理員 或是沒有房間，，則需開一間新的聊天室
+        room = createRoom(adminUsername);
+      }
+      room.users.push({ socketId: socket.id, username });
+      socket.join(room.roomName);
+      rooms.set(socket.id, room);
 
       const today = new Date();
       const hours = String(today.getHours()).padStart(2, "0");
@@ -144,7 +141,7 @@ io.on("connection", (socket) => {
       socket.emit("receiveMessage", {
         sender: "狗with咪客服",
         message: {
-          message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
+          message: `您好，這裡是狗with咪線上客服，關於商品【 ${productName} 】有什麼需要幫忙的嗎?`,
           time: hours + ":" + minutes,
           img: "default-profile.svg",
         },
@@ -159,7 +156,9 @@ io.on("connection", (socket) => {
       const sender = room.users.find(
         (user) => user.socketId === socket.id
       )?.username;
+
       if (sender) {
+        room.chatHistory = [...room.chatHistory, { sender, message }];
         io.to(room.roomName).emit("receiveMessage", { sender, message });
       }
     }
@@ -178,15 +177,19 @@ io.on("connection", (socket) => {
         const today = new Date();
         const hours = String(today.getHours()).padStart(2, "0");
         const minutes = String(today.getMinutes()).padStart(2, "0");
-        io.to(room.roomName).emit("receiveMessage", {
-          sender,
-          message: {
+        console.log(sender);
+        if (sender !== "狗with咪客服") {
+          io.to(room.roomName).emit("receiveMessage", {
             sender,
-            message: `${sender} 已離開聊天室`,
-            time: hours + ":" + minutes,
-            img: "",
-          },
-        });
+            message: {
+              sender,
+              message: `${sender} 已離開聊天室`,
+              time: hours + ":" + minutes,
+              img: "",
+            },
+          });
+        }
+
         room.users.splice(userIndex, 1);
         rooms.delete(socket.id);
 
