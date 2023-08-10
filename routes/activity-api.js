@@ -197,7 +197,9 @@ router.get("/activity", async (req, res) => {
       SELECT ai.activity_sid, ai.name, ai.content, ai.city, ai.area, ai.address,ai.purchase_count, ai.avg_rating, ai.activity_pic,
         ag.date AS recent_date, ag.date AS farthest_date,
         af.name AS feature_name,
-        aty.name AS type_name, ag.time, ag.price_adult,
+        aty.name AS type_name,
+        aty.activity_type_sid,
+        ag.time, ag.price_adult,
         ag.post_date
       FROM activity_info ai
       INNER JOIN activity_group ag ON ai.activity_sid = ag.activity_sid
@@ -431,6 +433,7 @@ router.get("/activity/:activity_sid", async (req, res) => {
   farthest_date,
   GROUP_CONCAT(DISTINCT af.name) AS feature_names,
   aty.name AS type_name,
+  aty.activity_type_sid,
   ag.date,
   ag.time,
   ag.price_adult,
@@ -457,6 +460,7 @@ GROUP BY
   recent_date,
   farthest_date,
   aty.name,
+  aty.activity_type_sid,
   ag.date,
   ag.time,
   ag.price_adult LIMIT 1`;
