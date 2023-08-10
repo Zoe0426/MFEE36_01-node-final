@@ -69,6 +69,10 @@ router.get("/activity", async (req, res) => {
     台中市: "台中市",
     高雄市: "高雄市",
     台南市: "台南市",
+    北區: "北區",
+    西屯區: "西屯區",
+    苓雅區: "苓雅區",
+    信義區: "信義區",
 
     price_ASC: "price_adult ASC",
     price_DESC: "price_adult DESC",
