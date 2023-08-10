@@ -709,6 +709,33 @@ router.get("/vote", async (req, res) => {
   return res.json(output);
 });
 
+//新增 投票
+router.post("/addvote", async (req, res) => {
+  try {
+    let member = "";
+    if (res.locals.jwtData) {
+      member = res.locals.jwtData.id;
+    }
+
+  
+    const { activity_wish_sid } = req.body; // 假設前端傳遞的是活動願望的 ID
+
+ 
+    const sql_addVote = `
+      INSERT INTO activity_vote (member_sid, activity_wish_sid, date, status)
+      VALUES (?, ?, NOW(), '0')
+    `;
+
+    const [result] = await db.query(sql_addVote, [member, activity_wish_sid]);
+
+    return res.status(201).json({ message: "Vote added successfully", result });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 //讀取願望列表
 router.get("/wishlist", async (req, res) => {
   // 網址在這裡看 http://localhost:3002/activity-api/vote
