@@ -249,7 +249,23 @@ router.get("/edit", async (req, res) => {
 */
 
 router.post("/", async (req, res) => {
-  //  member-indo
+  const output = {
+    success: true,
+    code: 0,
+    error: "",
+  };
+
+  const sqlEmail = "SELECT * FROM member_info WHERE email=?";
+  const [rows] = await db.query(sqlEmail, [req.body.email]);
+  if (rows.length) {
+    // 帳號是錯的
+    output.success = false;
+    output.code = 402;
+    output.error = "帳號或密碼錯誤";
+    return res.json(output);
+  }
+
+  //  member-info
   const sql = `INSERT INTO member_info(
     member_sid, name, email, 
     password, mobile, gender, 
