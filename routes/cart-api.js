@@ -476,7 +476,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         throw new Error('取優惠券時出錯');
     }
     
-
+    //console.log(output)
     res.json(output);
 })
 router.get('/get-home-data', async(req,res)=>{
@@ -551,6 +551,7 @@ router.get('/get-home-data', async(req,res)=>{
             ai.activity_pic;
 `;
         const [activityRows] = await db.query(getActivityDataSql);
+        console.log(activityRows);
         let activityImgs = ['31.jpg'];
         const sendRows = activityRows.map(v=>{
             const dayInfo = `${res.toDateDayString(v.eventStart)}~${res.toDateDayString(v.eventEnd)}`
