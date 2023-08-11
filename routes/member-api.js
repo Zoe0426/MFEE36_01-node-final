@@ -1,6 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+dayjs.extend(utc);
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
@@ -227,6 +229,7 @@ router.get("/edit", async (req, res) => {
   WHERE mo.member_sid='${sid}'
   `);
   res.json(rows);
+  console.log("rows", rows);
 });
 
 // router.get("/", async (req, res) => {
@@ -445,13 +448,13 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   WHERE member_sid='${sid}'`;
 
   // 處理生日格式
-  let birthday = dayjs(req.body.birthday);
+  let birthday = dayjs.utc(req.body.birthday);
   if (birthday.isValid()) {
     birthday = birthday.format("YYYY-MM-DD");
   } else {
     birthday = null;
   }
-
+  console.log(birthday);
   console.log("file", req.file.filename);
   const [result] = await db.query(sql, [
     req.body.name,
@@ -462,7 +465,6 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
     req.body.gender,
     req.body.pet,
   ]);
-
   const [rows] = await db.query(`
   SELECT 
   mo.member_sid as memberSid,
@@ -478,7 +480,7 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   FROM member_info mo 
   WHERE mo.member_sid='${sid}'
   `);
-
+  console.log("-482", rows);
   res.json(rows);
 });
 
