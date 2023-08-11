@@ -785,6 +785,8 @@ router.post('/get-orderDetail', async(req,res)=>{
         getOrderDetailSql = `SELECT
                 om.order_sid,
                 om.member_sid,
+                mi.name,
+                mi.mobile,
                 om.create_dt,
                 od.order_detail_sid,
                 od.rel_name,
@@ -812,17 +814,9 @@ router.post('/get-orderDetail', async(req,res)=>{
         output.create_dt=res.toDatetimeString(orderDetailResult[0].create_dt);
         output.coupon_amount=orderDetailResult[0].coupon_amount;
         output.subtotal_amount=orderDetailResult[0].rel_subtotal;
-
+        console.log('odpt',orderDetailResult[0].post_type);
         if(checkoutType === 'shop'){
-            const pt = "";
-                if(orderDetailResult[0].post_type===0){
-                    pt='黑貓宅急便'
-                } else if (orderDetailResult[0] ===1){
-                    pt='7-Eleven'
-                }else if(orderDetailResult[0] === 2){
-                    pt='全家便利商店'
-                }
-            output.post_type=pt;
+            output.post_type=orderDetailResult[0].post_type;
             output.recipient=orderDetailResult[0].recipient;
             output.recipient_phone=orderDetailResult[0].recipient_phone;
             output.post_address=orderDetailResult[0].post_address;
