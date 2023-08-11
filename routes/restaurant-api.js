@@ -98,7 +98,7 @@ router.get("/", async (req, res) => {
       });
     }
   }
-  console.log(rows1);
+  // console.log(rows1);
   output = { ...output, rows1, rows2 };
   return res.json(output);
 });
@@ -186,7 +186,7 @@ router.get("/list", async (req, res) => {
     }
   }
 
-  console.log(category);
+  // console.log(category);
 
   if (cityParam) {
     const cityValue = locationDict[cityParam];
@@ -582,17 +582,17 @@ router.post("/booking_modal", multipartParser, async (req, res) => {
 
   const book_action = `INSERT INTO restaurant_booking(rest_sid,section_code, date, member_sid, people_num, pet_num, note, created_at) VALUES (?,?,?,?,?,?,?,NOW())`;
 
-  console.log(
-    db.format(book_action, [
-      rest_sid,
-      section_code,
-      date,
-      member_sid,
-      people_num,
-      pet_num,
-      note,
-    ])
-  );
+  // console.log(
+  //   db.format(book_action, [
+  //     rest_sid,
+  //     section_code,
+  //     date,
+  //     member_sid,
+  //     people_num,
+  //     pet_num,
+  //     note,
+  //   ])
+  // );
 
   try {
     await db.query(book_action, [
@@ -682,7 +682,7 @@ router.post("/handle-like-list", async (req, res) => {
   }
   const receiveData = req.body.data;
 
-  console.log(receiveData);
+  // console.log(receiveData);
 
   let deleteLike = [];
   let addLike = [];
@@ -771,7 +771,7 @@ router.get("/show-like", async (req, res) => {
       v.date = res.toDateString(v.date);
     });
   }
-  console.log(likeDatas);
+  // console.log(likeDatas);
   output = {
     ...output,
     likeDatas,
