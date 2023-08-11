@@ -2,7 +2,9 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
 dayjs.extend(utc);
+dayjs.extend(timezone);
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
@@ -228,6 +230,16 @@ router.get("/edit", async (req, res) => {
   FROM member_info mo 
   WHERE mo.member_sid='${sid}'
   `);
+
+  if (rows[0]) {
+    const { birthday } = rows[0];
+    if (birthday) {
+      // 將 birthday 解析为 UTC，然後转换为 Taipei 时间
+      let tzBirthday = dayjs.utc(birthday).tz("Asia/Taipei");
+      // 格式化日期，忽略时间部分
+      rows[0].birthday = tzBirthday.format("YYYY-MM-DD");
+    }
+  }
   res.json(rows);
   console.log("rows", rows);
 });
@@ -448,12 +460,16 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   WHERE member_sid='${sid}'`;
 
   // 處理生日格式
-  let birthday = dayjs.utc(req.body.birthday);
+  // ...
+
+  // 處理生日格式
+  let birthday = dayjs(req.body.birthday);
   if (birthday.isValid()) {
-    birthday = birthday.format("YYYY-MM-DD");
+    birthday = birthday.format("YYYY-MM-DD"); // 將日期轉換成 YYYY-MM-DD 格式存入資料庫
   } else {
     birthday = null;
   }
+
   console.log(birthday);
   console.log("file", req.file.filename);
   const [result] = await db.query(sql, [
@@ -480,6 +496,17 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   FROM member_info mo 
   WHERE mo.member_sid='${sid}'
   `);
+
+  if (rows[0]) {
+    const { birthday } = rows[0];
+    if (birthday) {
+      // 將 birthday 解析为 UTC，然後转换为 Taipei 时间
+      let tzBirthday = dayjs.utc(birthday).tz("Asia/Taipei");
+      // 格式化日期，忽略时间部分
+      rows[0].birthday = tzBirthday.format("YYYY-MM-DD");
+    }
+  }
+
   console.log("-482", rows);
   res.json(rows);
 });
