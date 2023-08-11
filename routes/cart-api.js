@@ -814,6 +814,8 @@ router.post('/get-orderDetail', async(req,res)=>{
         output.create_dt=res.toDatetimeString(orderDetailResult[0].create_dt);
         output.coupon_amount=orderDetailResult[0].coupon_amount;
         output.subtotal_amount=orderDetailResult[0].rel_subtotal;
+        output.name=orderDetailResult[0].name;
+        output.mobile=orderDetailResult[0].mobile;
         console.log('odpt',orderDetailResult[0].post_type);
         if(checkoutType === 'shop'){
             output.post_type=orderDetailResult[0].post_type;
