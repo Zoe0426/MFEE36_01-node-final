@@ -79,12 +79,9 @@ function generateRandomRoomName() {
   return uuidv4();
 }
 
-//若使用者比管理員先登入聊天室，可以將訊息存放在這邊
-
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
   console.log("success connect!");
-  // let chatHistory = [];
   socket.on("joinRoom", ({ username, productName }) => {
     const adminUsername = "狗with咪客服";
     let room = findAvailableRoom();
@@ -122,8 +119,6 @@ io.on("connection", (socket) => {
       socket.join(room.roomName);
       rooms.set(socket.id, room);
       if (room.chatHistory.length > 0) {
-        console.log(123);
-        console.log(room.chatHistory);
         socket.emit("receiveMessage", room.chatHistory);
       }
     } else {
@@ -282,7 +277,9 @@ app.use((req, res) => {
 
 //=====port設定=====
 const port = process.env.PORT || 3001;
-httpServer.listen(port);
+httpServer.listen(port, () => {
+  console.log("start server, port:" + port);
+});
 /*
 app.listen(port, () => {
   console.log("start server, port:" + port);
