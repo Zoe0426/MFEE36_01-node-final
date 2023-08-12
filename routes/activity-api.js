@@ -508,7 +508,7 @@ GROUP BY
       AND ag.time IS NOT NULL AND ag.price_adult IS NOT NULL
       GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic, aty.name, ag.time, ag.price_adult
     ) AS subquery
-    ORDER BY subquery.post_date DESC
+    ORDER BY subquery.post_date ASC
     LIMIT 2`;
 
   let [actRecommend] = await db.query(sql_actRecommend);
