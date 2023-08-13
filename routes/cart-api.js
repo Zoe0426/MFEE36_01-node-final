@@ -233,8 +233,6 @@ const createOrder = async(data)=>{
 
     return createOrderResult;
 }
-
-
 const paymentSucceeded= async(data,res)=>{
     const {CustomField1,CustomField2, CustomField3}= data;
     //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
@@ -271,7 +269,7 @@ const paymentSucceeded= async(data,res)=>{
             <h2 style="font-size:24px; color:#5f231b; border-bottom: 1px dashed #909090; padding-bottom: 16px";> 🎉 您的訂單付款成功! 🎉</h2>
             <p style="font-size:18px; display:inline; font-weight:bold">訂單編號: ${CustomField1}</p>
              <div style="color:black; font-size:18px;">
-             <a href="http://localhost:3000/cart/order-complete?orderSid=${CustomField1}link&checkoutType=${CustomField2}&memberSid=${CustomField3}">按此連結，查看明細</a>
+             <a href="${process.env.BACKEND}/cart/order-complete?orderSid=${CustomField1}link&checkoutType=${CustomField2}&memberSid=${CustomField3}">按此連結，查看明細</a>
              </div>
             <p style="font-size:16px; color: #515151; padding-top:16px; border-top: 1px dashed #909090;">再次感謝您對狗with咪的支持與訂購。期待為您提供優質的商品和服務！</p>
             <p style="font-size:16px; color: #515151">祝您和您的寵物有個美好的一天！</p>
@@ -284,7 +282,7 @@ const paymentSucceeded= async(data,res)=>{
                     console.error(error);
                 } else {
                     //console.log("Email sent: " + info.response);
-                     res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+                     res.redirect(`${process.env.BACKEND}/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
                 }
                 });
 
@@ -927,6 +925,7 @@ router.get('/ecpay', (req, res) => {
     const totalAmount = req.query.totalAmount;
     const checkoutType = req.query.checkoutType;
     const memberSid = req.query.memberSid;
+   // const fromUrl = `${req.protocol}://${req.get('host')}`
     const mtn = uuid().split('-').join("");
     let base_param = {
         MerchantTradeNo: mtn.slice(1,19), //請帶20碼uid, ex: f0a0d7e9fae1bb72bc93
@@ -934,8 +933,10 @@ router.get('/ecpay', (req, res) => {
         TotalAmount: totalAmount,
         TradeDesc: '狗咪結帳',
         ItemName: orderSid,
-        ReturnURL: 'http://127.0.0.1:3002/cart-api/ecpaycallback',
-        OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
+        //ReturnURL: `http://127.0.0.1:3002/cart-api/ecpaycallback`,
+        //OrderResultURL: 'http://localhost:3002/cart-api/ecpayresult',
+        ReturnURL: `${process.env.BACKEND}/cart-api/ecpaycallback`,
+        OrderResultURL: `${process.env.BACKEND}/cart-api/ecpayresult`,
         CustomField1: orderSid,
         CustomField2: checkoutType,
         CustomField3: memberSid,
