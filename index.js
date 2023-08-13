@@ -26,7 +26,7 @@ const corsOptions = {
   // Credential: true,
   credentials: true,
   origin: (origin, cb) => {
-    console.log({ origin });
+    // console.log({ origin });
     cb(null, true);
   },
 };
@@ -73,7 +73,7 @@ function generateRandomRoomName() {
 
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
-  console.log("success connect!");
+  // console.log("success connect!");
   socket.on("joinRoom", ({ username, productName, img }) => {
     const adminUsername = "狗with咪客服";
     let room = findAvailableRoom();
@@ -254,7 +254,7 @@ app.use((req, res) => {
 //=====port設定=====
 const port = process.env.PORT || 3001;
 httpServer.listen(port, () => {
-  console.log("start server, port:" + port);
+  // console.log("start server, port:" + port);
 });
 /*
 app.listen(port, () => {

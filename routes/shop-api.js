@@ -512,7 +512,7 @@ router.get("/product/:product_sid", async (req, res) => {
     ORDER BY RAND()
     LIMIT 24`;
   [reccomandData] = await db.query(sql_reccomandData);
-  console.log(reccomandData.length);
+  // console.log(reccomandData.length);
 
   //判斷用戶有沒有登入，用token驗證，並拉回該會員是否有對該頁產品有過收藏
   if (member) {
