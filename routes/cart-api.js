@@ -5,6 +5,7 @@ const db = require(__dirname + "/../modules/db_connect")
 const upload = require(__dirname+"/../modules/img-upload.js");
 const multipartParser = upload.none(); 
 const { v4: uuid } = require('uuid');
+const nodemailer = require("nodemailer");
 
 const options = {
     "OperationMode": "Test", //Test or Production
@@ -232,7 +233,9 @@ const createOrder = async(data)=>{
 
     return createOrderResult;
 }
-const paymentSucceeded=async(data,res)=>{
+
+
+const paymentSucceeded= async(data,res)=>{
     const {CustomField1,CustomField2, CustomField3}= data;
     //CustomField1:orderSid, CustomField2:checkoutType ,CustomField3:memberSid
     try {
@@ -244,9 +247,50 @@ const paymentSucceeded=async(data,res)=>{
                                     order_sid = ?;` 
         
         const [updateOrderResult] = await db.query(updateOrderSql, [1,CustomField1]);
+        const getEmailSql = `SELECT email FROM member_info WHERE member_sid = ?`;
+        const [emailData] = await db.query(getEmailSql,[CustomField3]);
+        //console.log(emailData);
+        const myemail = emailData[0].email;
+        console.log({myemail});
         if(updateOrderResult.affectedRows){
-            console.log('redirect to:', `http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`)
-            res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+            const transporter = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 465,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass:  process.env.EMAIL_PASSWORD,
+            },
+            });
+            const mailOptions = {
+                from: "gowithme-noReply@gmail.com",
+                to: "ilwitulily0209@gmail.com", // 接收郵件的地址
+                // to: myemail,
+                subject: "狗with咪_付款成功通知",
+                html: `<div>
+            <div>
+            <h2 style="font-size:24px; color:#5f231b; border-bottom: 1px dashed #909090; padding-bottom: 16px";> 🎉 您的訂單付款成功! 🎉</h2>
+            <p style="font-size:18px; display:inline; font-weight:bold">訂單編號: ${CustomField1}</p>
+             <div style="color:black; font-size:18px;">
+             <a href="http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}">按此連結，查看明細</a>
+             </div>
+            <p style="font-size:16px; color: #515151; padding-top:16px; border-top: 1px dashed #909090;">再次感謝您對狗with咪的支持與訂購。期待為您提供優質的商品和服務！</p>
+            <p style="font-size:16px; color: #515151">祝您和您的寵物有個美好的一天！</p>
+            <p style="font-size:16px; color: #515151"> 狗with咪 GO WITH ME，誠摯問候</p>    
+            </div>`,
+                };
+            transporter.sendMail(mailOptions, (error, info) => {
+                console.log(info);
+                if (error) {
+                    console.error(error);
+                } else {
+                    console.log("Email sent: " + info.response);
+                     res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+                }
+                });
+
+            // console.log('redirect to:', `http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`)
+           
+            
         }else{
             //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
                 //res.send(req.body.CustomField1);
