@@ -271,7 +271,7 @@ const paymentSucceeded= async(data,res)=>{
             <h2 style="font-size:24px; color:#5f231b; border-bottom: 1px dashed #909090; padding-bottom: 16px";> 🎉 您的訂單付款成功! 🎉</h2>
             <p style="font-size:18px; display:inline; font-weight:bold">訂單編號: ${CustomField1}</p>
              <div style="color:black; font-size:18px;">
-             <a href="http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}">按此連結，查看明細</a>
+             <a href="http://localhost:3000/cart/order-complete?orderSid=${CustomField1}link&checkoutType=${CustomField2}&memberSid=${CustomField3}">按此連結，查看明細</a>
              </div>
             <p style="font-size:16px; color: #515151; padding-top:16px; border-top: 1px dashed #909090;">再次感謝您對狗with咪的支持與訂購。期待為您提供優質的商品和服務！</p>
             <p style="font-size:16px; color: #515151">祝您和您的寵物有個美好的一天！</p>
@@ -292,9 +292,9 @@ const paymentSucceeded= async(data,res)=>{
            
             
         }else{
-            //res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
-                //res.send(req.body.CustomField1);
-                //console.log(req.body);
+            // res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}link&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
+            //     res.send(req.body.CustomField1);
+            //     console.log(req.body);
         }
     } catch(error) { console.error(error);
         throw new Error('update order status failed 更新訂單狀態失敗');
