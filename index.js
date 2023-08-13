@@ -41,14 +41,6 @@ const io = socketIO(httpServer, {
     },
   },
 
-  //老師寫的
-  // cors: (req, res) => {
-  //   // console.log(req, res)
-  //   console.log({ socket: req.headers.origin });
-  //   return {
-  //     origin: req.headers.origin,
-  //   };
-  // },
 });
 
 const rooms = new Map();
@@ -82,34 +74,9 @@ function generateRandomRoomName() {
 io.on("connection", (socket) => {
   //經過連線後在 console 中印出訊息
   console.log("success connect!");
-  socket.on("joinRoom", ({ username, productName }) => {
+  socket.on("joinRoom", ({ username, productName, img }) => {
     const adminUsername = "狗with咪客服";
     let room = findAvailableRoom();
-
-    // 如果找不到可用的房間，就創建新的房間
-    // if (!room) {
-    //   const newRoom = createRoom();
-    //   newRoom.users.push({ socketId: socket.id, username });
-    //   room = newRoom;
-    // } else {
-    //   room.users.push({ socketId: socket.id, username });
-    // }
-
-    // socket.join(room.roomName);
-    // rooms.set(socket.id, room);
-
-    // 發送歡迎訊息給使用者
-    // const today = new Date();
-    // const hours = String(today.getHours()).padStart(2, "0");
-    // const minutes = String(today.getMinutes()).padStart(2, "0");
-    // socket.emit("receiveMessage", {
-    //   sender: "狗with咪客服",
-    //   message: {
-    //     message: `您好，這裡是狗with咪線上客服，有什麼需要幫忙的嗎?`,
-    //     time: hours + ":" + minutes,
-    //     img: "",
-    //   },
-    // });
 
     if (username === adminUsername) {
       if (!room) {
@@ -133,6 +100,16 @@ io.on("connection", (socket) => {
       const today = new Date();
       const hours = String(today.getHours()).padStart(2, "0");
       const minutes = String(today.getMinutes()).padStart(2, "0");
+      room.chatHistory = [
+        {
+          username,
+          message: {
+            message: `${username}詢問：${productName}`,
+            time: hours + ":" + minutes,
+            img: img,
+          },
+        },
+      ];
       socket.emit("receiveMessage", {
         sender: "狗with咪客服",
         message: {
@@ -172,7 +149,6 @@ io.on("connection", (socket) => {
         const today = new Date();
         const hours = String(today.getHours()).padStart(2, "0");
         const minutes = String(today.getMinutes()).padStart(2, "0");
-        console.log(sender);
         if (sender !== "狗with咪客服") {
           io.to(room.roomName).emit("receiveMessage", {
             sender,
