@@ -504,7 +504,7 @@ GROUP BY
       JOIN activity_type aty ON ai.activity_type_sid = aty.activity_type_sid
       LEFT JOIN activity_rating ar ON ai.activity_sid = ar.activity_sid
      
-      AND aty.name = '${customerLookforPet}' 
+      WHERE aty.name = '${customerLookforPet}' 
       AND ag.time IS NOT NULL AND ag.price_adult IS NOT NULL
       GROUP BY ai.activity_sid, ai.name, ai.city, ai.area, ai.address,ai.avg_rating, ai.activity_pic, aty.name, ag.time, ag.price_adult
     ) AS subquery
