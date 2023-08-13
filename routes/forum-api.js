@@ -465,8 +465,6 @@ router.get('/forum/blog/favlist', async (req, res) => {
 
   // 使用子查詢來獲取 totalRows 和 favData
   const [result] = await db.query(
-
-
     `
     SELECT 
   (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
@@ -813,6 +811,86 @@ console.log(result);
   
   res.json({ result, delHTresult, delImgResult });
 })
+
+// 毛孩日記
+router.get("/forum/blog/diary", async (req, res) => {
+
+  let output = {
+    success:false,
+    error:"",
+    data:null,
+    totalRows: 0,
+    perPage: 15,
+    totalPages: 0,
+    page: 1,
+    rows: [],
+  };
+  console.log(req.query);
+  let perPage = req.query.perPage || 15;
+  let keyword = req.query.keyword || "";
+
+  let page = req.query.page ? parseInt(req.query.page) : 1;
+
+  if (!page || page < 1) {
+    page = 1;
+  }
+  if (!res.locals.jwtData) {
+    output.error = "沒有驗證";
+    return res.json(output);
+  }
+  // console.log(res.locals.jwtData.id);
+  const sid = res.locals.jwtData.id;
+
+  //queryString條件判斷
+  let where = ` WHERE plm.post_type="P02"`;
+  //會員編號
+  if(sid){
+    where += ` AND plm.member_sid = '${sid}'`
+  }
+
+  //關鍵字
+  if (keyword) {
+    let keyword_escaped = db.escape("%" + keyword + "%");
+    where += ` AND (plm.post_content LIKE ${keyword_escaped}) OR (plm.post_title LIKE ${keyword_escaped})`;
+  }
+
+  const [data] = await db.query(
+    `
+    SELECT plm.post_sid, plm.member_sid, plm.board_sid, plm.post_title, plm.post_content, plm.post_date, plm.post_type, plm.pet_sid, plm.post_status 
+    FROM post_list_member plm 
+    JOIN member_info mi ON mi.member_sid = plm.member_sid  
+    ${where}
+    LIMIT ${perPage * (page - 1)}, ${perPage};
+      `
+  );
+
+  const [totalRowsData] = await db.query(
+    `
+    SELECT plm.post_sid, plm.member_sid, plm.board_sid, plm.post_title, plm.post_content, plm.post_date, plm.post_type, plm.pet_sid, plm.post_status 
+    FROM post_list_member plm 
+    JOIN member_info mi ON mi.member_sid = plm.member_sid 
+    ${where}`
+    );
+
+    const [imgData] = await db.query(
+      `SELECT plm.post_sid, pf.file FROM post_list_member plm
+      JOIN post_file pf ON plm.post_sid=pf.post_sid
+      ${where}`
+    )
+    const totalRows = totalRowsData.length;
+    console.log('totalRows',totalRows);
+    const totalPages = Math.ceil(totalRows / perPage);
+  output.success = true;
+  output.totalRows = totalRows;
+  output.totalPages = totalPages;
+  output.perPage = perPage;
+  output.page = page;
+  output.rows = data;
+  //console.log("data",data);
+  res.json({output,imgData});
+
+  // res.json(data);
+});
 
 
 
