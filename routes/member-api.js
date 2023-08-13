@@ -2,7 +2,9 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
 dayjs.extend(utc);
+dayjs.extend(timezone);
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const db = require(__dirname + "/../modules/db_connect");
@@ -228,6 +230,16 @@ router.get("/edit", async (req, res) => {
   FROM member_info mo 
   WHERE mo.member_sid='${sid}'
   `);
+
+  if (rows[0]) {
+    const { birthday } = rows[0];
+    if (birthday) {
+      // 將 birthday 解析为 UTC，然後转换为 Taipei 时间
+      let tzBirthday = dayjs.utc(birthday).tz("Asia/Taipei");
+      // 格式化日期，忽略时间部分
+      rows[0].birthday = tzBirthday.format("YYYY-MM-DD");
+    }
+  }
   res.json(rows);
   console.log("rows", rows);
 });
@@ -448,12 +460,16 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   WHERE member_sid='${sid}'`;
 
   // 處理生日格式
-  let birthday = dayjs.utc(req.body.birthday);
+  // ...
+
+  // 處理生日格式
+  let birthday = dayjs(req.body.birthday);
   if (birthday.isValid()) {
-    birthday = birthday.format("YYYY-MM-DD");
+    birthday = birthday.format("YYYY-MM-DD"); // 將日期轉換成 YYYY-MM-DD 格式存入資料庫
   } else {
     birthday = null;
   }
+
   console.log(birthday);
   console.log("file", req.file.filename);
   const [result] = await db.query(sql, [
@@ -480,6 +496,17 @@ router.put("/updateInfo", upload.single("avatar"), async (req, res) => {
   FROM member_info mo 
   WHERE mo.member_sid='${sid}'
   `);
+
+  if (rows[0]) {
+    const { birthday } = rows[0];
+    if (birthday) {
+      // 將 birthday 解析为 UTC，然後转换为 Taipei 时间
+      let tzBirthday = dayjs.utc(birthday).tz("Asia/Taipei");
+      // 格式化日期，忽略时间部分
+      rows[0].birthday = tzBirthday.format("YYYY-MM-DD");
+    }
+  }
+
   console.log("-482", rows);
   res.json(rows);
 });
@@ -528,7 +555,7 @@ router.get("/order", async (req, res) => {
   let keywordS = req.query.keywordS || "";
   console.log({ keywordS });
   let keywordA = req.query.keywordA || "";
-  let keywordR = req.query.keywordR || "";
+
   let whereS = "";
   if (keywordS) {
     const kw_escaped = db.escape("%" + keywordS + "%");
@@ -543,17 +570,6 @@ router.get("/order", async (req, res) => {
   if (keywordA) {
     const kw_escaped = db.escape("%" + keywordA + "%");
     whereA += ` AND ( 
-      od.rel_name LIKE ${kw_escaped} 
-      OR
-      od.order_sid LIKE ${kw_escaped}
-      )
-    `;
-  }
-
-  let whereR = "";
-  if (keywordR) {
-    const kw_escaped = db.escape("%" + keywordR + "%");
-    whereR += ` AND ( 
       od.rel_name LIKE ${kw_escaped} 
       OR
       od.order_sid LIKE ${kw_escaped}
@@ -609,29 +625,8 @@ WHERE o.member_sid = '${sid}' ${whereA}
 ORDER BY o.create_dt DESC
   `);
 
-  const [rows3] = await db.query(`
-  SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
-  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
-FROM order_main o 
-JOIN order_details od 
-ON o.order_sid = od.order_sid
-JOIN member_coupon_send ms 
-ON o.coupon_send_sid = ms.coupon_send_sid
-JOIN member_coupon_category mc 
-ON mc.coupon_sid = ms.coupon_sid 
-JOIN activity_info af
-ON af.activity_sid = od.rel_sid  
-JOIN activity_group ag
-ON ag.activity_group_sid = od.rel_seq_sid  
-JOIN shop_product sp
-ON sp.product_sid = od.rel_sid  
-WHERE o.member_sid = '${sid}' ${whereR}
-ORDER BY o.create_dt DESC
-  `);
-  console.log("keywordR", keywordR);
-  console.log("keywordA", keywordA);
   //合併成一個datas
-  const datas = rows.concat(rows2).concat(rows3);
+  const datas = rows.concat(rows2);
 
   //整理datas
   const updatedDatas = datas.map((i) => {
@@ -1168,4 +1163,12 @@ router.post("/createSignGame", async (req, res) => {
   const [rowSignGame] = await db.query(sqlSignGame, [sid, last_insert_id]);
 
   res.json({ rowCouponSend: rowCouponSend, lastInsertId: last_insert_id, rowSignGame });
+});
+
+router.get("/hashpwd", async (req, res) => {
+  const saltRounds = 10;
+  let pwd = "Yantingpan0426";
+  let saltPwd = await bcrypt.hash(pwd, saltRounds);
+  console.log(saltPwd);
+  res.json(saltPwd);
 });
