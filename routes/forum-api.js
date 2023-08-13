@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
   }
 
   //queryString條件判斷
-  let where = ` WHERE 1`;
+  let where = ` WHERE plm.post_status=0`;
 
   //關鍵字
   if (keyword) {
