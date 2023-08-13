@@ -21,11 +21,11 @@ router.get ('/', async(req,res)=>{
 //======測試照片上傳（單張/多張）======
 //測試檔案public/test-uploadImgs.html,用liveServer開來測試
 router.post('/img-upload', upload.single('photo'), (req,res)=>{
-    console.log(req.file);
+    //console.log(req.file);
     res.json(req.file);
 })
 router.post('/img-uploads', upload.array('photos', 10),(req,res)=>{
-    console.log(req.files);
+    //console.log(req.files);
     res.json(req.files);
 })
 
@@ -34,7 +34,7 @@ router.get ('/test', async(req,res)=>{
     const sql = ''
     const [data] = await db.query(sql);
     
-    console.log(data);
+    //console.log(data);
     res.json(data)
 })
 

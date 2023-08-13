@@ -251,7 +251,7 @@ const paymentSucceeded= async(data,res)=>{
         const [emailData] = await db.query(getEmailSql,[CustomField3]);
         //console.log(emailData);
         const myemail = emailData[0].email;
-        console.log({myemail});
+        //console.log({myemail});
         if(updateOrderResult.affectedRows){
             const transporter = nodemailer.createTransport({
             host: "smtp.gmail.com",
@@ -279,11 +279,11 @@ const paymentSucceeded= async(data,res)=>{
             </div>`,
                 };
             transporter.sendMail(mailOptions, (error, info) => {
-                console.log(info);
+                //console.log(info);
                 if (error) {
                     console.error(error);
                 } else {
-                    console.log("Email sent: " + info.response);
+                    //console.log("Email sent: " + info.response);
                      res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
                 }
                 });
@@ -294,7 +294,7 @@ const paymentSucceeded= async(data,res)=>{
         }else{
             // res.redirect(`http://localhost:3000/cart/order-complete?orderSid=${CustomField1}link&checkoutType=${CustomField2}&memberSid=${CustomField3}`);
             //     res.send(req.body.CustomField1);
-            //     console.log(req.body);
+            //     //console.log(req.body);
         }
     } catch(error) { console.error(error);
         throw new Error('update order status failed 更新訂單狀態失敗');
@@ -401,7 +401,7 @@ router.post ('/get-cart-items', async(req,res)=>{
     try{
         const getEmailSql = `SELECT email FROM member_info WHERE member_sid = ?`;
         const [emailData] = await db.query(getEmailSql,[memberSid]);
-        //console.log(emailData);
+        ////console.log(emailData);
         output.email = emailData[0].email;
     }catch(error){
         console.error(error);
@@ -457,9 +457,9 @@ router.post ('/get-cart-items', async(req,res)=>{
                 oc.member_sid = ? 
                 AND oc.order_status = '001'
                 )sortedData ORDER BY added_time DESC`;
-                //console.log(getCartItemSql);
+                ////console.log(getCartItemSql);
         const [cartData] = await db.query(getCartItemSql,[memberSid,memberSid]);
-        //console.log(cartData);
+        ////console.log(cartData);
         output.shop = cartData.filter(p=>p.rel_type === "shop");
         const actData = cartData.filter(p=>p.rel_type === "activity")
         output.activity = actData.map(p=>({...p, img : (p.img.split(',')[0])}))
@@ -485,7 +485,7 @@ router.post ('/get-cart-items', async(req,res)=>{
             END DESC,
             ma.create_time DESC`;
     const [postData] = await db.query(getAddressSql,[memberSid]);
-    //console.log(postData);
+    ////console.log(postData);
     output.postAddress =  postData;
     }catch(error){
         console.error(error);
@@ -520,7 +520,7 @@ router.post ('/get-cart-items', async(req,res)=>{
         throw new Error('取優惠券時出錯');
     }
     
-    //console.log(output)
+    ////console.log(output)
     res.json(output);
 })
 router.get('/get-home-data', async(req,res)=>{
@@ -595,7 +595,7 @@ router.get('/get-home-data', async(req,res)=>{
             ai.activity_pic;
 `;
         const [activityRows] = await db.query(getActivityDataSql);
-        console.log(activityRows);
+        //console.log(activityRows);
         let activityImgs = ['31.jpg'];
         const sendRows = activityRows.map(v=>{
             const dayInfo = `${res.toDateDayString(v.eventStart)}~${res.toDateDayString(v.eventEnd)}`
@@ -672,7 +672,7 @@ router.get('/get-repay-order/:orderSid', async(req,res)=>{
     const orderSid  = req.params.orderSid;
     //拿取訂單商品/活動項目
     const orderDetailResult = await getOrderDetail(orderSid);
-    console.log({orderDetailResult});
+    //console.log({orderDetailResult});
     output.checkoutType = orderDetailResult.checkoutType;
     output.details = orderDetailResult.details;
     //拿取訂單細節
@@ -680,7 +680,7 @@ router.get('/get-repay-order/:orderSid', async(req,res)=>{
         const getOrderSql = `SELECT om.*, mi.email FROM order_main om JOIN member_info mi ON mi.member_sid = om.member_sid WHERE om.order_sid = ?;`;
         const [getOrderResult] = await db.query(getOrderSql, [orderSid]);
         output.orderInfo = getOrderResult;
-        console.log(getOrderResult);
+        //console.log(getOrderResult);
         output.postType = getOrderResult[0].post_type;
         const csSid = getOrderResult[0].coupon_send_sid;
         //拿coupon資料
@@ -689,7 +689,7 @@ router.get('/get-repay-order/:orderSid', async(req,res)=>{
             couponInfo = await getCouponData(csSid,res);
             output.coupon = couponInfo;
         } 
-        console.log('couponInfo', couponInfo);
+       // console.log('couponInfo', couponInfo);
     }catch(error){
         console.error(error);
         throw new Error('取商品資料時出錯');
@@ -699,7 +699,7 @@ router.get('/get-repay-order/:orderSid', async(req,res)=>{
 router.post('/remove-cart-item', async (req,res)=>{
     const cartItems = [{cart_sid:req.body.cart_sid, order_status:'003'}]
     const removeResult = await updateCart(cartItems);
-    console.log(removeResult);
+    //console.log(removeResult);
     res.json(removeResult);
 })
 router.post('/add-newAddress', async(req,res)=>{
@@ -732,7 +732,7 @@ router.post('/add-newAddress', async(req,res)=>{
                 (
                     ?,?,?,?,?,?,?,?,?
                 )`;
-                console.log(addAddressSql);
+                //console.log(addAddressSql);
         const [addAddressResult] = await db.query(addAddressSql,[member_sid,
                 recipient,
                 recipient_phone,
@@ -794,8 +794,8 @@ router.post('/get-orderDetail', async(req,res)=>{
     };
     const order_sid = req.body.order_sid;
     const checkoutType = req.body.checkoutType;
-    console.log(order_sid);
-    console.log(checkoutType);
+    //console.log(order_sid);
+    //console.log(checkoutType);
 
     let getOrderDetailSql = '';
     if(checkoutType ==='shop'){
@@ -860,7 +860,7 @@ router.post('/get-orderDetail', async(req,res)=>{
         output.subtotal_amount=orderDetailResult[0].rel_subtotal;
         output.name=orderDetailResult[0].name;
         output.mobile=orderDetailResult[0].mobile;
-        console.log('odpt',orderDetailResult[0].post_type);
+       // console.log('odpt',orderDetailResult[0].post_type);
         if(checkoutType === 'shop'){
             output.post_type=orderDetailResult[0].post_type;
             output.recipient=orderDetailResult[0].recipient;
@@ -904,7 +904,7 @@ router.post('/count-item', async(req,res)=>{
 router.post('/get-mem-img', async(req,res)=>{
     try{
         const member_sid = req.body.member_sid;
-        console.log('membersid',req.body.member_sid)
+        //console.log('membersid',req.body.member_sid)
         const getMemImgSql = `SELECT mi.profile FROM member_info mi WHERE member_sid = ?`;
         const [profileImg] = await db.query(getMemImgSql, member_sid);
         let result = profileImg[0];
@@ -919,7 +919,7 @@ router.post('/get-mem-img', async(req,res)=>{
     }
 })
 router.post('/test',(req, res) => {
-    console.log(req.body);
+    //console.log(req.body);
     res.send(req.body);
 } )
 router.get('/ecpay', (req, res) => {
@@ -944,14 +944,14 @@ router.get('/ecpay', (req, res) => {
     };
     const data = ecpayPayment.payment_client.aio_check_out_credit_onetime(
         parameters = base_param, invoice = inv_params);
-    console.log('result : ' + data);
+    //console.log('result : ' + data);
     res.type('text/html');
     res.status(200);
     res.send(data);
 });
 router.post('/ecpayresult', (req, res) => {
     try {
-        console.log('payresult:' + JSON.stringify(req.body));
+       // console.log('payresult:' + JSON.stringify(req.body));
         const {RtnMsg}= req.body;
         if(RtnMsg === 'Succeeded'){
             //TODO: 前往結帳成功頁面
@@ -967,7 +967,7 @@ router.post('/ecpayresult', (req, res) => {
     res.status(200);
 })
 router.post('/ecpaycallback', (req, res) => {
-    console.log('paycallback:' + JSON.stringify(req));
+   // console.log('paycallback:' + JSON.stringify(req));
 })
 router.get('/linepay', async(req,res)=>{
     const orderSid = req.query.orderSid;
@@ -1008,7 +1008,7 @@ router.get('/linepay', async(req,res)=>{
   }
 })
 router.get('/linepayResult', async(req,res)=>{
-    console.log("req.query:",req.query.orderId);
+    //console.log("req.query:",req.query.orderId);
     const response = {RtnMsg:'Succeeded'}; 
     const data={};
     try{
@@ -1026,11 +1026,11 @@ router.get('/linepayResult', async(req,res)=>{
         const {RtnMsg}= response;
         if(RtnMsg === 'Succeeded'){
             //TODO: 前往結帳成功頁面
-            console.log('data in payResult', data);
+            //console.log('data in payResult', data);
             paymentSucceeded(data,res);
         } else {
             //TODO: 前往重新結帳頁面
-             console.log('data in repay', data);
+             //console.log('data in repay', data);
             paymentFailed(data,res);
         }
     } catch (error) {
@@ -1044,7 +1044,7 @@ router.get ('/test1', async(req,res)=>{
     const sql = "SELECT ac.*, pm.post_title, post_content,pb.board_name FROM (SELECT ab.*, (SELECT `file` FROM post_file pf WHERE pf.post_sid = ab.post_sid Limit 1 ) AS img FROM (SELECT board_sid, SUBSTRING_INDEX( GROUP_CONCAT( post_sid ORDER BY like_count DESC ), ',', 1 ) AS post_sid, MAX(like_count) AS max_like_count FROM (SELECT plm.board_sid, plm.post_sid, (SELECT COUNT(*) FROM post_like pl WHERE pl.post_sid = plm.post_sid ) AS like_count FROM post_list_member plm GROUP BY plm.board_sid, plm.post_sid) aa GROUP BY board_sid ) ab) ac JOIN post_list_member pm ON ac.post_sid = pm.post_sid JOIN post_board pb ON pm.board_sid = pb.board_sid"; 
 
     const [data] = await db.query(sql);
-    console.log(data);
+    //console.log(data);
     res.json(data)
 })
 
