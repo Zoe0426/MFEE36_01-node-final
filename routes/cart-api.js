@@ -261,8 +261,8 @@ const paymentSucceeded= async(data,res)=>{
             });
             const mailOptions = {
                 from: "gowithme-noReply@gmail.com",
-                to: "ilwitulily0209@gmail.com", // 接收郵件的地址
-                // to: myemail,
+                //to: "ilwitulily0209@gmail.com", // 接收郵件的地址
+                to: myemail,
                 subject: "狗with咪_付款成功通知",
                 html: `<div>
             <div>
