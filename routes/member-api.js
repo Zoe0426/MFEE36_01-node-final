@@ -591,31 +591,67 @@ router.get("/order", async (req, res) => {
 
   const sid = res.locals.jwtData.id;
 
+  // const [rows] = await db.query(`
+  //   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
+  //   (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
+  // FROM order_main o
+  // JOIN order_details od
+  // ON o.order_sid = od.order_sid
+  // LEFT JOIN member_coupon_send ms
+  // ON ms.coupon_send_sid= o.coupon_send_sid
+  // LEFT JOIN member_coupon_category mc
+  // ON mc.coupon_sid = ms.coupon_sid
+  // JOIN shop_product sp
+  // ON sp.product_sid = od.rel_sid
+  // WHERE o.member_sid = '${sid}' ${whereS}
+  // ORDER BY o.create_dt DESC
+  //   `);
+
   const [rows] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
-  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
-FROM order_main o 
-JOIN order_details od 
-ON o.order_sid = od.order_sid 
-JOIN member_coupon_send ms 
-ON o.coupon_send_sid = ms.coupon_send_sid
-JOIN member_coupon_category mc 
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product,
+  CASE WHEN o.coupon_send_sid IS NULL THEN 1 ELSE 0 END as is_coupon_missing
+FROM order_main o
+JOIN order_details od
+ON o.order_sid = od.order_sid
+LEFT JOIN member_coupon_send ms
+ON ms.coupon_send_sid= o.coupon_send_sid
+LEFT JOIN member_coupon_category mc
 ON mc.coupon_sid = ms.coupon_sid
 JOIN shop_product sp
-ON sp.product_sid = od.rel_sid    
+ON sp.product_sid = od.rel_sid
 WHERE o.member_sid = '${sid}' ${whereS}
 ORDER BY o.create_dt DESC
-  `);
+    `);
+
+  //   const [rows] = await db.query(`
+  //   SELECT *,
+  //   o.rel_subtotal orderRelS,
+  //   od.rel_subtotal,
+  //   (SELECT COUNT(1) FROM order_details od WHERE o.order_sid = od.order_sid) as order_product
+  // FROM order_main o
+  // JOIN order_details od ON o.order_sid = od.order_sid
+  // LEFT JOIN (
+  //   SELECT ms.coupon_send_sid, ms.coupon_sid, mc.coupon_sid AS cateSid
+  //   FROM member_coupon_send ms
+  //   JOIN member_coupon_category mc ON mc.coupon_sid = ms.coupon_sid
+  // ) AS combined ON combined.coupon_send_sid = o.coupon_send_sid
+  // JOIN shop_product sp ON sp.product_sid = od.rel_sid
+  // WHERE o.member_sid = '${sid}' ${whereS}
+  // ORDER BY o.create_dt DESC
+
+  // `);
 
   const [rows2] = await db.query(`
   SELECT *, o.rel_subtotal orderRelS, od.rel_subtotal,
-  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product
+  (SELECT COUNT(1) FROM order_details od  WHERE o.order_sid = od.order_sid) as order_product,
+  CASE WHEN o.coupon_send_sid IS NULL THEN 1 ELSE 0 END as is_coupon_missing
 FROM order_main o 
 JOIN order_details od 
 ON o.order_sid = od.order_sid
-JOIN member_coupon_send ms 
-ON o.coupon_send_sid = ms.coupon_send_sid
-JOIN member_coupon_category mc 
+LEFT JOIN member_coupon_send ms 
+ON ms.coupon_send_sid= o.coupon_send_sid
+LEFT JOIN member_coupon_category mc 
 ON mc.coupon_sid = ms.coupon_sid 
 JOIN activity_info af
 ON af.activity_sid = od.rel_sid  
