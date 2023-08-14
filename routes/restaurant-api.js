@@ -607,7 +607,7 @@ router.post("/booking_modal", multipartParser, async (req, res) => {
 
     const mailOptions = {
       from: "gowithmeispan@gmail.com",
-      to: "jillwunnie1213@gmail.com", // 接收郵件的地址
+      to: "yantingpan0426@gmail.com", // 接收郵件的地址
       subject: "狗with咪_餐廳預約通知",
       html: `<pre>
 <h2>您已成功預約餐廳!🎉</h2>
