@@ -215,7 +215,8 @@ WHERE plm.post_sid='${postid}'`);
         SELECT pc.comment_content, pc.comment_date, pc.member_sid, mi.nickname, mi.member_sid, mi.profile FROM post_comment pc 
         JOIN member_info mi ON mi.member_sid = pc.member_sid
         JOIN post_list_member plm ON plm.post_sid = pc.post_sid
-        WHERE plm.post_sid = '${postid}';
+        WHERE plm.post_sid = '${postid}'
+        ORDER BY pc.comment_date DESC;
         `
   );
   const newCommentData = commentData.map((v) => ({
