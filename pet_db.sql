@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 14, 2023 at 01:43 PM
+-- Generation Time: Aug 14, 2023 at 08:01 PM
 -- Server version: 5.7.24
 -- PHP Version: 8.0.1
 
@@ -2972,13 +2972,6 @@ CREATE TABLE `member_signin_game` (
   `coupon_send_sid` int(11) NOT NULL,
   `signin_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Dumping data for table `member_signin_game`
---
-
-INSERT INTO `member_signin_game` (`signin_sid`, `member_sid`, `coupon_send_sid`, `signin_time`) VALUES
-(37, 'mem00300', 2334, '2023-08-13 19:40:44');
 
 -- --------------------------------------------------------
 
