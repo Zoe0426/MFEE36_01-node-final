@@ -469,7 +469,7 @@ router.get('/forum/blog/favlist', async (req, res) => {
     `
     SELECT 
   (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
-  plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+  plm.post_sid, plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
   CASE 
     WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content 
@@ -491,7 +491,7 @@ JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
   console.log(    `
   SELECT 
 (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
-plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+plm.post_sid, plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
 CASE 
   WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
   ELSE plm.post_content 
@@ -514,7 +514,7 @@ JOIN member_info pf_member ON pf_member.member_sid = pf.member_sid
     `
     SELECT 
   (SELECT COUNT(1) FROM post_favlist pf WHERE pf.member_sid = 'mem00300') AS totalRows,
-  plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
+  plm.post_sid, plm.post_title, plm.post_content, plm.post_date, plm.update_date, pb.board_name, mi.nickname AS author_nickname, mi.profile, pf.member_sid, pf.list_name, pf_member.nickname AS favorite_nickname,
   CASE 
     WHEN CHAR_LENGTH(plm.post_content) > 70 THEN CONCAT(SUBSTRING(plm.post_content, 1, 70), '...') 
     ELSE plm.post_content 
