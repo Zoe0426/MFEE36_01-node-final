@@ -424,7 +424,7 @@ router.get('/forum/blog/favlist', async (req, res) => {
     output.error = "沒有驗證";
     return res.json(output);
   }
-  // console.log(res.locals.jwtData.id);
+  console.log(res.locals.jwtData.id);
   const sid = res.locals.jwtData.id;
 
   let page = req.query.page ? parseInt(req.query.page) : 1;
@@ -625,6 +625,7 @@ router.post('/forum/addFav', async (req, res) => {
     const list_name = req.body.list_name;
     const sql = `INSERT INTO post_favlist(list_name, post_sid, member_sid, favorites_date) VALUES (?,?,?,NOW())`;
     console.log(sql);
+    console.log('member_sid', member_sid);
     const [favResult] = await db.query(sql, [list_name, post_sid, member_sid]);
     console.log(favResult);
     res.json(favResult);
